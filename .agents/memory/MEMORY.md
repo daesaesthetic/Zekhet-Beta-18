@@ -1,2 +1,3 @@
 - [Zekhet runtime](node-runtime.md) — use Node 24 for the bot because its SQLite persistence relies on the built-in node:sqlite module.
 - [Reward claim initialization](reward-claim-initialization.md) — initialize a user before recording a one-time reward claim because claims reference users.
+- [Passport stamp catalog](passport-stamp-catalog.md) — stamp names are globally unique and the bot database path resolves relative to the bot artifact's working directory.

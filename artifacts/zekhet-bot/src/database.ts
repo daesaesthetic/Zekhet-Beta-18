@@ -685,7 +685,7 @@ const initialPassportStamps: PassportStamp[] = [
   { id: "student", name: "STUDENT", description: "Complete the Zekhet tutorial.", rarity: "Rare", secret: false, category: "Tutorial", progressTarget: 6, progressLabel: "tutorial chapters" },
   { id: "scholar", name: "SCHOLAR", description: "Complete three tutorial chapters.", rarity: "Uncommon", secret: false, category: "Tutorial", progressTarget: 3, progressLabel: "tutorial chapters" },
   { id: "archivist", name: "ARCHIVIST", description: "Discover 25 lore entries.", rarity: "Epic", secret: false, category: "Lore", progressTarget: 25, progressLabel: "lore entries" },
-  { id: "keeper-of-records", name: "KEEPER OF RECORDS", description: "Discover 40 lore entries.", rarity: "Legendary", secret: false, category: "Lore", progressTarget: 40, progressLabel: "lore entries" },
+  { id: "keeper-of-records", name: "THE DEEP KEEPER", description: "Discover 40 lore entries and keep the deepest public record.", rarity: "Legendary", secret: false, category: "Lore", progressTarget: 40, progressLabel: "lore entries" },
   { id: "courtier", name: "COURTIER", description: "Collect ten titles.", rarity: "Rare", secret: false, category: "Titles", progressTarget: 10, progressLabel: "titles held" },
   { id: "title-collector", name: "THE TITLE COLLECTOR", description: "Collect twenty titles.", rarity: "Epic", secret: false, category: "Titles", progressTarget: 20, progressLabel: "titles held" },
   { id: "the-crowned", name: "THE CROWNED", description: "Collect thirty titles and stand above the ordinary record.", rarity: "Legendary", secret: false, category: "Titles", progressTarget: 30, progressLabel: "titles held" },
@@ -1075,13 +1075,18 @@ function mapPassportStamp(row: Record<string, unknown>): PassportStamp {
     description: row["description"] as string,
     rarity: row["rarity"] as PassportStampRarity,
     secret: Boolean(row["secret"]),
+    category: (row["category"] as PassportStampCategory | undefined) ?? "Exploration",
+    progressTarget: row["progressTarget"] == null ? undefined : Number(row["progressTarget"]),
+    progressLabel: (row["progressLabel"] as string | null | undefined) ?? undefined,
   };
 }
 
 export function getPassportStamps(userId: string, username = "Unknown Record", avatarUrl: string | null = null): UnlockedPassportStamp[] {
   ensureProfile(userId, username, avatarUrl);
   return database.prepare(`
-    SELECT ps.id, ps.name, ps.description, ps.rarity, ps.secret, ups.unlocked_at AS unlockedAt
+    SELECT ps.id, ps.name, ps.description, ps.rarity, ps.secret, ps.category,
+      ps.progress_target AS progressTarget, ps.progress_label AS progressLabel,
+      ups.unlocked_at AS unlockedAt
     FROM user_passport_stamps ups
     JOIN passport_stamps ps ON ps.id = ups.stamp_id
     WHERE ups.discord_id = ?
@@ -1089,6 +1094,28 @@ export function getPassportStamps(userId: string, username = "Unknown Record", a
   `).all(userId).map((row) => ({
     ...mapPassportStamp(row as Record<string, unknown>),
     unlockedAt: (row as { unlockedAt: string }).unlockedAt,
+  }));
+}
+
+export function getPassportStampCatalog(userId: string, username = "Unknown Record", avatarUrl: string | null = null): PassportStampView[] {
+  ensureProfile(userId, username, avatarUrl);
+  const rows = database.prepare(`
+    SELECT ps.id, ps.name, ps.description, ps.rarity, ps.secret, ps.category,
+      ps.progress_target AS progressTarget, ps.progress_label AS progressLabel,
+      ups.unlocked_at AS unlockedAt
+    FROM passport_stamps ps
+    LEFT JOIN user_passport_stamps ups
+      ON ups.stamp_id = ps.id AND ups.discord_id = ?
+    ORDER BY CASE ps.category
+      WHEN 'Exploration' THEN 1 WHEN 'Titles' THEN 2 WHEN 'Lore' THEN 3
+      WHEN 'Curses' THEN 4 WHEN 'Contracts' THEN 5 WHEN 'Achievements' THEN 6
+      WHEN 'Tutorial' THEN 7 WHEN 'Progression' THEN 8 WHEN 'Inventory' THEN 9
+      WHEN 'Currency' THEN 10 ELSE 11 END, ps.rarity, ps.id
+  `).all(userId) as Array<Record<string, unknown>>;
+  return rows.map((row) => ({
+    ...mapPassportStamp(row),
+    unlocked: Boolean(row["unlockedAt"]),
+    unlockedAt: row["unlockedAt"] == null ? undefined : String(row["unlockedAt"]),
   }));
 }
 
@@ -1143,28 +1170,83 @@ export function clearPassportStatusOverride(userId: string): void {
 
 function eligiblePassportStamps(userId: string): Set<string> {
   const records = passportRecords(userId);
+  const balance = getCurrencyBalance(userId);
   const secretLore = Number((database.prepare(`
     SELECT COUNT(*) AS count FROM user_lore ul JOIN lore_entries le ON le.id = ul.lore_id
     WHERE ul.discord_id = ? AND le.is_secret = 1
+  `).get(userId) as { count: number }).count);
+  const rareTitle = database.prepare(`
+    SELECT 1 FROM user_titles ut JOIN titles t ON t.id = ut.title_id
+    WHERE ut.discord_id = ? AND t.rarity IN ('Rare', 'Legendary', 'Mythic')
+  `).get(userId);
+  const legendaryTitle = database.prepare(`
+    SELECT 1 FROM user_titles ut JOIN titles t ON t.id = ut.title_id
+    WHERE ut.discord_id = ? AND t.rarity = 'Legendary'
+  `).get(userId);
+  const rareItem = database.prepare(`
+    SELECT 1 FROM user_inventory ui JOIN items i ON i.id = ui.item_id
+    WHERE ui.discord_id = ? AND i.rarity IN ('Rare', 'Legendary', 'Mythic')
+  `).get(userId);
+  const activeCurses = Number((database.prepare(`
+    SELECT COUNT(*) AS count FROM active_curses WHERE target_id = ? AND expires_at > unixepoch()
+  `).get(userId) as { count: number }).count);
+  const achievementCategories = Number((database.prepare(`
+    SELECT COUNT(DISTINCT a.category) AS count
+    FROM user_achievements ua JOIN achievements a ON a.id = ua.achievement_id
+    WHERE ua.discord_id = ?
   `).get(userId) as { count: number }).count);
   const eligible = new Set<string>();
   if (database.prepare("SELECT 1 FROM profiles WHERE discord_id = ?").get(userId)) eligible.add("first-record");
   if (records.titles >= 4) eligible.add("first-title");
   if (records.lore >= 1) eligible.add("first-discovery");
+  if (records.lore >= 5) eligible.add("archive-explorer");
+  if (records.lore >= 25) eligible.add("deep-archivist");
+  if (records.lore >= 40) eligible.add("beyond-index");
   if (records.curses >= 1) eligible.add("marked");
+  if (records.curses >= 2) eligible.add("cursed-twice");
+  if (records.curses >= 8) eligible.add("the-unfortunate");
   if (records.completedContracts >= 1) eligible.add("oathbound");
+  if (records.completedContracts >= 5) eligible.add("ledger-keeper");
+  if (records.completedContracts >= 10) eligible.add("deal-maker");
   if (records.achievements >= 1) eligible.add("recognized");
+  if (records.achievements >= 3) eligible.add("decorated");
+  if (records.achievements >= 5) eligible.add("accomplished");
+  if (records.achievements >= 8) eligible.add("distinguished-record");
+  if (records.tutorialPages >= 1) eligible.add("first-lesson");
   if (records.tutorialPages >= 6) eligible.add("student");
+  if (records.tutorialPages >= 3) eligible.add("scholar");
   if (records.lore >= 25) eligible.add("archivist");
   if (records.titles >= 10) eligible.add("courtier");
   if (records.completedContracts >= 3) eligible.add("oathkeeper");
   if (records.curses >= 5) eligible.add("many-marks");
   if (records.titles >= 20) eligible.add("collector");
+  if (records.titles >= 20) eligible.add("title-collector");
+  if (records.titles >= 30) eligible.add("the-crowned");
   if (records.level >= 20) eligible.add("keeper");
   if (records.lore >= 40) eligible.add("archive-heart");
+  if (records.lore >= 40) eligible.add("keeper-of-records");
+  if (records.level >= 2) eligible.add("first-level");
+  if (records.level >= 5) eligible.add("rising");
+  if (records.level >= 10) eligible.add("established");
+  if (records.level >= 20) eligible.add("veteran");
+  if (records.items >= 1) eligible.add("first-item");
+  if (records.items >= 5) eligible.add("item-collector");
+  if (records.items >= 15) eligible.add("hoarder");
+  if (records.items >= 10) eligible.add("curator");
+  if (balance >= 101) eligible.add("first-deben");
+  if (balance >= 1000) eligible.add("prosperous");
+  if (balance >= 5000) eligible.add("wealthy");
+  if (balance >= 10000) eligible.add("treasurer");
   if (secretLore > 0) eligible.add("forbidden");
   if (records.tutorialPages >= 6 && secretLore > 0) eligible.add("zekhet-remembers");
   if (records.level >= 50 && records.achievements >= 10) eligible.add("exalted");
+  if (rareTitle && secretLore > 0) eligible.add("the-forbidden-page");
+  if (records.completedContracts >= 5 && records.level >= 10) eligible.add("beyond-the-archive");
+  if (records.tutorialPages >= 6 && records.titles >= 10 && records.lore >= 20) eligible.add("the-last-record");
+  if (achievementCategories >= 3) eligible.add("missing-name");
+  if (legendaryTitle && rareItem && records.curses >= 1) eligible.add("crown-beneath-ashes");
+  if (records.level >= 10 && activeCurses === 0) eligible.add("the-observer");
+  if (records.completedContracts >= 1 && records.lore >= 1 && records.achievements >= 1) eligible.add("woven-passport");
   return eligible;
 }
 
@@ -1201,7 +1283,9 @@ export function grantPassportStamp(userId: string, stampId: string, username = "
   if (!stamp) return undefined;
   database.prepare("INSERT OR IGNORE INTO user_passport_stamps (discord_id, stamp_id) VALUES (?, ?)").run(userId, stampId);
   const row = database.prepare(`
-    SELECT ps.id, ps.name, ps.description, ps.rarity, ps.secret, ups.unlocked_at AS unlockedAt
+    SELECT ps.id, ps.name, ps.description, ps.rarity, ps.secret, ps.category,
+      ps.progress_target AS progressTarget, ps.progress_label AS progressLabel,
+      ups.unlocked_at AS unlockedAt
     FROM user_passport_stamps ups JOIN passport_stamps ps ON ps.id = ups.stamp_id
     WHERE ups.discord_id = ? AND ups.stamp_id = ?
   `).get(userId, stampId) as Record<string, unknown>;

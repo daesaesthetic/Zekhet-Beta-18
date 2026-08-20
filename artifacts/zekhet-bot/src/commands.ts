@@ -65,6 +65,7 @@ import {
   getPassport,
   unlockPassportStamps,
   getPassportStamps,
+  getPassportStampCatalog,
   grantPassportStamp,
   resetPassportStamps,
   unlockAllPassportStamps,
@@ -86,6 +87,7 @@ import {
   type InventoryEntry,
   type Passport,
   type UnlockedPassportStamp,
+  type PassportStampView,
 } from "./database.js";
 import { achievementRewards, formatRewards, grantAchievementReward, grantRewards, progressionSummary, type Rewards } from "./rewards.js";
 
@@ -457,7 +459,8 @@ const balanceCommand = new SlashCommandBuilder()
 const passportCommand = new SlashCommandBuilder()
   .setName("passport")
   .setDescription("View the official record of your accomplishments.")
-  .addUserOption((option) => option.setName("user").setDescription("The Passport to inspect."));
+  .addUserOption((option) => option.setName("user").setDescription("The Passport to inspect."))
+  .addStringOption((option) => option.setName("stamp").setDescription("Inspect a Passport stamp by ID."));
 
 export const commands = [
   new SlashCommandBuilder().setName("help").setDescription("Consult Zekhet's available records."),
@@ -521,6 +524,7 @@ function developerPanel() {
       ),
       new ActionRowBuilder<ButtonBuilder>().addComponents(
         new ButtonBuilder().setCustomId("developer:passport-view").setLabel("View Passport Data").setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId("developer:passport-stamps").setLabel("List All Stamps").setStyle(ButtonStyle.Secondary),
         new ButtonBuilder().setCustomId("developer:passport-unlock-all").setLabel("Unlock All Stamps").setStyle(ButtonStyle.Primary),
         new ButtonBuilder().setCustomId("developer:passport-grant").setLabel("Grant Stamp").setStyle(ButtonStyle.Primary),
         new ButtonBuilder().setCustomId("developer:passport-reset").setLabel("Reset Stamps").setStyle(ButtonStyle.Danger),
@@ -624,6 +628,14 @@ export async function handleDeveloperComponent(interaction: ButtonInteraction): 
     const passport = getPassport(interaction.user.id, interaction.user.username, interaction.user.displayAvatarURL());
     await interaction.reply({
       content: `Passport data (developer-only): #${String(passport.number).padStart(4, "0")} · status ${passport.status} · ${passport.stamps.length} stamp(s) · level ${passport.records.level}.`,
+      ephemeral: true,
+    });
+    return;
+  }
+  if (section === "passport-stamps") {
+    const stamps = getPassportStampCatalog(interaction.user.id, interaction.user.username, interaction.user.displayAvatarURL());
+    await interaction.reply({
+      content: stamps.map((stamp) => `\`${stamp.id}\` · ${stamp.unlocked || !stamp.secret ? stamp.name : "🔒 UNKNOWN RECORD"} · ${stamp.unlocked || !stamp.secret ? stamp.rarity : "sealed"} · ${stamp.category}`).join("\n"),
       ephemeral: true,
     });
     return;
@@ -892,12 +904,19 @@ const passportRarityColors: Record<UnlockedPassportStamp["rarity"], number> = {
   Secret: 0x6e4b8e,
 };
 
-function passportButtons(): ActionRowBuilder<ButtonBuilder> {
-  return new ActionRowBuilder<ButtonBuilder>().addComponents(
+function passportButtons(stampPage = 0, stampPages = 1): ActionRowBuilder<ButtonBuilder> {
+  const buttons = [
     new ButtonBuilder().setCustomId("passport:records").setLabel("Records").setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId("passport:stamps").setLabel("Stamps").setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId(`passport:stamps:${stampPage}`).setLabel("Stamps").setStyle(ButtonStyle.Primary),
     new ButtonBuilder().setCustomId("passport:progress").setLabel("Progress").setStyle(ButtonStyle.Secondary),
-  );
+  ];
+  if (stampPages > 1) {
+    buttons.push(
+      new ButtonBuilder().setCustomId(`passport:stamps:${Math.max(0, stampPage - 1)}`).setLabel("Previous").setStyle(ButtonStyle.Secondary).setDisabled(stampPage === 0),
+      new ButtonBuilder().setCustomId(`passport:stamps:${Math.min(stampPages - 1, stampPage + 1)}`).setLabel("Next").setStyle(ButtonStyle.Secondary).setDisabled(stampPage === stampPages - 1),
+    );
+  }
+  return new ActionRowBuilder<ButtonBuilder>().addComponents(buttons);
 }
 
 function passportEmbed(passport: Passport, user: User): EmbedBuilder {
@@ -920,6 +939,20 @@ function passportEmbed(passport: Passport, user: User): EmbedBuilder {
     .setFooter({ text: "Issued by ⛤ Zekhet · Use the buttons to inspect the record." });
 }
 
+function passportUnlockNotice(stamps: UnlockedPassportStamp[]): string | undefined {
+  if (stamps.length === 0) return undefined;
+  const secretCount = stamps.filter((stamp) => stamp.secret).length;
+  const visible = stamps.filter((stamp) => !stamp.secret).slice(0, 3).map((stamp) => `+ ${stamp.name}`);
+  const remainder = stamps.length - visible.length - secretCount;
+  const lines = [
+    secretCount > 0 ? "⛤ THE ARCHIVES HAVE CHANGED ⛤\nA sealed page has acknowledged your name." : "⛤ PASSPORT RECORD UPDATED ⛤\nYour previous accomplishments have been recognized.",
+    visible.length ? visible.join("\n") : "",
+    secretCount > 0 ? `+ ${secretCount} secret record${secretCount === 1 ? "" : "s"}` : "",
+    remainder > 0 ? `+ ${remainder} additional stamp${remainder === 1 ? "" : "s"}` : "",
+  ].filter(Boolean);
+  return lines.join("\n");
+}
+
 function passportRecordsEmbed(passport: Passport, user: User): EmbedBuilder {
   const { records } = passport;
   return new EmbedBuilder()
@@ -938,19 +971,60 @@ function passportRecordsEmbed(passport: Passport, user: User): EmbedBuilder {
     .setFooter({ text: "Totals update automatically as the Zekhet catalog grows." });
 }
 
-function passportStampsEmbed(passport: Passport, user: User): EmbedBuilder {
-  const unlockedIds = new Set(passport.stamps.map((stamp) => stamp.id));
-  const unlockedText = passport.stamps.length
-    ? passport.stamps.map((stamp) => `${stamp.secret ? "🌑" : "⛤"} **${stamp.name}** · ${stamp.rarity}\n_${stamp.description}_`).join("\n\n")
-    : "_The Passport bears no stamps yet._";
-  const lockedNormal = getPassportStamps(user.id, user.username, user.displayAvatarURL());
-  const lockedText = "Further stamps await recognition. Secret stamps remain sealed until discovered.";
+function stampProgress(stamp: PassportStampView, passport: Passport, user: User): string {
+  if (!stamp.progressTarget || !stamp.progressLabel) return stamp.unlocked ? "✓ Unlocked" : "○ Locked";
+  const records = passport.records;
+  const current = stamp.progressLabel.includes("title") ? records.titles
+    : stamp.progressLabel.includes("lore") ? records.lore
+      : stamp.progressLabel.includes("curse") ? records.curses
+        : stamp.progressLabel.includes("contract") ? records.completedContracts
+          : stamp.progressLabel.includes("achievement") ? records.achievements
+            : stamp.progressLabel.includes("tutorial") ? records.tutorialPages
+              : stamp.progressLabel.includes("item") ? records.items
+                : stamp.progressLabel.includes("level") ? records.level
+                  : stamp.progressLabel.includes("Deben") ? getCurrencyBalance(user.id, user.username, user.displayAvatarURL()) : 0;
+  return stamp.unlocked ? "✓ Unlocked" : `Progress: ${Math.min(current, stamp.progressTarget)} / ${stamp.progressTarget} ${stamp.progressLabel}`;
+}
+
+function passportStampsEmbed(passport: Passport, user: User, page = 0): EmbedBuilder {
+  const catalog = getPassportStampCatalog(user.id, user.username, user.displayAvatarURL());
+  const pageSize = 8;
+  const pageCount = Math.max(1, Math.ceil(catalog.length / pageSize));
+  const currentPage = Math.min(Math.max(page, 0), pageCount - 1);
+  const entries = catalog.slice(currentPage * pageSize, currentPage * pageSize + pageSize);
+  const knownUnlocked = catalog.filter((stamp) => stamp.unlocked && !stamp.secret).length;
+  const knownTotal = catalog.filter((stamp) => !stamp.secret).length;
+  const text = entries.map((stamp) => {
+    if (stamp.secret && !stamp.unlocked) return `🔒 **UNKNOWN RECORD**\n_${stampProgress(stamp, passport, user)}_`;
+    return `${stamp.unlocked ? "✓" : "○"} **${stamp.name}** · ${stamp.rarity}\n_${stamp.description}_\n${stampProgress(stamp, passport, user)}`;
+  }).join("\n\n");
   return new EmbedBuilder()
-    .setColor(0x7e4bb8)
-    .setAuthor({ name: "🎟️ PASSPORT STAMPS 🎟️", iconURL: user.displayAvatarURL({ size: 128 }) })
-    .setTitle(`Collected · ${passport.stamps.length}`)
-    .setDescription(`${unlockedText}\n\n**LOCKED**\n${lockedNormal.length === 0 || unlockedIds.size < 0 ? lockedText : lockedText}`)
-    .setFooter({ text: "A stamp is a permanent mark of something Zekhet remembers." });
+    .setColor(entries.find((stamp) => stamp.unlocked)?.rarity ? passportRarityColors[entries.find((stamp) => stamp.unlocked)!.rarity] : 0x7e4bb8)
+    .setAuthor({ name: "⛤ PASSPORT STAMPS ⛤", iconURL: user.displayAvatarURL({ size: 128 }) })
+    .setTitle(`Collected · ${passport.stamps.length} · Page ${currentPage + 1}/${pageCount}`)
+    .setDescription(`Known Records: **${knownUnlocked} / ${knownTotal}**\nSecret Records: **???**\n\n${text || "_The Passport bears no stamps yet._"}`)
+    .setFooter({ text: "A stamp is a permanent mark of something Zekhet remembers. Secret records reveal themselves only after discovery." });
+}
+
+function passportStampInspectEmbed(stamp: PassportStampView, passport: Passport, user: User): EmbedBuilder {
+  if (stamp.secret && !stamp.unlocked) {
+    return new EmbedBuilder()
+      .setColor(0x6e4b8e)
+      .setAuthor({ name: "⛤ SEALED PASSPORT RECORD ⛤", iconURL: user.displayAvatarURL({ size: 128 }) })
+      .setTitle("🔒 UNKNOWN RECORD")
+      .setDescription("This record has not yet acknowledged your name.")
+      .setFooter({ text: "Secret requirements are not recorded in any public index." });
+  }
+  return new EmbedBuilder()
+    .setColor(passportRarityColors[stamp.rarity])
+    .setAuthor({ name: "⛤ PASSPORT STAMP INSPECTION ⛤", iconURL: user.displayAvatarURL({ size: 128 }) })
+    .setTitle(stamp.name)
+    .setDescription(`_${stamp.description}_`)
+    .addFields(
+      { name: "Rarity", value: stamp.rarity, inline: true },
+      { name: "Category", value: stamp.category, inline: true },
+      { name: "Status", value: stamp.unlocked ? `✓ Unlocked${stamp.unlockedAt ? ` · ${new Date(stamp.unlockedAt).toLocaleDateString("en-US")}` : ""}` : stampProgress(stamp, passport, user), inline: false },
+    );
 }
 
 function passportProgressEmbed(passport: Passport, user: User): EmbedBuilder {
@@ -973,11 +1047,14 @@ function passportProgressEmbed(passport: Passport, user: User): EmbedBuilder {
 export async function handlePassportComponent(interaction: ButtonInteraction): Promise<void> {
   if (!interaction.customId.startsWith("passport:")) return;
   const passport = getPassport(interaction.user.id, interaction.user.username, interaction.user.displayAvatarURL());
-  const page = interaction.customId.split(":")[1];
+  const [, page, rawStampPage] = interaction.customId.split(":");
+  const stampPage = Number(rawStampPage ?? 0);
+  const catalog = getPassportStampCatalog(interaction.user.id, interaction.user.username, interaction.user.displayAvatarURL());
+  const stampPages = Math.max(1, Math.ceil(catalog.length / 8));
   const embed = page === "records" ? passportRecordsEmbed(passport, interaction.user)
-    : page === "stamps" ? passportStampsEmbed(passport, interaction.user)
+    : page === "stamps" ? passportStampsEmbed(passport, interaction.user, stampPage)
       : passportProgressEmbed(passport, interaction.user);
-  await interaction.update({ embeds: [embed], components: [passportButtons()] });
+  await interaction.update({ embeds: [embed], components: [passportButtons(stampPage, stampPages)] });
 }
 
 function progressEmbed(user: User): EmbedBuilder {
@@ -1433,8 +1510,11 @@ export async function handlePrefixCommand(message: Message): Promise<void> {
   }
   if (command === "passport") {
     const target = message.mentions.users.first() ?? message.author;
+    const newlyUnlocked = target.id === message.author.id
+      ? unlockPassportStamps(target.id, target.username, target.displayAvatarURL())
+      : [];
     const passport = getPassport(target.id, target.username, target.displayAvatarURL());
-    await message.reply({ embeds: [passportEmbed(passport, target)], components: [passportButtons()] });
+    await message.reply({ content: passportUnlockNotice(newlyUnlocked), embeds: [passportEmbed(passport, target)], components: [passportButtons()] });
     return;
   }
   if (command === "credits") {
@@ -1505,8 +1585,22 @@ export async function handleCommand(interaction: ChatInputCommandInteraction): P
 
   if (interaction.commandName === "passport") {
     const target = interaction.options.getUser("user") ?? interaction.user;
+    const newlyUnlocked = target.id === interaction.user.id
+      ? unlockPassportStamps(target.id, target.username, target.displayAvatarURL())
+      : [];
     const passport = getPassport(target.id, target.username, target.displayAvatarURL());
-    await interaction.reply({ embeds: [passportEmbed(passport, target)], components: [passportButtons()] });
+    const stampId = interaction.options.getString("stamp");
+    if (stampId) {
+      const stamp = getPassportStampCatalog(target.id, target.username, target.displayAvatarURL())
+        .find((entry) => entry.id === stampId.trim().toLowerCase());
+      if (!stamp) {
+        await interaction.reply({ content: "The Passport contains no stamp with that ID.", ephemeral: true });
+        return;
+      }
+      await interaction.reply({ embeds: [passportStampInspectEmbed(stamp, passport, target)] });
+      return;
+    }
+    await interaction.reply({ content: passportUnlockNotice(newlyUnlocked), embeds: [passportEmbed(passport, target)], components: [passportButtons()] });
     return;
   }
 

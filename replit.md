@@ -58,6 +58,14 @@ The current scope includes titles, lore, achievements, tutorials, contracts, cur
 - Passport records and status are derived from the existing titles, lore, achievements, contracts, curses, items, tutorial, XP, and rank systems.
 - Passport stamps are stored separately and unlock idempotently through existing progression checks. Developer controls expose Passport inspection, stamp granting, unlock-all, and reset testing.
 
+## Beta 15.1 — Passport Expansion
+
+- The Passport catalog contains 52 categorized stamps across exploration, titles, lore, curses, contracts, achievements, tutorial, progression, inventory, currency, and secret records.
+- Normal stamps show locked/unlocked state and progress where meaningful; secret stamps remain `🔒 UNKNOWN RECORD` until unlocked.
+- `/passport stamp:<id>` inspects a stamp without exposing sealed requirements. Passport stamp pages are paginated to keep Discord embeds compact.
+- Combination-based secret records are checked through the existing Passport progression path and remain idempotent for existing users.
+- The developer panel includes a private “List All Stamps” view for reviewing hidden IDs and categories.
+
 ## Pointers
 
 - See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details
