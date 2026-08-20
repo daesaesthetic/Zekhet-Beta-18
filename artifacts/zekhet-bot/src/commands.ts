@@ -15,7 +15,13 @@ import {
   getProfile,
   getTitle,
   getTitles,
+  getActiveCurses,
+  getCurse,
+  getCurses,
+  inflictCurse,
   updateProfile,
+  type ActiveCurse,
+  type Curse,
   type OwnedTitle,
   type DiscoveredLore,
   type LoreEntry,
@@ -39,6 +45,14 @@ const loreRarityColors: Record<LoreEntry["rarity"], number> = {
   Rare: 0x5e9cff,
   Legendary: 0xffc857,
   Secret: 0x6e4b8e,
+};
+const curseRarityColors: Record<Curse["rarity"], number> = {
+  Common: 0xaaa7b8,
+  Uncommon: 0x65d18b,
+  Rare: 0x5e9cff,
+  Epic: 0xa873ff,
+  Legendary: 0xffc857,
+  Mythic: 0xff6bb5,
 };
 const profileCommand = new SlashCommandBuilder()
   .setName("profile")
@@ -75,6 +89,17 @@ const loreCommand = new SlashCommandBuilder()
   .addSubcommand((sub) => sub.setName("inspect").setDescription("Inspect a discovered archive entry.")
     .addStringOption((option) => option.setName("entry").setDescription("The archive entry ID.").setRequired(true)));
 
+const curseCommand = new SlashCommandBuilder()
+  .setName("curse")
+  .setDescription("Invoke a harmless ritual from the Veiled Court.")
+  .addSubcommand((sub) => sub.setName("user").setDescription("Place a fictional curse upon another user's Zekhet record.")
+    .addUserOption((option) => option.setName("user").setDescription("The user to mark.").setRequired(true)))
+  .addSubcommand((sub) => sub.setName("active").setDescription("View active curses upon a record.")
+    .addUserOption((option) => option.setName("user").setDescription("The record to inspect.")))
+  .addSubcommand((sub) => sub.setName("list").setDescription("Browse the catalog of fictional curses."))
+  .addSubcommand((sub) => sub.setName("inspect").setDescription("Inspect a curse in the catalog.")
+    .addStringOption((option) => option.setName("curse").setDescription("The curse ID to inspect.").setRequired(true)));
+
 export const commands = [
   new SlashCommandBuilder().setName("help").setDescription("Consult Zekhet's available records."),
   new SlashCommandBuilder().setName("credits").setDescription("See who keeps Zekhet's records."),
@@ -82,6 +107,7 @@ export const commands = [
   new SlashCommandBuilder().setName("titles").setDescription("View your owned titles and the Court."),
   titleCommand,
   loreCommand,
+  curseCommand,
 ].map((command) => command.toJSON());
 
 function colorFromProfile(profile: Profile): number {
@@ -99,6 +125,7 @@ function profileEmbed(profile: Profile, user: User): EmbedBuilder {
       { name: "Equipped title", value: profile.title, inline: true },
       { name: "Titles owned", value: String(profile.titlesOwned), inline: true },
       { name: "Lore discovered", value: String(profile.loreDiscovered), inline: true },
+      { name: "Active curses", value: String(profile.activeCurses), inline: true },
       { name: "Theme", value: profile.theme, inline: true },
       { name: "Record number", value: `#${String(profile.profileNumber).padStart(4, "0")}`, inline: true },
     )
@@ -189,6 +216,66 @@ function archiveEmbed(discovered: DiscoveredLore[], catalog: LoreEntry[]): Embed
       { name: "Sealed records", value: `${sealedCount} classified entries remain beyond the visible archive.` },
     )
     .setFooter({ text: "Use /lore discover to seek another entry." });
+}
+
+function curseEmbed(curse: Curse): EmbedBuilder {
+  return new EmbedBuilder()
+    .setColor(curseRarityColors[curse.rarity])
+    .setAuthor({ name: "🧿 THE RITUALS 🧿" })
+    .setTitle(`⛤ ${curse.name.toUpperCase()} ⛤`)
+    .setDescription(curse.description)
+    .addFields(
+      { name: "Curse ID", value: `\`${curse.id}\``, inline: true },
+      { name: "Rarity", value: curse.rarity, inline: true },
+      { name: "Duration", value: formatDuration(curse.durationMinutes * 60), inline: true },
+      { name: "Cooldown", value: formatDuration(curse.cooldownSeconds), inline: true },
+    )
+    .setFooter({ text: "These rituals affect only Zekhet's own records." });
+}
+
+function formatDuration(seconds: number): string {
+  if (seconds < 60) return `${seconds} seconds`;
+  const minutes = Math.floor(seconds / 60);
+  return `${minutes} minute${minutes === 1 ? "" : "s"}`;
+}
+
+function activeCurseEmbed(curse: ActiveCurse): EmbedBuilder {
+  const remaining = Math.max(0, curse.expiresAt - Math.floor(Date.now() / 1000));
+  return new EmbedBuilder()
+    .setColor(curseRarityColors[curse.rarity])
+    .setAuthor({ name: "🧿 THE RITUALS 🧿" })
+    .setTitle(`⛤ ${curse.name.toUpperCase()} ⛤`)
+    .setDescription(curse.description)
+    .addFields(
+      { name: "Afflicted record", value: `<@${curse.targetId}>`, inline: true },
+      { name: "Rarity", value: curse.rarity, inline: true },
+      { name: "Time remaining", value: formatDuration(remaining), inline: true },
+    )
+    .setFooter({ text: "The mark fades on its own and has no effect outside Zekhet." });
+}
+
+function curseListEmbed(curses: Curse[]): EmbedBuilder {
+  return new EmbedBuilder()
+    .setColor(0x7e4bb8)
+    .setAuthor({ name: "🧿 THE RITUALS 🧿" })
+    .setTitle("The Catalog of Curses")
+    .setDescription("Harmless fictional marks that alter only Zekhet's responses and records.")
+    .addFields({
+      name: `${curses.length} recorded rituals`,
+      value: curses.map((curse) => `**${curse.name}** · ${curse.rarity}\n\`${curse.id}\` · ${formatDuration(curse.durationMinutes * 60)} · cooldown ${formatDuration(curse.cooldownSeconds)}`).join("\n"),
+    })
+    .setFooter({ text: "Use /curse inspect curse:<id> to read a full entry." });
+}
+
+function activeCursesEmbed(user: User, curses: ActiveCurse[]): EmbedBuilder {
+  return new EmbedBuilder()
+    .setColor(0x7e4bb8)
+    .setAuthor({ name: "🧿 THE RITUALS 🧿", iconURL: user.displayAvatarURL({ size: 128 }) })
+    .setTitle(`${user.username}'s Active Curses`)
+    .setDescription(curses.length
+      ? curses.map((curse) => `**${curse.name}** · ${curse.rarity}\n${curse.description}\n**Fades in:** ${formatDuration(Math.max(0, curse.expiresAt - Math.floor(Date.now() / 1000)))}`).join("\n\n")
+      : "_No fictional curses cling to this Record._")
+    .setFooter({ text: "Curses affect only Zekhet's own systems." });
 }
 
 export async function handleCommand(interaction: ChatInputCommandInteraction): Promise<void> {
@@ -327,6 +414,52 @@ export async function handleCommand(interaction: ChatInputCommandInteraction): P
     }
 
     await interaction.reply({ embeds: [archiveEmbed(discovered, getLoreCatalog())] });
+    return;
+  }
+
+  if (interaction.commandName === "curse") {
+    const subcommand = interaction.options.getSubcommand();
+    if (subcommand === "list") {
+      await interaction.reply({ embeds: [curseListEmbed(getCurses())] });
+      return;
+    }
+
+    if (subcommand === "inspect") {
+      const curseId = interaction.options.getString("curse")?.trim().toLowerCase();
+      const curse = curseId ? getCurse(curseId) : undefined;
+      if (!curse) {
+        await interaction.reply({ content: "That ritual is not recorded in the Catalog of Curses.", ephemeral: true });
+        return;
+      }
+      await interaction.reply({ embeds: [curseEmbed(curse)] });
+      return;
+    }
+
+    if (subcommand === "active") {
+      const target = interaction.options.getUser("user") ?? interaction.user;
+      await interaction.reply({ embeds: [activeCursesEmbed(target, getActiveCurses(target.id, target.username))] });
+      return;
+    }
+
+    const target = interaction.options.getUser("user");
+    if (!target) {
+      await interaction.reply({ content: "Name the user whose Record will receive the ritual.", ephemeral: true });
+      return;
+    }
+    const result = inflictCurse(interaction.user.id, target.id);
+    if (!result.ok) {
+      const message = result.reason === "self"
+        ? "A ritual cannot be turned upon your own Record."
+        : result.reason === "cooldown"
+          ? `The ritual circle is still cooling. Try again in ${result.retryAfter} seconds.`
+          : "That Record already bears every available mark. Wait for one to fade.";
+      await interaction.reply({ content: message, ephemeral: true });
+      return;
+    }
+    await interaction.reply({
+      content: `The ritual is complete. <@${target.id}> has been marked.`,
+      embeds: [activeCurseEmbed(result.curse)],
+    });
     return;
   }
 
