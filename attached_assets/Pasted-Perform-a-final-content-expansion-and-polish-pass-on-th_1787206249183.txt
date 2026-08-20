@@ -1,0 +1,534 @@
+Perform a final content expansion and polish pass on the existing ⛤ Zekhet ⛤ Discord bot.
+
+IMPORTANT:
+The existing functionality is working correctly. DO NOT rebuild, replace, or unnecessarily refactor the existing systems.
+
+The goal of this stage is to make Zekhet feel more alive, varied, polished, and atmospheric through additional content, wording, outcomes, and presentation.
+
+Also add a secure developer-only command that allows the bot creator to freely test all content without normal unlock requirements.
+
+==================================================
+1. DEVELOPER SYSTEM
+==================================================
+
+Add a developer-only slash command:
+
+/developer
+
+The command must ONLY be usable by the configured bot developer.
+
+Authenticate the developer using a Discord USER ID stored in an environment variable:
+
+DEVELOPER_ID
+
+Never authenticate based on:
+- Username
+- Display name
+- Server role
+- Nickname
+
+If a normal user attempts to use /developer, respond with a generic permission-denied message.
+
+Do not reveal the configured developer ID.
+
+The developer command should provide a small developer control panel using Discord buttons or a select menu.
+
+Developer options should include:
+
+- View All Titles
+- Unlock Any Title
+- View All Lore
+- Unlock Any Lore
+- View All Curses
+- Apply Any Curse
+- View All Contracts
+- Create Test Contract
+- Clear Active Curses
+- Reset Test Data
+- View Database/Profile Data
+
+The developer should be able to access and test content without normally having to unlock it.
+
+==================================================
+DEVELOPER TESTING BEHAVIOR
+==================================================
+
+The developer system is intended for testing and content review.
+
+For titles:
+- Allow the developer to view every title.
+- Allow the developer to unlock any title.
+- Allow the developer to equip any title.
+- Allow the developer to inspect secret titles.
+
+For lore:
+- Allow the developer to view every lore entry.
+- Allow the developer to unlock any lore entry.
+- Allow the developer to inspect secret/classified lore.
+
+For curses:
+- Allow the developer to apply any curse to themselves or another user.
+- Allow the developer to view all curses.
+- Allow the developer to clear active curses.
+
+For contracts:
+- Allow the developer to create test contracts without normal restrictions.
+- Allow the developer to inspect contracts.
+- Allow the developer to test different contract states where practical.
+
+Developer testing should NOT bypass the underlying systems themselves. It should simply provide controlled developer-only access to otherwise locked content.
+
+Do not add developer-only functionality to ordinary commands that normal users could exploit.
+
+==================================================
+DEVELOPER RESET
+==================================================
+
+Include a developer-only reset option.
+
+It should allow the developer to reset their own Zekhet test data without affecting other users.
+
+The reset should require a confirmation step before executing.
+
+Do NOT provide a command that can accidentally wipe the entire database.
+
+If a database-wide reset is ever implemented, it must require an additional explicit confirmation and should not be part of the normal developer menu.
+
+==================================================
+2. ZEKHET'S PERSONALITY
+==================================================
+
+Expand Zekhet's personality throughout the bot.
+
+Zekhet should feel like:
+
+- A mysterious personal attendant
+- A keeper of ancient records
+- A knowledgeable advisor
+- Calm and sophisticated
+- Slightly intimidating
+- Occasionally cryptic
+- Occasionally playful
+- Rarely humorous in a dry or unexpected way
+
+Avoid making Zekhet constantly speak in exaggerated fantasy language.
+
+His dialogue should feel natural and intentional.
+
+Create multiple response variations for repeated actions.
+
+For example, instead of always:
+
+"⛤ Zekhet presents your record."
+
+Use variations such as:
+
+"⛤ Zekhet retrieves your record from the archives."
+
+"⛤ Your record has been brought before you."
+
+"⛤ The archives have yielded your name."
+
+"⛤ Zekhet opens the appropriate ledger."
+
+"The record has been located."
+
+"⛤ Your history remains intact."
+
+Use this approach throughout the bot.
+
+==================================================
+3. RESPONSE VARIETY
+==================================================
+
+Create reusable response pools for:
+
+- Profile viewing
+- Profile editing
+- Title equipping
+- Title inspection
+- Title discovery
+- Lore discovery
+- Rare lore discovery
+- Secret lore discovery
+- Curse creation
+- Curse inspection
+- Curse expiration
+- Contract creation
+- Contract acceptance
+- Contract rejection
+- Contract completion
+- Contract cancellation
+- Help
+- Errors
+- Cooldowns
+- Missing records
+- Unknown/secret content
+
+Use randomized variations where appropriate.
+
+Do not randomize important information such as IDs, statuses, durations, or database values.
+
+==================================================
+4. THE RECORD — PROFILE
+==================================================
+
+Expand profile presentation without changing its underlying functionality.
+
+Add more introductory and closing phrases.
+
+Where appropriate, reference:
+- Equipped title
+- Lore count
+- Contract count
+- Active curses
+- Number of titles
+
+If a user has little data, make the profile feel new rather than broken.
+
+If a user has significant progression, make the profile feel prestigious.
+
+Examples:
+
+"Your record remains remarkably uneventful."
+
+"The archives have accumulated a surprising amount of material."
+
+"Zekhet pauses at the number of entries attached to this record."
+
+"Several pages have already been marked in your name."
+
+Do not insult users for having low statistics.
+
+==================================================
+5. THE COURT — TITLES
+==================================================
+
+Expand title presentation.
+
+Add varied wording for:
+
+- Equipping a title
+- Re-equipping a title
+- Inspecting a title
+- Viewing the collection
+- Obtaining a rare title
+- Viewing a secret title
+- Attempting to equip an unavailable title
+
+If practical, add approximately 15 additional titles.
+
+Maintain existing rarity levels.
+
+Use a mixture of:
+- Simple titles
+- Prestigious titles
+- Mysterious titles
+- Humorous titles
+- Extremely rare titles
+
+Possible examples:
+
+The Uninvited
+Starless
+Oathkeeper
+Forgotten Heir
+Night's Witness
+The Unrecorded
+Ashen Wanderer
+Keeper of the Ninth Seal
+Unfortunate
+Court Fool
+The Quiet One
+Beyond the Veil
+Marked by Zekhet
+Archivist
+The Last Visitor
+
+Do not make every title overly dramatic.
+
+==================================================
+6. THE ARCHIVES — LORE
+==================================================
+
+Expand the lore system.
+
+Create additional lore fragments, templates, and discovery outcomes.
+
+Categories may include:
+
+- Personal history
+- Titles
+- Strange encounters
+- Zekhet observations
+- Forgotten events
+- Omens
+- Artifacts
+- Locations
+- Contracts
+- Curses
+- Classified records
+- Humorous records
+
+Add approximately 20 additional lore entries or reusable fragments if practical.
+
+Common discoveries should feel normal.
+
+Rare discoveries should feel significant.
+
+Secret discoveries should feel like the user found something they were not supposed to see.
+
+Possible wording:
+
+"ARCHIVE STATUS: PARTIALLY CORRUPTED"
+
+"Three lines of this record have been deliberately removed."
+
+"Zekhet appears unwilling to discuss this entry."
+
+"Someone has written a second name beneath yours."
+
+"The archive insists this event never occurred."
+
+Do not invent factual information about real users beyond information stored by Zekhet.
+
+==================================================
+7. THE RITUALS — CURSES
+==================================================
+
+Expand the curse system.
+
+If practical, add approximately 10 additional harmless fictional curses.
+
+Possible examples:
+
+Curse of the Empty Quill
+Curse of Echoing Words
+Curse of the Forgotten Name
+Curse of the Wandering Eye
+Curse of the Unfortunate Dice
+Curse of the Second Thought
+Curse of the Hollow Crown
+Curse of the Endless Scroll
+Curse of the Watchful Star
+Curse of Zekhet's Disapproval
+
+Add varied wording for:
+
+- Curse cast
+- Curse succeeds
+- Curse fails
+- User already cursed
+- Curse expires
+- Rare curse
+- Secret curse
+
+All curses must remain harmless.
+
+NEVER modify:
+- Discord permissions
+- Roles
+- Nicknames
+- Messages
+- Bans
+- Kicks
+- Timeouts
+- Server functionality
+
+==================================================
+8. THE LEDGER — CONTRACTS
+==================================================
+
+Expand contract presentation.
+
+Add additional harmless templates where practical:
+
+- Duel
+- Challenge
+- Favor
+- Trade
+- Promise
+- Pizza
+- Dare
+- Alliance
+- Service
+- Oath
+- Bet
+
+"Bet" must remain fictional/social and cannot involve real money.
+
+Add varied wording for:
+
+- Contract creation
+- Acceptance
+- Rejection
+- Completion
+- Cancellation
+- Expiration
+- Inspection
+- Unauthorized actions
+
+Example:
+
+"⛤ The Ledger recognizes the agreement."
+
+"The second party has placed their mark upon the contract."
+
+"⛤ The agreement is now binding within Zekhet's records."
+
+"Both names have been entered into the ledger."
+
+"The contract has been fulfilled."
+
+==================================================
+9. RARE AND SECRET OUTCOMES
+==================================================
+
+Add a small number of rare presentation outcomes.
+
+Possible examples:
+
+"⛤ Zekhet stops writing."
+
+"..."
+
+"The record has been amended."
+
+"That was not in the archive a moment ago."
+
+"The page turns by itself."
+
+"The archive has no explanation for this."
+
+These should be uncommon.
+
+Do not overuse them.
+
+==================================================
+10. CONTEXT-AWARE WORDING
+==================================================
+
+Where practical, make responses react to existing user data.
+
+Examples:
+
+No titles:
+"The Court remains empty."
+
+Many titles:
+"The Court has become rather crowded."
+
+Few lore entries:
+"The Archives contain surprisingly little about you."
+
+Many lore entries:
+"The Archives are beginning to require additional shelves."
+
+Active curse:
+"Zekhet notices the mark still resting upon your record."
+
+Completed contract:
+"The Ledger records the matter as settled."
+
+Frequent interaction:
+"The archives are becoming familiar with your name."
+
+Keep these observations concise.
+
+==================================================
+11. ERROR AND COOLDOWN PERSONALITY
+==================================================
+
+Replace generic messages with polished Zekhet-themed alternatives.
+
+Cooldown examples:
+
+"⛤ The archives require a moment before another request."
+
+"Zekhet closes the ledger. Try again shortly."
+
+"The ritual has not yet recovered."
+
+"Even Zekhet permits the records to rest."
+
+Error examples:
+
+"The requested record does not exist."
+
+"That name is absent from the archive."
+
+"Zekhet finds no such entry."
+
+"You do not possess that title."
+
+"The Ledger does not recognize you as a party to this agreement."
+
+The user must still clearly understand what went wrong.
+
+==================================================
+12. HELP AND CREDITS
+==================================================
+
+Polish /help and /credits.
+
+Keep /help concise.
+
+Use:
+
+⛤ THE RECORD
+👑 THE COURT
+📜 THE ARCHIVES
+🧿 THE RITUALS
+⚖️ THE LEDGER
+
+Add a small SYSTEM section containing /help, /credits, and /developer.
+
+However, clearly indicate that /developer is restricted.
+
+Do not expose developer controls through ordinary help beyond showing that the command exists.
+
+==================================================
+13. PRESENTATION
+==================================================
+
+Maintain Zekhet's existing dark purple/magenta aesthetic.
+
+Use symbols sparingly:
+
+⛤
+📜
+👑
+🧿
+⚖️
+🔒
+
+Do not put an emoji in every sentence.
+
+Zekhet should feel elegant, mysterious, and sophisticated.
+
+==================================================
+14. IMPORTANT DEVELOPMENT RULES
+==================================================
+
+The bot is already functional.
+
+DO NOT:
+- Rewrite working systems
+- Replace the database architecture unnecessarily
+- Add AI
+- Add external APIs
+- Add a web dashboard
+- Add an economy
+- Add real-money systems
+- Add unrelated features
+- Change existing command names unnecessarily
+
+Prefer reusable response pools, content arrays, and small helper functions.
+
+Keep the bot lightweight and suitable for Replit.
+
+After making changes, verify that all existing commands still function.
+
+The goal is to make Zekhet feel less repetitive, more atmospheric, and more intentional without sacrificing reliability.
+
+The /developer system must remain strictly restricted to DEVELOPER_ID.
