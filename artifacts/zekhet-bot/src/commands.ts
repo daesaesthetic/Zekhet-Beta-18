@@ -62,6 +62,9 @@ import {
   getItem,
   getItemQuantity,
   getCurrencyBalance,
+  beginVenture,
+  completeVenture,
+  resetVentureCooldown,
   getPassport,
   unlockPassportStamps,
   getPassportStamps,
@@ -90,6 +93,7 @@ import {
   type PassportStampView,
 } from "./database.js";
 import { achievementRewards, formatRewards, grantAchievementReward, grantRewards, progressionSummary, type Rewards } from "./rewards.js";
+import { chooseVentureEncounter, rarityLabel, renderVentureDescription, type VentureRarity } from "./venture.js";
 
 const themes = ["Nightshade", "Celestial", "Eclipse", "Ancient", "Royal", "Void"] as const;
 const dialogue = {
@@ -186,6 +190,8 @@ const dialogue = {
     "That was not in the archive a moment ago.",
   ],
 } as const;
+
+const developerVentureForces = new Map<string, VentureRarity>();
 
 function pick<T>(items: readonly T[]): T {
   return items[Math.floor(Math.random() * items.length)];
@@ -462,6 +468,10 @@ const passportCommand = new SlashCommandBuilder()
   .addUserOption((option) => option.setName("user").setDescription("The Passport to inspect."))
   .addStringOption((option) => option.setName("stamp").setDescription("Inspect a Passport stamp by ID."));
 
+const ventureCommand = new SlashCommandBuilder()
+  .setName("venture")
+  .setDescription("Undertake a journey into the unknown.");
+
 export const commands = [
   new SlashCommandBuilder().setName("help").setDescription("Consult Zekhet's available records."),
   new SlashCommandBuilder().setName("credits").setDescription("See who keeps Zekhet's records."),
@@ -469,6 +479,7 @@ export const commands = [
   new SlashCommandBuilder().setName("inventory").setDescription("View the items owned by your Record."),
   balanceCommand,
   new SlashCommandBuilder().setName("progress").setDescription("View your XP, level, and rank progression."),
+  ventureCommand,
   passportCommand,
   itemCommand,
   profileCommand,
@@ -497,6 +508,16 @@ function developerPanel() {
       new ButtonBuilder().setCustomId("developer:unlock-titles").setLabel("Unlock Any Title").setStyle(ButtonStyle.Primary),
       new ButtonBuilder().setCustomId("developer:lore").setLabel("View All Lore").setStyle(ButtonStyle.Secondary),
       new ButtonBuilder().setCustomId("developer:unlock-lore").setLabel("Unlock Any Lore").setStyle(ButtonStyle.Primary),
+      ),
+      new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder().setCustomId("developer:venture-common").setLabel("Force Common Venture").setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId("developer:venture-rare").setLabel("Force Rare Venture").setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId("developer:venture-epic").setLabel("Force Epic Venture").setStyle(ButtonStyle.Primary),
+      ),
+      new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder().setCustomId("developer:venture-legendary").setLabel("Force Legendary").setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId("developer:venture-mythic").setLabel("Force Mythic").setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId("developer:venture-reset").setLabel("Reset Venture Cooldown").setStyle(ButtonStyle.Danger),
       ),
       new ActionRowBuilder<ButtonBuilder>().addComponents(
       new ButtonBuilder().setCustomId("developer:curses").setLabel("View All Curses").setStyle(ButtonStyle.Secondary),
@@ -545,6 +566,17 @@ export async function handleDeveloperComponent(interaction: ButtonInteraction): 
   }
 
   const section = interaction.customId.split(":")[1];
+  if (section.startsWith("venture-")) {
+    const force = section.slice("venture-".length).toUpperCase();
+    if (force === "RESET") {
+      resetVentureCooldown(interaction.user.id);
+      await interaction.reply({ content: "Developer access: your Venture cooldown has been reset.", ephemeral: true });
+      return;
+    }
+    developerVentureForces.set(interaction.user.id, force as VentureRarity);
+    await interaction.reply({ content: `Developer access: your next Venture will force a **${rarityLabel(force as VentureRarity)}** encounter.`, ephemeral: true });
+    return;
+  }
   if (section === "unlock-titles") {
     const count = unlockAllTitles(interaction.user.id, interaction.user.username, interaction.user.displayAvatarURL());
     await interaction.reply({ content: `Developer access granted: ${count} previously locked title(s) are now on your Record.`, ephemeral: true });
@@ -1122,6 +1154,81 @@ function progressionNotice(update: {
   return [...update.achievements.map(achievementNotification), ...titleNotices, ...loreNotices].join("\n\n");
 }
 
+function formatCooldown(seconds: number): string {
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  return `${minutes}m ${String(remainingSeconds).padStart(2, "0")}s`;
+}
+
+const ventureColors: Record<VentureRarity, number> = {
+  COMMON: 0xaaa7b8,
+  UNCOMMON: 0x65d18b,
+  RARE: 0x5e9cff,
+  EPIC: 0xa873ff,
+  LEGENDARY: 0xffc857,
+  MYTHIC: 0xff6bb5,
+};
+
+function ventureReply(
+  user: { id: string; username: string; avatarUrl: string | null },
+): { content: string; embeds?: EmbedBuilder[] } {
+  const cooldownSeconds = Math.max(1, Number.isFinite(config.ventureCooldownSeconds) ? config.ventureCooldownSeconds : 900);
+  const started = beginVenture(user.id, user.username, user.avatarUrl, cooldownSeconds);
+  if (!started.ok) {
+    return {
+      content: `⛤ VENTURE UNAVAILABLE ⛤\n\nThe Archives have not yet permitted another expedition.\n\nTry again in:\n**${formatCooldown(started.retryAfter)}**`,
+    };
+  }
+
+  const forcedRarity = developerVentureForces.get(user.id);
+  developerVentureForces.delete(user.id);
+  const encounter = chooseVentureEncounter(forcedRarity);
+  const startedProgression = processProgressionEvent(user.id, user.username, user.avatarUrl, "VENTURE_STARTED");
+  let rewardNotice = "No material reward was recorded.";
+  if (encounter.reward) {
+    const reward = grantRewards(user.id, encounter.reward, { type: "venture", id: String(started.runId) }, {
+      username: user.username,
+      avatarUrl: user.avatarUrl,
+      oneTimeKey: `venture:${started.runId}`,
+    });
+    rewardNotice = reward.ok ? formatRewards(encounter.reward) : "The Archives recorded the result, but no reward could be issued.";
+  }
+  completeVenture(started.runId, encounter.id, encounter.rarity, encounter.successful);
+  const completedProgression = processProgressionEvent(
+    user.id,
+    user.username,
+    user.avatarUrl,
+    "VENTURE_COMPLETED",
+  );
+  const encounterProgression = processProgressionEvent(
+    user.id,
+    user.username,
+    user.avatarUrl,
+    encounter.rarity === "COMMON" || encounter.rarity === "UNCOMMON" ? "ENCOUNTER_FOUND" : "RARE_ENCOUNTER_FOUND",
+  );
+  const notice = [
+    progressionNotice(startedProgression, user),
+    progressionNotice(completedProgression, user),
+    progressionNotice(encounterProgression, user),
+  ].filter(Boolean).join("\n\n");
+  const dramatic = encounter.rarity !== "COMMON" && encounter.rarity !== "UNCOMMON";
+  const heading = dramatic
+    ? `⛤ ${rarityLabel(encounter.rarity).toUpperCase()} ENCOUNTER ⛤`
+    : "⛤ VENTURE COMPLETE ⛤";
+  const embed = new EmbedBuilder()
+    .setColor(ventureColors[encounter.rarity])
+    .setAuthor({ name: heading })
+    .setTitle(encounter.name)
+    .setDescription(`${renderVentureDescription(encounter)}\n\n${encounter.outcome}`)
+    .addFields(
+      { name: "Rarity", value: rarityLabel(encounter.rarity), inline: true },
+      { name: "Location", value: encounter.location ?? "🌑 Unknown", inline: true },
+      { name: "Rewards", value: rewardNotice, inline: false },
+    )
+    .setFooter({ text: `Another expedition will be permitted in ${formatCooldown(cooldownSeconds)}.` });
+  return { content: notice || "", embeds: [embed] };
+}
+
 function achievementEmbed(achievement: Achievement, unlocked: boolean): EmbedBuilder {
   return new EmbedBuilder()
     .setColor(achievementRarityColors[achievement.rarity])
@@ -1508,6 +1615,10 @@ export async function handlePrefixCommand(message: Message): Promise<void> {
     await message.reply({ embeds: [progressEmbed(message.author)] });
     return;
   }
+  if (command === "venture") {
+    await message.reply(ventureReply({ id: message.author.id, username, avatarUrl }));
+    return;
+  }
   if (command === "passport") {
     const target = message.mentions.users.first() ?? message.author;
     const newlyUnlocked = target.id === message.author.id
@@ -1580,6 +1691,15 @@ export async function handleCommand(interaction: ChatInputCommandInteraction): P
 
   if (interaction.commandName === "progress") {
     await interaction.reply({ embeds: [progressEmbed(interaction.user)] });
+    return;
+  }
+
+  if (interaction.commandName === "venture") {
+    await interaction.reply(ventureReply({
+      id: interaction.user.id,
+      username: interaction.user.username,
+      avatarUrl: interaction.user.displayAvatarURL(),
+    }));
     return;
   }
 
@@ -1731,6 +1851,7 @@ export async function handleCommand(interaction: ChatInputCommandInteraction): P
           { name: "🧿 THE RITUALS", value: "`/curse user` — Mark another Record with a harmless fictional curse.\n`/curse active` — View active curses.\n`/curse list` — Browse the curse catalog.\n`/curse inspect` — Inspect a curse." },
           { name: "⚖️ THE LEDGER", value: "`/contract create` — Offer a social agreement.\n`/contract accept` — Accept an agreement.\n`/contract reject` — Reject an agreement.\n`/contract inspect` — Inspect a contract.\n`/contract complete` — Complete an accepted agreement.\n`/contract cancel` — Cancel an agreement.\n`/contracts` — Review your contracts." },
            { name: "✦ THE PATH", value: "`/progress` — View XP, level, and rank progression.\nRewards can combine XP, Deben, items, and unlocks." },
+           { name: "🏺 THE VENTURE", value: "`/venture` — Undertake a journey into the unknown.\nUse `z!venture` for the prefix equivalent. Ventures have a cooldown." },
            { name: "🏺 THE ACHIEVEMENTS", value: "`/achievements` — View your progress.\n`/achievement inspect` — Inspect a record." },
         )],
     });

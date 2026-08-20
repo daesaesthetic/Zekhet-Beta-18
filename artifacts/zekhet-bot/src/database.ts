@@ -206,7 +206,18 @@ export type ProgressionEvent =
   | "CONTRACT_COMPLETED"
   | "ACHIEVEMENT_UNLOCKED"
   | "TUTORIAL_PAGE_COMPLETED"
-  | "TUTORIAL_COMPLETED";
+  | "TUTORIAL_COMPLETED"
+  | "VENTURE_STARTED"
+  | "VENTURE_COMPLETED"
+  | "ENCOUNTER_FOUND"
+  | "RARE_ENCOUNTER_FOUND";
+
+export type VentureStats = {
+  total: number;
+  successful: number;
+  neutral: number;
+  highestRarity: string | null;
+};
 
 mkdirSync(dirname(config.databasePath), { recursive: true });
 const database = new DatabaseSync(config.databasePath);
@@ -391,6 +402,20 @@ database.exec(`
     source TEXT NOT NULL,
     claimed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   );
+  CREATE TABLE IF NOT EXISTS venture_cooldowns (
+    discord_id TEXT PRIMARY KEY REFERENCES users(discord_id) ON DELETE CASCADE,
+    used_at INTEGER NOT NULL
+  );
+  CREATE TABLE IF NOT EXISTS venture_runs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    discord_id TEXT NOT NULL REFERENCES users(discord_id) ON DELETE CASCADE,
+    encounter_id TEXT NOT NULL,
+    rarity TEXT NOT NULL CHECK (rarity IN ('COMMON', 'UNCOMMON', 'RARE', 'EPIC', 'LEGENDARY', 'MYTHIC')),
+    successful INTEGER NOT NULL CHECK (successful IN (0, 1)),
+    completed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+  CREATE INDEX IF NOT EXISTS venture_runs_user_completed
+    ON venture_runs(discord_id, completed_at);
   CREATE TABLE IF NOT EXISTS passport_numbers (
     discord_id TEXT PRIMARY KEY REFERENCES users(discord_id) ON DELETE CASCADE,
     passport_number INTEGER NOT NULL UNIQUE,
@@ -1373,6 +1398,72 @@ export function claimReward(claimKey: string, userId: string, source: string): b
     VALUES (?, ?, ?)
   `).run(claimKey, userId, source);
   return Number(result.changes) > 0;
+}
+
+export type VentureStartResult =
+  | { ok: true; runId: number }
+  | { ok: false; retryAfter: number };
+
+export function beginVenture(userId: string, username: string, avatarUrl: string | null, cooldownSeconds: number): VentureStartResult {
+  ensureProfile(userId, username, avatarUrl);
+  const now = Math.floor(Date.now() / 1000);
+  database.exec("BEGIN IMMEDIATE");
+  try {
+    const row = database.prepare("SELECT used_at AS usedAt FROM venture_cooldowns WHERE discord_id = ?")
+      .get(userId) as { usedAt?: number } | undefined;
+    const retryAfter = Math.max(0, Number(row?.usedAt ?? 0) + cooldownSeconds - now);
+    if (retryAfter > 0) {
+      database.exec("ROLLBACK");
+      return { ok: false, retryAfter };
+    }
+    database.prepare(`
+      INSERT INTO venture_cooldowns (discord_id, used_at) VALUES (?, ?)
+      ON CONFLICT(discord_id) DO UPDATE SET used_at = excluded.used_at
+    `).run(userId, now);
+    const result = database.prepare(`
+      INSERT INTO venture_runs (discord_id, encounter_id, rarity, successful)
+      VALUES (?, 'pending', 'COMMON', 0)
+    `).run(userId);
+    database.exec("COMMIT");
+    return { ok: true, runId: Number(result.lastInsertRowid) };
+  } catch (error) {
+    database.exec("ROLLBACK");
+    throw error;
+  }
+}
+
+export function completeVenture(runId: number, encounterId: string, rarity: string, successful: boolean): void {
+  database.prepare(`
+    UPDATE venture_runs SET encounter_id = ?, rarity = ?, successful = ?, completed_at = CURRENT_TIMESTAMP
+    WHERE id = ?
+  `).run(encounterId, rarity, successful ? 1 : 0, runId);
+}
+
+export function resetVentureCooldown(userId: string): void {
+  database.prepare("DELETE FROM venture_cooldowns WHERE discord_id = ?").run(userId);
+}
+
+export function getVentureStats(userId: string): VentureStats {
+  const row = database.prepare(`
+    SELECT COUNT(*) AS total,
+      COALESCE(SUM(successful), 0) AS successful,
+      COALESCE(SUM(CASE WHEN successful = 0 THEN 1 ELSE 0 END), 0) AS neutral
+    FROM venture_runs WHERE discord_id = ? AND encounter_id <> 'pending'
+  `).get(userId) as { total?: number; successful?: number; neutral?: number };
+  const highest = database.prepare(`
+    SELECT rarity FROM venture_runs
+    WHERE discord_id = ? AND encounter_id <> 'pending'
+    ORDER BY CASE rarity
+      WHEN 'MYTHIC' THEN 6 WHEN 'LEGENDARY' THEN 5 WHEN 'EPIC' THEN 4
+      WHEN 'RARE' THEN 3 WHEN 'UNCOMMON' THEN 2 ELSE 1 END DESC
+    LIMIT 1
+  `).get(userId) as { rarity?: string } | undefined;
+  return {
+    total: Number(row?.total ?? 0),
+    successful: Number(row?.successful ?? 0),
+    neutral: Number(row?.neutral ?? 0),
+    highestRarity: highest?.rarity ?? null,
+  };
 }
 
 export function releaseRewardClaim(claimKey: string): void {
@@ -2412,6 +2503,8 @@ export function resetUserData(userId: string): void {
     database.prepare("DELETE FROM currency_transactions WHERE discord_id = ?").run(userId);
     database.prepare("DELETE FROM currency_balances WHERE discord_id = ?").run(userId);
     database.prepare("DELETE FROM reward_claims WHERE discord_id = ?").run(userId);
+    database.prepare("DELETE FROM venture_runs WHERE discord_id = ?").run(userId);
+    database.prepare("DELETE FROM venture_cooldowns WHERE discord_id = ?").run(userId);
     database.prepare("DELETE FROM user_progression WHERE discord_id = ?").run(userId);
     database.prepare("DELETE FROM profiles WHERE discord_id = ?").run(userId);
     database.prepare("DELETE FROM users WHERE discord_id = ?").run(userId);

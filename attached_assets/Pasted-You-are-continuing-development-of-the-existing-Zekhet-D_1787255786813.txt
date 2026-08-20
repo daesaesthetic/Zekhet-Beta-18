@@ -1,0 +1,592 @@
+You are continuing development of the existing ⛤ Zekhet ⛤ Discord bot.
+
+CURRENT VERSION:
+Beta-16 Phase 0
+
+Phase 0 has been completed.
+
+Now begin:
+
+⛤ BETA-16 — PHASE 1 ⛤
+THE FIRST VENTURE
+
+==================================================
+GOAL
+==================================================
+
+Implement the first functional version of Zekhet's core gameplay mechanic:
+
+/venture
+
+The purpose of this phase is to prove that Zekhet can have a fun, repeatable gameplay loop.
+
+Keep this implementation SMALL.
+
+Do not attempt to build the entire Realm yet.
+
+The goal is:
+
+User runs /venture
+↓
+Receives an encounter
+↓
+Receives an outcome
+↓
+Receives a small reward or narrative result
+↓
+Must wait before venturing again
+
+==================================================
+1. COMMANDS
+==================================================
+
+Implement:
+
+/venture
+
+Also implement the existing prefix equivalent:
+
+z!venture
+
+Use the existing command architecture.
+
+Do not create unnecessary subcommands yet.
+
+Do not modify unrelated commands.
+
+==================================================
+2. VENTURE COOLDOWN
+==================================================
+
+Implement a per-user Venture cooldown.
+
+Use a reasonable initial cooldown.
+
+Recommended initial value:
+
+15 minutes
+
+Make the cooldown easy to modify later through configuration.
+
+If the user attempts Venture during cooldown, respond clearly.
+
+Example:
+
+⛤ VENTURE UNAVAILABLE ⛤
+
+The Archives have not yet permitted another expedition.
+
+Try again in:
+14m 32s
+
+Do not punish the user.
+
+Do not create additional cooldown currencies or systems.
+
+==================================================
+3. ENCOUNTER SYSTEM
+==================================================
+
+Use the encounter architecture prepared during Phase 0.
+
+Create a SMALL initial encounter pool.
+
+Approximately:
+
+10–15 encounters.
+
+Do not create 50+ encounters yet.
+
+Encounters should have:
+
+- ID
+- Name
+- Description
+- Rarity
+- Outcome
+- Reward
+- Optional location
+- Optional progression event
+
+Use a data-driven structure so encounters can be added later without rewriting /venture.
+
+==================================================
+4. RARITIES
+==================================================
+
+Use the planned rarity structure:
+
+COMMON
+UNCOMMON
+RARE
+EPIC
+LEGENDARY
+MYTHIC
+
+Do not implement SECRET encounters yet.
+
+Secret content will be introduced later.
+
+Rarity should affect probability and reward quality.
+
+Keep probabilities simple.
+
+Suggested starting distribution:
+
+Common:
+~60%
+
+Uncommon:
+~25%
+
+Rare:
+~10%
+
+Epic:
+~4%
+
+Legendary:
+~0.9%
+
+Mythic:
+~0.1%
+
+These numbers are examples.
+
+Adjust them if necessary to produce a good gameplay experience.
+
+Do not make rare encounters so rare that users never see them during testing.
+
+Developer tools can later force rare encounters.
+
+==================================================
+5. INITIAL ENCOUNTERS
+==================================================
+
+Create approximately 10–15 encounters.
+
+Include a mixture of:
+
+- Successful discoveries
+- Neutral encounters
+- Atmospheric encounters
+- Small Deben rewards
+- Larger rare rewards
+- Occasional XP rewards
+- Occasional outcomes where nothing is gained
+
+Example concepts:
+
+1. Abandoned Shrine
+2. Desert Caravan
+3. Forgotten Courtyard
+4. Collapsed Archive
+5. Silent Oasis
+6. Strange Traveler
+7. Buried Chest
+8. Ancient Inscription
+9. Broken Statue
+10. Lost Path
+11. Hidden Chamber
+12. Unusual Footprints
+
+Do not copy these descriptions literally.
+
+Write original Zekhet-themed encounters.
+
+==================================================
+6. LOCATIONS
+==================================================
+
+Use lightweight optional location labels.
+
+Possible locations:
+
+🏺 Sunken Temple
+📜 Grand Archives
+🌴 Golden Oasis
+🏛️ Hall of the Court
+🪦 Forgotten Necropolis
+🏜️ Glass Desert
+🕯️ Silent Sanctuary
+🌑 Unknown
+
+Do NOT build a full location system yet.
+
+Locations should simply provide atmosphere and future expansion potential.
+
+==================================================
+7. REWARDS
+==================================================
+
+For this phase, only use:
+
+- Existing XP system
+- Existing Deben currency system
+
+Do NOT add:
+
+- New currency
+- New XP system
+- Inventory rewards
+- Titles
+- Lore rewards
+- Passport rewards
+- Achievement rewards
+- Contract rewards
+- Curse rewards
+
+Those systems will be connected in later phases.
+
+Reward amounts should be modest.
+
+Example:
+
+Common:
+5–30 Deben
+5–15 XP
+
+Uncommon:
+20–60 Deben
+10–30 XP
+
+Rare:
+50–150 Deben
+25–75 XP
+
+Epic:
+100–300 Deben
+50–150 XP
+
+Legendary:
+250–750 Deben
+100–300 XP
+
+Mythic:
+500+ Deben
+significant XP
+
+Adjust these values to fit the existing Zekhet economy.
+
+Do not accidentally inflate the existing economy.
+
+==================================================
+8. NEUTRAL OUTCOMES
+==================================================
+
+Not every Venture should produce Deben.
+
+Some encounters should simply produce narrative.
+
+Examples:
+
+"You find nothing."
+
+"The trail disappears."
+
+"You hear footsteps behind you. When you turn, there is nothing there."
+
+"You discover an inscription but cannot decipher it."
+
+These encounters should still feel worthwhile because of their presentation.
+
+==================================================
+9. SUCCESS OUTCOMES
+==================================================
+
+Successful encounters can award:
+
+- Deben
+- XP
+- Both
+
+Keep rewards clearly visible.
+
+Example:
+
+⛤ VENTURE COMPLETE ⛤
+
+You discover a sealed merchant's chest beneath the ruins.
+
+𓏏 +42 Deben
+⭐ +18 XP
+
+The Archives have recorded your discovery.
+
+==================================================
+10. RARE ENCOUNTERS
+==================================================
+
+Rare encounters should feel noticeably different.
+
+Use stronger presentation for:
+
+RARE
+EPIC
+LEGENDARY
+MYTHIC
+
+Example:
+
+⛤ RARE ENCOUNTER ⛤
+
+The path ahead suddenly becomes unfamiliar.
+
+You have discovered:
+
+THE HIDDEN COURTYARD
+
+𓏏 +127 Deben
+⭐ +64 XP
+
+This location has been recorded.
+
+Do not overuse dramatic formatting for Common encounters.
+
+==================================================
+11. ZEKHET PERSONALITY
+==================================================
+
+Maintain Zekhet's established identity.
+
+The bot should feel:
+
+- Ancient
+- Mysterious
+- Intelligent
+- Slightly formal
+- Occasionally humorous
+- Observant
+
+Avoid making every response excessively poetic.
+
+Some responses should be short.
+
+Some should be atmospheric.
+
+Some should have subtle humor.
+
+Example:
+
+"You find an ancient coin.
+
+Zekhet confirms that it is, in fact, still money."
+
+==================================================
+12. RESPONSE VARIETY
+==================================================
+
+Where practical, allow multiple descriptions for the same encounter.
+
+Avoid returning exactly the same sentence every time.
+
+For example, a common shrine encounter might have 2–4 possible descriptions.
+
+Do not use AI generation.
+
+Use predefined text.
+
+This keeps the system reliable and inexpensive.
+
+==================================================
+13. DATABASE / PERSISTENCE
+==================================================
+
+Use the architecture prepared during Phase 0.
+
+Persist:
+
+- User Venture cooldown
+- Venture completion
+- Encounter result if required
+- Any relevant statistics
+
+Do not create duplicate user/account systems.
+
+Do not duplicate XP or currency storage.
+
+Use existing Zekhet infrastructure.
+
+==================================================
+14. VENTURE STATISTICS
+==================================================
+
+Store enough information to support future statistics.
+
+At minimum, track:
+
+- Total Ventures
+- Successful Ventures
+- Neutral Ventures
+- Highest Encounter Rarity
+
+Do not create a user-facing statistics command yet.
+
+These values will be used in later phases.
+
+==================================================
+15. PROGRESSION EVENTS
+==================================================
+
+Where appropriate, emit the existing progression/event hooks.
+
+At minimum, support:
+
+VENTURE_STARTED
+VENTURE_COMPLETED
+
+If the architecture from Phase 0 already supports encounter rarity events cleanly, also support:
+
+ENCOUNTER_FOUND
+RARE_ENCOUNTER_FOUND
+
+Do not create unnecessary event infrastructure.
+
+==================================================
+16. DEVELOPER SUPPORT
+==================================================
+
+Add minimal developer-only testing support if the existing developer architecture allows it.
+
+Developer should eventually be able to test:
+
+- Force a Common encounter
+- Force a Rare encounter
+- Force an Epic encounter
+- Force a Legendary encounter
+- Force a Mythic encounter
+- Reset a user's Venture cooldown
+
+Do not expose these controls to normal users.
+
+If implementing these controls would significantly increase complexity, prioritize the core /venture command instead.
+
+==================================================
+17. HELP INTEGRATION
+==================================================
+
+Add /venture to the appropriate existing help/command category.
+
+Keep the description simple:
+
+/venture — Undertake a journey into the unknown.
+
+Do not redesign the entire help system.
+
+==================================================
+18. PREFIX INTEGRATION
+==================================================
+
+Ensure:
+
+z!venture
+
+works identically to:
+
+/venture
+
+Use the existing configurable prefix system.
+
+Do not hard-code the prefix.
+
+==================================================
+19. PERFORMANCE
+==================================================
+
+Keep the system lightweight.
+
+Do not:
+
+- Call external APIs
+- Use AI generation
+- Start background processes
+- Perform unnecessary database scans
+- Recalculate the entire user's profile
+- Scan every achievement
+- Scan every Passport stamp
+
+A Venture should require only the minimum database operations necessary.
+
+==================================================
+20. IMPORTANT SCOPE LIMIT
+
+DO NOT IMPLEMENT:
+
+❌ Inventory integration
+❌ Lore integration
+❌ Curse integration
+❌ Contract integration
+❌ Achievement integration
+❌ Title integration
+❌ Passport integration
+❌ Bazaar
+❌ Multiplayer encounters
+❌ Secret encounters
+❌ World events
+❌ Large location system
+❌ Trading
+❌ Combat
+❌ Quest system
+
+Those belong to future phases.
+
+The purpose of Phase 1 is to create a stable core that future phases can connect to.
+
+==================================================
+21. TESTING
+==================================================
+
+Before completing the task, verify:
+
+1. /venture works.
+2. z!venture works.
+3. Cooldown works.
+4. Cooldown persists through restart.
+5. Encounters are randomized.
+6. Rarity probabilities work.
+7. XP rewards use existing XP.
+8. Deben rewards use existing currency.
+9. No duplicate rewards occur.
+10. Neutral encounters work.
+11. Rare encounters display correctly.
+12. Developer testing works if implemented.
+13. Existing commands still work.
+14. Existing profile/progression systems still work.
+15. Bot starts without errors.
+
+==================================================
+22. FINAL REPORT
+==================================================
+
+When finished, report:
+
+- Files changed
+- Files created
+- Database changes
+- Number of encounters created
+- Encounter rarities
+- Cooldown duration
+- Reward ranges
+- Existing systems reused
+- Developer tools added
+- Any issues encountered
+- Anything intentionally NOT implemented
+- Recommended next phase
+
+==================================================
+BETA-16 PHASE 1 SUCCESS CRITERIA
+==================================================
+
+The phase is successful if a new user can join the server, discover:
+
+/venture
+
+run it, receive an interesting result, receive a reasonable reward, and immediately understand:
+
+"I can do this again later."
+
+The system should feel like the beginning of a larger world.
+
+Do not attempt to build that entire world yet.
+
+Build the first doorway into it.
