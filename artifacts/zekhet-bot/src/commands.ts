@@ -843,6 +843,48 @@ function titlesEmbed(ownedTitles: OwnedTitle[]): EmbedBuilder {
     .setFooter({ text: "Use /title equip title:<id> to wear an owned title." });
 }
 
+const itemRarityColors: Record<Item["rarity"], number> = {
+  Common: 0xaaa7b8,
+  Uncommon: 0x65d18b,
+  Rare: 0x5e9cff,
+  Epic: 0xa873ff,
+  Legendary: 0xffc857,
+  Mythic: 0xff6bb5,
+};
+
+function inventoryEmbed(inventory: InventoryEntry[]): EmbedBuilder {
+  const itemText = inventory.length
+    ? inventory.map((entry) => `${entry.icon} **${entry.name}** × ${entry.quantity}\n\`${entry.id}\` · ${entry.rarity} · ${entry.category}`).join("\n\n")
+    : "_Your Record contains no items._";
+  return new EmbedBuilder()
+    .setColor(0x7e4bb8)
+    .setAuthor({ name: "🎒 THE INVENTORY 🎒" })
+    .setTitle("Personal Inventory")
+    .setDescription(inventory.length
+      ? "The keeper has arranged the items currently held by your Record."
+      : "The shelves are empty. No placeholder items have been added.")
+    .addFields({ name: `Owned Items · ${inventory.length}`, value: itemText })
+    .setFooter({ text: "Use /item inspect item:<id> to examine an item." });
+}
+
+function itemEmbed(item: Item, quantity: number): EmbedBuilder {
+  return new EmbedBuilder()
+    .setColor(itemRarityColors[item.rarity])
+    .setAuthor({ name: "🎒 THE INVENTORY 🎒" })
+    .setTitle(`${item.icon} ${item.name}`)
+    .setDescription(item.description)
+    .addFields(
+      { name: "Item ID", value: `\`${item.id}\``, inline: true },
+      { name: "Rarity", value: item.rarity, inline: true },
+      { name: "Category", value: item.category, inline: true },
+      { name: "Owned", value: String(quantity), inline: true },
+      { name: "Stacking", value: item.stackable ? `Up to ${item.maxStack}` : "Unique", inline: true },
+      { name: "Usable", value: item.usable ? "Yes" : "No", inline: true },
+      { name: "Tradable", value: item.tradable ? "Planned" : "No", inline: true },
+    )
+    .setFooter({ text: "Item effects are delegated to future reward systems." });
+}
+
 function loreEmbed(lore: DiscoveredLore, profile: Profile): EmbedBuilder {
   const discoveryLine = lore.rarity === "Secret"
     ? pick(dialogue.secretLore)
@@ -1117,6 +1159,23 @@ export async function handleCommand(interaction: ChatInputCommandInteraction): P
       return;
     }
     await interaction.reply({ ...developerPanel(), ephemeral: true });
+    return;
+  }
+
+  if (interaction.commandName === "inventory") {
+    getProfile(interaction.user.id, interaction.user.username, interaction.user.displayAvatarURL());
+    await interaction.reply({ embeds: [inventoryEmbed(getInventory(interaction.user.id))] });
+    return;
+  }
+
+  if (interaction.commandName === "item") {
+    const itemId = interaction.options.getString("item", true).trim().toLowerCase();
+    const item = getItem(itemId);
+    if (!item) {
+      await interaction.reply({ content: "The item catalog contains no record with that ID.", ephemeral: true });
+      return;
+    }
+    await interaction.reply({ embeds: [itemEmbed(item, getItemQuantity(interaction.user.id, item.id))] });
     return;
   }
 

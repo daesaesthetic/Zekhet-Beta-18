@@ -696,7 +696,7 @@ export function getInventory(userId: string): InventoryEntry[] {
     ORDER BY CASE i.rarity
       WHEN 'Mythic' THEN 1 WHEN 'Legendary' THEN 2 WHEN 'Epic' THEN 3
       WHEN 'Rare' THEN 4 WHEN 'Uncommon' THEN 5 ELSE 6 END, i.name
-  `).all().map((row) => {
+  `).all(userId).map((row) => {
     const record = row as Record<string, unknown>;
     return { ...mapItem(record), quantity: Number(record["quantity"]), acquiredAt: record["acquiredAt"] as string, updatedAt: record["updatedAt"] as string };
   });
