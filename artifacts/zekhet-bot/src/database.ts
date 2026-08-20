@@ -27,14 +27,22 @@ export type Profile = {
 
 export type PassportStatus = "Unrecorded" | "Recognized" | "Acquainted" | "Citizen" | "Courtier" | "Archivist" | "Keeper" | "Exalted";
 export type PassportStampRarity = "Common" | "Uncommon" | "Rare" | "Epic" | "Legendary" | "Mythic" | "Secret";
+export type PassportStampCategory = "Exploration" | "Titles" | "Lore" | "Curses" | "Contracts" | "Achievements" | "Tutorial" | "Progression" | "Inventory" | "Currency" | "Secret";
 export type PassportStamp = {
   id: string;
   name: string;
   description: string;
   rarity: PassportStampRarity;
   secret: boolean;
+  category: PassportStampCategory;
+  progressTarget?: number;
+  progressLabel?: string;
 };
 export type UnlockedPassportStamp = PassportStamp & { unlockedAt: string };
+export type PassportStampView = PassportStamp & {
+  unlocked: boolean;
+  unlockedAt?: string;
+};
 export type PassportRecords = {
   titles: number;
   totalTitles: number;
@@ -393,7 +401,10 @@ database.exec(`
     name TEXT NOT NULL UNIQUE,
     description TEXT NOT NULL,
     rarity TEXT NOT NULL CHECK (rarity IN ('Common', 'Uncommon', 'Rare', 'Epic', 'Legendary', 'Mythic', 'Secret')),
-    secret INTEGER NOT NULL DEFAULT 0 CHECK (secret IN (0, 1))
+    secret INTEGER NOT NULL DEFAULT 0 CHECK (secret IN (0, 1)),
+    category TEXT NOT NULL DEFAULT 'Exploration',
+    progress_target INTEGER,
+    progress_label TEXT
   );
   CREATE TABLE IF NOT EXISTS user_passport_stamps (
     discord_id TEXT NOT NULL REFERENCES users(discord_id) ON DELETE CASCADE,
@@ -406,6 +417,17 @@ database.exec(`
     status TEXT NOT NULL CHECK (status IN ('Unrecorded', 'Recognized', 'Acquainted', 'Citizen', 'Courtier', 'Archivist', 'Keeper', 'Exalted'))
   );
 `);
+
+const passportStampColumns = database.prepare("PRAGMA table_info(passport_stamps)").all() as Array<{ name: string }>;
+if (!passportStampColumns.some((column) => column.name === "category")) {
+  database.exec("ALTER TABLE passport_stamps ADD COLUMN category TEXT NOT NULL DEFAULT 'Exploration'");
+}
+if (!passportStampColumns.some((column) => column.name === "progress_target")) {
+  database.exec("ALTER TABLE passport_stamps ADD COLUMN progress_target INTEGER");
+}
+if (!passportStampColumns.some((column) => column.name === "progress_label")) {
+  database.exec("ALTER TABLE passport_stamps ADD COLUMN progress_label TEXT");
+}
 
 const contractTable = database.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'contracts'").get() as { sql?: string } | undefined;
 if (contractTable?.sql && !contractTable.sql.includes("'Dare'")) {
@@ -641,32 +663,65 @@ for (const achievement of initialAchievements) {
 }
 
 const initialPassportStamps: PassportStamp[] = [
-  { id: "first-record", name: "FIRST RECORD", description: "Create your first Zekhet profile.", rarity: "Common", secret: false },
-  { id: "first-title", name: "FIRST TITLE", description: "Obtain your first title beyond the starter designations.", rarity: "Common", secret: false },
-  { id: "first-discovery", name: "FIRST DISCOVERY", description: "Discover your first lore entry.", rarity: "Common", secret: false },
-  { id: "marked", name: "MARKED", description: "Receive your first harmless curse.", rarity: "Uncommon", secret: false },
-  { id: "oathbound", name: "OATHBOUND", description: "Complete your first contract.", rarity: "Uncommon", secret: false },
-  { id: "recognized", name: "RECOGNIZED", description: "Unlock your first achievement.", rarity: "Common", secret: false },
-  { id: "student", name: "STUDENT", description: "Complete the Zekhet tutorial.", rarity: "Rare", secret: false },
-  { id: "archivist", name: "ARCHIVIST", description: "Discover 25 lore entries.", rarity: "Epic", secret: false },
-  { id: "courtier", name: "COURTIER", description: "Collect 10 titles.", rarity: "Rare", secret: false },
-  { id: "oathkeeper", name: "OATHKEEPER", description: "Complete 3 contracts.", rarity: "Rare", secret: false },
-  { id: "many-marks", name: "MANY MARKS", description: "Receive 5 different curses.", rarity: "Epic", secret: false },
-  { id: "collector", name: "THE COLLECTOR", description: "Collect 20 titles.", rarity: "Epic", secret: false },
-  { id: "keeper", name: "KEEPER OF RECORDS", description: "Reach level 20.", rarity: "Legendary", secret: false },
-  { id: "archive-heart", name: "ARCHIVE HEART", description: "Discover 40 lore entries.", rarity: "Legendary", secret: false },
-  { id: "the-unrecorded", name: "THE UNRECORDED", description: "A record absent from every official page.", rarity: "Secret", secret: true },
-  { id: "forbidden", name: "FORBIDDEN", description: "Discover a secret lore entry.", rarity: "Secret", secret: true },
-  { id: "zekhet-remembers", name: "ZEKHET REMEMBERS", description: "Complete the tutorial and discover a secret lore entry.", rarity: "Mythic", secret: true },
-  { id: "exalted", name: "EXALTED", description: "Reach level 50 and unlock 10 achievements.", rarity: "Secret", secret: true },
+  { id: "first-record", name: "FIRST RECORD", description: "Create your first Zekhet profile.", rarity: "Common", secret: false, category: "Exploration" },
+  { id: "first-title", name: "FIRST TITLE", description: "Obtain your first title beyond the starter designations.", rarity: "Common", secret: false, category: "Titles", progressTarget: 4, progressLabel: "titles held" },
+  { id: "first-discovery", name: "FIRST DISCOVERY", description: "Discover your first lore entry.", rarity: "Common", secret: false, category: "Lore", progressTarget: 1, progressLabel: "lore entries" },
+  { id: "archive-explorer", name: "ARCHIVE EXPLORER", description: "Discover five lore entries and begin mapping the Archive.", rarity: "Uncommon", secret: false, category: "Exploration", progressTarget: 5, progressLabel: "lore entries" },
+  { id: "deep-archivist", name: "DEEP ARCHIVIST", description: "Discover 25 lore entries.", rarity: "Epic", secret: false, category: "Exploration", progressTarget: 25, progressLabel: "lore entries" },
+  { id: "beyond-index", name: "BEYOND THE INDEX", description: "Discover 40 lore entries and reach beyond the public catalogue.", rarity: "Legendary", secret: false, category: "Exploration", progressTarget: 40, progressLabel: "lore entries" },
+  { id: "marked", name: "MARKED", description: "Receive your first harmless curse.", rarity: "Uncommon", secret: false, category: "Curses", progressTarget: 1, progressLabel: "different curses" },
+  { id: "cursed-twice", name: "CURSED TWICE", description: "Carry two different marks in the history of your Record.", rarity: "Rare", secret: false, category: "Curses", progressTarget: 2, progressLabel: "different curses" },
+  { id: "many-marks", name: "MANY MARKS", description: "Receive five different curses.", rarity: "Epic", secret: false, category: "Curses", progressTarget: 5, progressLabel: "different curses" },
+  { id: "the-unfortunate", name: "THE UNFORTUNATE", description: "Receive eight different curses and remain recorded.", rarity: "Legendary", secret: false, category: "Curses", progressTarget: 8, progressLabel: "different curses" },
+  { id: "oathbound", name: "OATHBOUND", description: "Complete your first contract.", rarity: "Uncommon", secret: false, category: "Contracts", progressTarget: 1, progressLabel: "completed contracts" },
+  { id: "oathkeeper", name: "OATHKEEPER", description: "Complete three contracts.", rarity: "Rare", secret: false, category: "Contracts", progressTarget: 3, progressLabel: "completed contracts" },
+  { id: "ledger-keeper", name: "LEDGER KEEPER", description: "Complete five contracts without abandoning the Ledger.", rarity: "Epic", secret: false, category: "Contracts", progressTarget: 5, progressLabel: "completed contracts" },
+  { id: "deal-maker", name: "THE DEAL MAKER", description: "Complete ten contracts.", rarity: "Legendary", secret: false, category: "Contracts", progressTarget: 10, progressLabel: "completed contracts" },
+  { id: "recognized", name: "RECOGNIZED", description: "Unlock your first achievement.", rarity: "Common", secret: false, category: "Achievements", progressTarget: 1, progressLabel: "achievements" },
+  { id: "decorated", name: "DECORATED", description: "Unlock three achievements across the Archive.", rarity: "Uncommon", secret: false, category: "Achievements", progressTarget: 3, progressLabel: "achievements" },
+  { id: "accomplished", name: "ACCOMPLISHED", description: "Unlock five achievements.", rarity: "Rare", secret: false, category: "Achievements", progressTarget: 5, progressLabel: "achievements" },
+  { id: "distinguished-record", name: "THE DISTINGUISHED RECORD", description: "Unlock eight achievements and earn the Court's notice.", rarity: "Epic", secret: false, category: "Achievements", progressTarget: 8, progressLabel: "achievements" },
+  { id: "first-lesson", name: "FIRST LESSON", description: "Complete the first tutorial chapter.", rarity: "Common", secret: false, category: "Tutorial", progressTarget: 1, progressLabel: "tutorial chapters" },
+  { id: "student", name: "STUDENT", description: "Complete the Zekhet tutorial.", rarity: "Rare", secret: false, category: "Tutorial", progressTarget: 6, progressLabel: "tutorial chapters" },
+  { id: "scholar", name: "SCHOLAR", description: "Complete three tutorial chapters.", rarity: "Uncommon", secret: false, category: "Tutorial", progressTarget: 3, progressLabel: "tutorial chapters" },
+  { id: "archivist", name: "ARCHIVIST", description: "Discover 25 lore entries.", rarity: "Epic", secret: false, category: "Lore", progressTarget: 25, progressLabel: "lore entries" },
+  { id: "keeper-of-records", name: "KEEPER OF RECORDS", description: "Discover 40 lore entries.", rarity: "Legendary", secret: false, category: "Lore", progressTarget: 40, progressLabel: "lore entries" },
+  { id: "courtier", name: "COURTIER", description: "Collect ten titles.", rarity: "Rare", secret: false, category: "Titles", progressTarget: 10, progressLabel: "titles held" },
+  { id: "title-collector", name: "THE TITLE COLLECTOR", description: "Collect twenty titles.", rarity: "Epic", secret: false, category: "Titles", progressTarget: 20, progressLabel: "titles held" },
+  { id: "the-crowned", name: "THE CROWNED", description: "Collect thirty titles and stand above the ordinary record.", rarity: "Legendary", secret: false, category: "Titles", progressTarget: 30, progressLabel: "titles held" },
+  { id: "first-level", name: "FIRST LEVEL", description: "Reach level two.", rarity: "Common", secret: false, category: "Progression", progressTarget: 2, progressLabel: "level" },
+  { id: "rising", name: "RISING", description: "Reach level five.", rarity: "Uncommon", secret: false, category: "Progression", progressTarget: 5, progressLabel: "level" },
+  { id: "established", name: "ESTABLISHED", description: "Reach level ten.", rarity: "Rare", secret: false, category: "Progression", progressTarget: 10, progressLabel: "level" },
+  { id: "veteran", name: "VETERAN", description: "Reach level twenty.", rarity: "Epic", secret: false, category: "Progression", progressTarget: 20, progressLabel: "level" },
+  { id: "first-item", name: "FIRST ITEM", description: "Place your first item in the Inventory.", rarity: "Common", secret: false, category: "Inventory", progressTarget: 1, progressLabel: "items held" },
+  { id: "item-collector", name: "ITEM COLLECTOR", description: "Hold five different items.", rarity: "Uncommon", secret: false, category: "Inventory", progressTarget: 5, progressLabel: "different items" },
+  { id: "hoarder", name: "HOARDER", description: "Hold fifteen different items.", rarity: "Rare", secret: false, category: "Inventory", progressTarget: 15, progressLabel: "different items" },
+  { id: "curator", name: "CURATOR", description: "Hold ten different items from the Archive catalogue.", rarity: "Epic", secret: false, category: "Inventory", progressTarget: 10, progressLabel: "different items" },
+  { id: "first-deben", name: "FIRST DEBEN", description: "Receive your first Deben.", rarity: "Common", secret: false, category: "Currency", progressTarget: 101, progressLabel: "Deben held" },
+  { id: "prosperous", name: "PROSPEROUS", description: "Hold 1,000 Deben.", rarity: "Uncommon", secret: false, category: "Currency", progressTarget: 1000, progressLabel: "Deben held" },
+  { id: "wealthy", name: "WEALTHY", description: "Hold 5,000 Deben.", rarity: "Rare", secret: false, category: "Currency", progressTarget: 5000, progressLabel: "Deben held" },
+  { id: "treasurer", name: "TREASURER", description: "Hold 10,000 Deben.", rarity: "Legendary", secret: false, category: "Currency", progressTarget: 10000, progressLabel: "Deben held" },
+  { id: "the-unrecorded", name: "THE UNRECORDED", description: "A record absent from every official page.", rarity: "Secret", secret: true, category: "Secret" },
+  { id: "forbidden", name: "FORBIDDEN", description: "Discover a secret lore entry.", rarity: "Secret", secret: true, category: "Secret" },
+  { id: "zekhet-remembers", name: "ZEKHET REMEMBERS", description: "Complete the tutorial and discover a secret lore entry.", rarity: "Mythic", secret: true, category: "Secret" },
+  { id: "exalted", name: "EXALTED", description: "Reach level 50 and unlock 10 achievements.", rarity: "Secret", secret: true, category: "Secret" },
+  { id: "the-forbidden-page", name: "THE FORBIDDEN PAGE", description: "Own a title of rare standing while discovering a secret lore entry.", rarity: "Mythic", secret: true, category: "Secret" },
+  { id: "beyond-the-archive", name: "BEYOND THE ARCHIVE", description: "Complete five contracts after reaching level ten.", rarity: "Legendary", secret: true, category: "Secret" },
+  { id: "the-last-record", name: "THE LAST RECORD", description: "Complete the tutorial, hold ten titles, and discover twenty lore entries.", rarity: "Mythic", secret: true, category: "Secret" },
+  { id: "missing-name", name: "THE NAME THAT WAS MISSING", description: "Unlock achievements across three different categories.", rarity: "Legendary", secret: true, category: "Secret" },
+  { id: "crown-beneath-ashes", name: "THE CROWN BENEATH THE ASHES", description: "Hold a legendary title, a rare item, and a mark from a curse.", rarity: "Mythic", secret: true, category: "Secret" },
+  { id: "the-observer", name: "THE OBSERVER", description: "Reach level ten while holding no active curses.", rarity: "Legendary", secret: true, category: "Secret" },
+  { id: "woven-passport", name: "THE WOVEN PASSPORT", description: "Complete a contract after discovering lore and unlocking an achievement.", rarity: "Mythic", secret: true, category: "Secret" },
 ];
 for (const stamp of initialPassportStamps) {
   database.prepare(`
-    INSERT INTO passport_stamps (id, name, description, rarity, secret)
-    VALUES (?, ?, ?, ?, ?)
+    INSERT INTO passport_stamps (id, name, description, rarity, secret, category, progress_target, progress_label)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(id) DO UPDATE SET name = excluded.name, description = excluded.description,
-      rarity = excluded.rarity, secret = excluded.secret
-  `).run(stamp.id, stamp.name, stamp.description, stamp.rarity, stamp.secret ? 1 : 0);
+      rarity = excluded.rarity, secret = excluded.secret, category = excluded.category,
+      progress_target = excluded.progress_target, progress_label = excluded.progress_label
+  `).run(stamp.id, stamp.name, stamp.description, stamp.rarity, stamp.secret ? 1 : 0,
+    stamp.category, stamp.progressTarget ?? null, stamp.progressLabel ?? null);
 }
 
 const initialItems: Item[] = [
