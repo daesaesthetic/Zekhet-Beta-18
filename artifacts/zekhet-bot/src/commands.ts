@@ -49,6 +49,89 @@ import {
 } from "./database.js";
 
 const themes = ["Nightshade", "Celestial", "Eclipse", "Ancient", "Royal", "Void"] as const;
+const dialogue = {
+  profileView: [
+    "⛤ Zekhet retrieves your record from the archives.",
+    "⛤ Your record has been brought before you.",
+    "The archives have yielded your name.",
+    "Zekhet opens the appropriate ledger.",
+    "The record has been located.",
+  ],
+  profileEdit: [
+    "The Record has been amended.",
+    "The archives have accepted the revision.",
+    "Zekhet has made the requested note.",
+    "The ledger reflects your change.",
+  ],
+  titleEquip: [
+    "⛤ The title has been placed upon your Record.",
+    "Zekhet recognizes your new designation.",
+    "The Court has acknowledged your claim.",
+    "Your name now carries another distinction.",
+    "The archives have amended your Record.",
+  ],
+  loreDiscover: [
+    "⛤ Another page has revealed itself.",
+    "The Archives have surrendered another record.",
+    "An unfamiliar entry has surfaced.",
+    "Zekhet turns the page without comment.",
+  ],
+  rareLore: [
+    "⛤ The Archives have yielded something unusual.",
+    "This record was not meant to be found.",
+    "Zekhet pauses before revealing the entry.",
+  ],
+  secretLore: [
+    "⛤ CLASSIFIED ARCHIVE",
+    "...You were not supposed to find this.",
+    "The archive has no explanation for your access.",
+    "Zekhet closes the ledger rather quickly.",
+  ],
+  titleMissing: [
+    "That name is absent from the Court.",
+    "Zekhet finds no such title in the records.",
+    "The requested title does not exist in the archive.",
+  ],
+  titleLocked: [
+    "You do not possess that title. The Court has not released it.",
+    "That designation remains locked to your Record.",
+    "The Court recognizes the title, but not yet your claim to it.",
+  ],
+  contractMissing: [
+    "That agreement is absent from the Ledger.",
+    "The requested contract does not exist.",
+    "Zekhet finds no such entry among the agreements.",
+  ],
+  permissionDenied: [
+    "The Ledger does not recognize you as a party to that agreement.",
+    "Only the named parties may alter this record.",
+    "That page is not open to your name.",
+  ],
+  rareAside: [
+    "⛤ Zekhet stops writing.",
+    "The page turns by itself.",
+    "That was not in the archive a moment ago.",
+  ],
+} as const;
+
+function pick<T>(items: readonly T[]): T {
+  return items[Math.floor(Math.random() * items.length)];
+}
+
+function rareAside(): string {
+  return Math.random() < 0.01 ? `\n\n_${pick(dialogue.rareAside)}_` : "";
+}
+
+function profileContext(profile: Profile): string {
+  if (profile.activeCurses > 0) return "Zekhet notices the mark still resting upon your Record.";
+  if (profile.contractsCompleted > 0) return "The Ledger records your agreements as settled.";
+  if (profile.titlesOwned <= 0) return "The Court remains empty.";
+  if (profile.titlesOwned >= 10) return "The Court has become rather crowded.";
+  if (profile.loreDiscovered <= 1) return "The Archives contain surprisingly little about you.";
+  if (profile.loreDiscovered >= 10) return "The Archives are beginning to require additional shelves.";
+  return "The archives are becoming familiar with your name.";
+}
+
 const rarityColors: Record<Title["rarity"], number> = {
   Common: 0xaaa7b8,
   Uncommon: 0x65d18b,
@@ -357,7 +440,7 @@ function profileEmbed(profile: Profile, user: User): EmbedBuilder {
     .setAuthor({ name: "⛤ THE RECORD ⛤", iconURL: user.displayAvatarURL({ size: 128 }) })
     .setThumbnail(user.displayAvatarURL({ size: 256 }))
     .setTitle(`${profile.username}'s Record`)
-    .setDescription(profile.bio || "_No biography has been entered._")
+    .setDescription(`${pick(dialogue.profileView)}${rareAside()}\n\n${profile.bio || "_No biography has been entered._"}\n\n_${profileContext(profile)}_`)
     .addFields(
       { name: "Equipped title", value: profile.title, inline: true },
       { name: "Titles owned", value: String(profile.titlesOwned), inline: true },
@@ -381,7 +464,7 @@ function titleEmbed(title: Title, owned: boolean, equipped = false): EmbedBuilde
     .setColor(rarityColors[title.rarity])
     .setAuthor({ name: "👑 THE COURT 👑" })
     .setTitle(titleLabel(title, owned))
-    .setDescription(owned ? title.description : (title.isSecret ? "This title remains sealed." : title.description))
+    .setDescription(`${owned ? pick(dialogue.titleEquip) : title.isSecret ? "This title remains sealed." : "The Court permits you to inspect this designation."}\n\n${owned ? title.description : (title.isSecret ? "This title remains sealed." : title.description)}`)
     .addFields(
       { name: "Title ID", value: `\`${title.id}\``, inline: true },
       { name: "Rarity", value: title.rarity, inline: true },
@@ -404,7 +487,7 @@ function titlesEmbed(ownedTitles: OwnedTitle[]): EmbedBuilder {
     .setColor(0x7e4bb8)
     .setAuthor({ name: "👑 THE COURT 👑" })
     .setTitle("Titles")
-    .setDescription("A title may be owned many times across the Court, but only one may be worn upon a Record.")
+    .setDescription(`${ownedTitles.length === 0 ? "The Court remains empty." : ownedTitles.length >= 10 ? "The Court has become rather crowded." : "The Court has yielded its current designations."}\n\nA title may be owned many times across the Court, but only one may be worn upon a Record.`)
     .addFields(
       { name: `Owned · ${ownedTitles.length}`, value: ownedText },
       { name: "The sealed court", value: lockedText || "_No sealed titles remain._" },
@@ -413,11 +496,16 @@ function titlesEmbed(ownedTitles: OwnedTitle[]): EmbedBuilder {
 }
 
 function loreEmbed(lore: DiscoveredLore, profile: Profile): EmbedBuilder {
+  const discoveryLine = lore.rarity === "Secret"
+    ? pick(dialogue.secretLore)
+    : lore.rarity === "Legendary"
+      ? pick(dialogue.rareLore)
+      : pick(dialogue.loreDiscover);
   return new EmbedBuilder()
     .setColor(loreRarityColors[lore.rarity])
     .setAuthor({ name: "📜 THE ARCHIVES 📜" })
     .setTitle(`⛤ ARCHIVE ENTRY #${lore.entryNumber} ⛤`)
-    .setDescription(`**${profile.username.toUpperCase()}** — **${profile.title.toUpperCase()}**\n\n${lore.text}`)
+    .setDescription(`${discoveryLine}${rareAside()}\n\n**${profile.username.toUpperCase()}** — **${profile.title.toUpperCase()}**\n\n${lore.text}`)
     .addFields(
       { name: "Rarity", value: lore.rarity, inline: true },
       { name: "Discoveries", value: String(profile.loreDiscovered), inline: true },
@@ -430,7 +518,7 @@ function classifiedLoreEmbed(entry: LoreEntry): EmbedBuilder {
     .setColor(loreRarityColors.Secret)
     .setAuthor({ name: "📜 THE ARCHIVES 📜" })
     .setTitle("🔒 CLASSIFIED ARCHIVE")
-    .setDescription("Some portions of this record have been sealed.")
+    .setDescription(`${pick(dialogue.secretLore)}\n\nSome portions of this record have been sealed.`)
     .addFields(
       { name: "Entry", value: `#${entry.entryNumber}`, inline: true },
       { name: "Rarity", value: entry.rarity, inline: true },

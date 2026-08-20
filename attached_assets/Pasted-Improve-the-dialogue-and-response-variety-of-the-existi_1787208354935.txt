@@ -1,0 +1,236 @@
+Improve the dialogue and response variety of the existing ⛤ Zekhet ⛤ Discord bot.
+
+IMPORTANT:
+Do NOT change the bot's functionality or database architecture.
+
+This task is focused entirely on making Zekhet feel less repetitive and more like a consistent character.
+
+==================================================
+ZEKHET'S PERSONALITY
+==================================================
+
+Zekhet should feel like:
+
+- A mysterious personal attendant
+- Keeper of ancient records
+- Knowledgeable advisor
+- Calm and sophisticated
+- Slightly intimidating
+- Occasionally cryptic
+- Occasionally playful
+- Occasionally dryly humorous
+
+Avoid excessive fantasy language.
+
+Zekhet should sound intelligent and intentional rather than constantly saying dramatic things.
+
+==================================================
+RESPONSE POOLS
+==================================================
+
+Create reusable response pools for common interactions.
+
+Add multiple variations for:
+
+- Viewing a profile
+- Editing a profile
+- Equipping a title
+- Inspecting a title
+- Viewing titles
+- Unlocking a title
+- Discovering lore
+- Inspecting lore
+- Discovering rare lore
+- Discovering secret lore
+- Applying a curse
+- Inspecting a curse
+- Curse expiration
+- Creating a contract
+- Accepting a contract
+- Rejecting a contract
+- Completing a contract
+- Cancelling a contract
+- Cooldowns
+- Invalid commands/actions
+- Missing records
+- Permission errors
+
+Use randomized wording where appropriate.
+
+Do NOT randomize important data such as:
+- IDs
+- Usernames
+- Statuses
+- Durations
+- Rarity
+- Database values
+
+==================================================
+EXAMPLES
+==================================================
+
+Instead of always:
+
+"Title equipped."
+
+Use variations such as:
+
+"⛤ The title has been placed upon your record."
+
+"Zekhet recognizes your new designation."
+
+"The Court has acknowledged your claim."
+
+"Your name now carries another distinction."
+
+"The archives have amended your record."
+
+For profile viewing:
+
+"⛤ Zekhet retrieves your record from the archives."
+
+"⛤ Your record has been brought before you."
+
+"The archives have yielded your name."
+
+"Zekhet opens the appropriate ledger."
+
+"The record has been located."
+
+For lore:
+
+"⛤ Another page has revealed itself."
+
+"The Archives have surrendered another secret."
+
+"Zekhet appears reluctant to show you this entry."
+
+"An unfamiliar record has surfaced."
+
+For rare discoveries:
+
+"⛤ The Archives have yielded something unusual."
+
+"This record was not meant to be found."
+
+"Zekhet pauses before revealing the entry."
+
+For secret discoveries:
+
+"⛤ CLASSIFIED ARCHIVE"
+
+"...You were not supposed to find this."
+
+"The archive has no explanation for your access."
+
+"Zekhet closes the ledger rather quickly."
+
+Use these only occasionally so they remain special.
+
+==================================================
+CONTEXT-AWARE RESPONSES
+==================================================
+
+Where practical, allow responses to reference existing user data.
+
+Examples:
+
+A user with no titles:
+
+"The Court remains empty."
+
+A user with many titles:
+
+"The Court has become rather crowded."
+
+A user with very little lore:
+
+"The Archives contain surprisingly little about you."
+
+A user with many discoveries:
+
+"The Archives are beginning to require additional shelves."
+
+A user with an active curse:
+
+"Zekhet notices the mark still resting upon your record."
+
+A user with completed contracts:
+
+"The Ledger records your agreements as settled."
+
+A frequent user:
+
+"The archives are becoming familiar with your name."
+
+Keep contextual comments short.
+
+==================================================
+ERRORS AND COOLDOWNS
+==================================================
+
+Replace generic wording with Zekhet-themed alternatives where appropriate.
+
+Cooldown examples:
+
+"⛤ The archives require a moment before another request."
+
+"Zekhet closes the ledger. Try again shortly."
+
+"The ritual has not yet recovered."
+
+"Even Zekhet permits the records to rest."
+
+Error examples:
+
+"The requested record does not exist."
+
+"That name is absent from the archive."
+
+"Zekhet finds no such entry."
+
+"You do not possess that title."
+
+"The Ledger does not recognize you as a party to this agreement."
+
+The wording should remain clear so users understand what went wrong.
+
+==================================================
+RARE EVENTS
+==================================================
+
+Add a small number of extremely uncommon response variations.
+
+Examples:
+
+"⛤ Zekhet stops writing."
+
+"..."
+
+"The record has been amended."
+
+"That was not in the archive a moment ago."
+
+"The page turns by itself."
+
+These should be rare and must not interfere with command functionality.
+
+==================================================
+IMPORTANT
+==================================================
+
+Do not make every response dramatic.
+
+Do not add AI.
+
+Do not add external APIs.
+
+Do not rewrite existing systems.
+
+Prefer reusable response arrays/helper functions instead of duplicating large amounts of code.
+
+Keep the bot lightweight.
+
+The goal is to make Zekhet feel more alive without making the bot unnecessarily complicated.
+
+Verify all existing commands still function after the changes.
