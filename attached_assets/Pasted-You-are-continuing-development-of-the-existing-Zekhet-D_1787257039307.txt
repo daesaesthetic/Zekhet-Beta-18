@@ -1,0 +1,793 @@
+You are continuing development of the existing ⛤ Zekhet ⛤ Discord bot.
+
+CURRENT VERSION:
+Zekhet-Beta-16
+
+Beta-16 successfully implemented the core /venture gameplay system.
+
+The next major update is:
+
+⛤ ZEKHET-BETA-17 ⛤
+THE INVENTORY & RELIC SYSTEM
+
+==================================================
+CORE OBJECTIVE
+==================================================
+
+Beta-16 established:
+
+/venture
+↓
+Encounter
+↓
+XP / Deben / Outcome
+
+Beta-17 should establish the next part of the gameplay loop:
+
+/venture
+↓
+Encounter
+↓
+ITEM DISCOVERED
+↓
+/inventory
+↓
+Potential future /use system
+
+The purpose of Beta-17 is to make items a meaningful part of Zekhet's gameplay.
+
+IMPORTANT:
+
+Do not rebuild the existing Venture system.
+
+Do not replace the existing Inventory system if one already exists.
+
+Do not create a second currency system.
+
+Do not create a second XP system.
+
+Reuse existing infrastructure wherever possible.
+
+==================================================
+1. ITEM DISCOVERY
+==================================================
+
+Connect the existing /venture system to the existing inventory system.
+
+Some Venture encounters should be capable of awarding items.
+
+Not every Venture should give an item.
+
+Items should feel like discoveries rather than guaranteed rewards.
+
+Example:
+
+⛤ VENTURE COMPLETE ⛤
+
+You uncover a small stone container beneath the ruins.
+
+Inside:
+
+🏺 ANCIENT SCARAB
+
+Rarity: Uncommon
+
+The artifact has been added to your inventory.
+
+𓏏 +24 Deben
+⭐ +16 XP
+
+==================================================
+2. INITIAL ITEM POOL
+==================================================
+
+Create approximately 15–20 initial items.
+
+Keep the initial item pool intentionally small.
+
+Items should be distributed across:
+
+COMMON
+UNCOMMON
+RARE
+EPIC
+LEGENDARY
+
+Do not implement MYTHIC or SECRET items yet unless the existing architecture makes them trivial to support.
+
+The items should fit Zekhet's world.
+
+Possible concepts:
+
+- Ancient Coin
+- Desert Compass
+- Sealed Papyrus
+- Broken Royal Seal
+- Ancient Scarab
+- Obsidian Charm
+- Explorer's Flask
+- Merchant's Token
+- Sand-Worn Key
+- Forgotten Amulet
+- Temple Fragment
+- Golden Eye
+- Royal Decree
+- Mysterious Relic
+- Ancient Map
+- Glass Tablet
+- Keeper's Seal
+- Unidentified Artifact
+
+These are concepts only.
+
+Create original names and descriptions.
+
+==================================================
+3. ITEM DATA STRUCTURE
+==================================================
+
+Every item should support, where appropriate:
+
+- Unique ID
+- Name
+- Description
+- Rarity
+- Item type
+- Sell value if applicable
+- Consumable flag
+- Usable flag
+- Effect type if applicable
+- Effect magnitude if applicable
+- Effect duration if applicable
+- Stackable flag
+- Maximum stack if applicable
+- Discovery source
+- Hidden/secret flag if supported later
+
+Do not create unnecessary fields.
+
+Use the simplest architecture that supports future expansion.
+
+==================================================
+4. ITEM TYPES
+==================================================
+
+Prepare support for these categories:
+
+MATERIAL
+CURIOSITY
+RELIC
+CONSUMABLE
+CHARM
+QUEST ITEM
+
+Do not implement complicated mechanics for every category yet.
+
+For Beta-17:
+
+MATERIAL:
+Can exist as collectible items.
+
+CURIOSITY:
+Primarily collectible / informational.
+
+RELIC:
+Rare collectible objects.
+
+CONSUMABLE:
+Designed to eventually support /use.
+
+CHARM:
+Designed to eventually support temporary effects.
+
+QUEST ITEM:
+Reserved for future Contracts and discoveries.
+
+==================================================
+5. INVENTORY INTEGRATION
+==================================================
+
+Use the existing Inventory system.
+
+Make sure Venture rewards correctly add items to the user's existing inventory.
+
+Respect existing inventory behavior such as:
+
+- Stacking
+- Quantity
+- Persistence
+- Item display
+- Existing inventory limits, if any
+
+Do not create a second inventory.
+
+Do not duplicate item storage.
+
+If the current Inventory implementation does not support an attribute required for this update, modify it minimally.
+
+==================================================
+6. /INVENTORY IMPROVEMENT
+==================================================
+
+Review the existing /inventory command.
+
+Ensure discovered items can be clearly viewed.
+
+Where appropriate, display:
+
+⛤ INVENTORY ⛤
+
+🏺 Ancient Scarab ×2
+📜 Sealed Papyrus ×1
+🧿 Obsidian Charm ×1
+
+Use pagination if necessary.
+
+Do not create an enormous embed.
+
+If the existing inventory already supports item inspection, preserve it.
+
+If not, prepare the architecture for:
+
+/inventory
+/inventory item:<item>
+
+or the closest existing command structure.
+
+Do not add unnecessary commands.
+
+==================================================
+7. ITEM INSPECTION
+==================================================
+
+Allow users to inspect an item if the existing command architecture supports it.
+
+An item inspection should show:
+
+Name
+Rarity
+Type
+Description
+Quantity
+
+Example:
+
+⛤ ANCIENT SCARAB ⛤
+
+Rarity:
+UNCOMMON
+
+Type:
+RELIC
+
+Quantity:
+2
+
+"A small scarab carved from dark stone.
+Its surface is unusually warm."
+
+Do not reveal hidden effects that have not been discovered yet.
+
+==================================================
+8. ITEM RARITY
+==================================================
+
+Rarity should matter.
+
+Use:
+
+COMMON
+UNCOMMON
+RARE
+EPIC
+LEGENDARY
+
+Rarity can influence:
+
+- Venture drop probability
+- Item value
+- Future effect strength
+- Prestige
+- Future Passport integration
+
+Do not make rarity solely cosmetic.
+
+==================================================
+9. ITEM DROP BALANCING
+==================================================
+
+Do not make items too common.
+
+Venture should remain primarily an exploration mechanic.
+
+Some encounters:
+
+Give Deben.
+
+Some:
+
+Give XP.
+
+Some:
+
+Give an item.
+
+Some:
+
+Give multiple rewards.
+
+Some:
+
+Give nothing.
+
+Avoid turning every Venture into:
+
+"Here is another item."
+
+Items should feel like discoveries.
+
+==================================================
+10. ITEM DUPLICATES
+==================================================
+
+Support duplicate items correctly.
+
+If a user already owns an item:
+
+Ancient Scarab ×1
+
+and discovers another:
+
+Ancient Scarab
+
+the inventory should become:
+
+Ancient Scarab ×2
+
+Do not create duplicate database records for the same user/item combination unless the existing architecture specifically requires it.
+
+==================================================
+11. ITEM VALUE
+==================================================
+
+Prepare optional sell values for future use.
+
+For example:
+
+Common:
+10–30 Deben
+
+Uncommon:
+30–75 Deben
+
+Rare:
+75–200 Deben
+
+Epic:
+200–500 Deben
+
+Legendary:
+500+ Deben
+
+These values should NOT automatically create a sell command.
+
+They are preparation for the future Bazaar/economy system.
+
+Do not add /sell yet.
+
+==================================================
+12. CONSUMABLE PREPARATION
+==================================================
+
+Beta-17 should prepare the architecture for usable items.
+
+Do NOT implement the full /use command yet.
+
+However, consumable items should be identifiable as:
+
+usable = true
+
+and should be able to eventually contain:
+
+effect type
+effect magnitude
+effect duration
+
+Do not create the Effect Manager yet unless a minimal version is already required by the architecture.
+
+==================================================
+13. FUTURE EFFECT TYPES
+==================================================
+
+Design the item architecture so future temporary effects can support concepts such as:
+
+LUCK_BOOST
+DEBEN_BOOST
+XP_BOOST
+COOLDOWN_REDUCTION
+RARE_ENCOUNTER_BOOST
+ITEM_FIND_BOOST
+
+Do NOT activate these effects yet.
+
+Do not hard-code the effects into Venture.
+
+Beta-18 or a future phase will implement the actual /use system.
+
+==================================================
+14. FUTURE /USE COMMAND
+==================================================
+
+Reserve the following command structure:
+
+/use item:<item>
+
+Do not implement the complete command yet.
+
+The future system should eventually allow:
+
+/use item:Lucky Scarab
+
+→ consume the item
+→ activate temporary effect
+→ display effect
+→ display duration
+→ modify applicable systems
+
+Example future response:
+
+⛤ ITEM USED ⛤
+
+🪲 Lucky Scarab
+
+Your fortune has been altered.
+
+🍀 Luck +100%
+
+Duration:
+2 hours
+
+This behavior belongs to the future Usable Items phase.
+
+==================================================
+15. FUTURE ACTIVE EFFECTS
+==================================================
+
+Do not fully implement active effects yet.
+
+However, avoid architecture that would prevent future support for:
+
+/effects
+
+Example future display:
+
+⛤ ACTIVE EFFECTS ⛤
+
+🍀 Lucky
++100% Luck
+1h 42m remaining
+
+💰 Prosperity
++25% Deben
+2h 11m remaining
+
+Do not implement /effects unless it is trivial and useful for testing.
+
+==================================================
+16. ITEM DISCOVERY STATISTICS
+==================================================
+
+Store enough information to support future progression.
+
+Where practical, track:
+
+- Items discovered
+- Unique items discovered
+- Rare items discovered
+- Highest item rarity discovered
+
+Do not create a public statistics command yet.
+
+These statistics will later connect to:
+
+Achievements
+Titles
+Passport
+Lore
+
+==================================================
+17. PROGRESSION INTEGRATION
+==================================================
+
+Where the existing progression architecture supports it, emit a lightweight event when an item is discovered.
+
+Potential event:
+
+ITEM_DISCOVERED
+
+Optional:
+
+RARE_ITEM_DISCOVERED
+
+Do not create unnecessary event infrastructure.
+
+Future systems will be able to listen to these events.
+
+==================================================
+18. VENTURE INTEGRATION
+==================================================
+
+Modify Venture minimally.
+
+Do not rewrite encounter selection.
+
+Instead, allow existing encounters to specify item rewards.
+
+For example:
+
+Encounter:
+"Buried Merchant Chest"
+
+Outcome:
+- Deben
+- XP
+- Ancient Coin
+
+Another:
+
+Encounter:
+"Silent Shrine"
+
+Outcome:
+- Obsidian Charm
+
+Another:
+
+Encounter:
+"Empty Courtyard"
+
+Outcome:
+- Nothing
+
+The encounter system should remain data-driven.
+
+==================================================
+19. FUTURE CONTRACT COMPATIBILITY
+==================================================
+
+Some items will eventually become requirements for Contracts.
+
+For example:
+
+Contract:
+"Recover the Royal Seal"
+
+Requirement:
+Royal Seal ×1
+
+Reward:
+Deben
+XP
+Title
+
+Do NOT implement item requirements for Contracts yet.
+
+Simply ensure item IDs are stable and can be referenced by future systems.
+
+==================================================
+20. FUTURE LORE COMPATIBILITY
+==================================================
+
+Items should eventually be able to connect to Lore.
+
+For example:
+
+Discover:
+Broken Royal Seal
+
+Later:
+
+Discover:
+Lore Entry — The Fallen Dynasty
+
+Later:
+
+Trigger:
+Secret Encounter
+
+Do not implement these chains yet.
+
+Simply preserve stable item identifiers.
+
+==================================================
+21. FUTURE PASSPORT COMPATIBILITY
+==================================================
+
+Future Passport stamps may include:
+
+"Discover your first relic."
+
+"Discover 10 unique items."
+
+"Discover a Legendary item."
+
+"Collect every relic."
+
+Do not implement Passport integration yet.
+
+Ensure item discovery events can eventually be consumed by the Passport system.
+
+==================================================
+22. DEVELOPER TOOLS
+==================================================
+
+Add minimal developer testing tools if compatible with the existing /developer architecture.
+
+Developer should be able to:
+
+- Grant item
+- Remove item
+- Set item quantity
+- Clear inventory
+- Force item drop from Venture
+
+These tools must remain developer-only.
+
+Do not expose them to normal users.
+
+==================================================
+23. DATABASE SAFETY
+==================================================
+
+Inspect the existing Beta-16 database before changing anything.
+
+Do not duplicate:
+
+- Users
+- Inventory
+- Items
+- Currency
+- XP
+- Rewards
+
+Preserve all existing data.
+
+Existing users must retain:
+
+- Inventory
+- Deben
+- XP
+- Venture statistics
+- Titles
+- Lore
+- Passport
+- Achievements
+- Other existing progression
+
+==================================================
+24. PERFORMANCE
+==================================================
+
+Keep the system lightweight.
+
+Do not:
+
+- Call external APIs
+- Use AI generation
+- Create background processes
+- Scan every item after every Venture
+- Scan every Passport stamp
+- Scan every achievement
+- Recalculate the entire user profile
+
+Only process the item reward associated with the Venture outcome.
+
+==================================================
+25. TESTING
+==================================================
+
+Before completing Beta-17, test:
+
+1. /venture still works.
+2. z!venture still works.
+3. Venture cooldown still works.
+4. Venture can award items.
+5. Items persist after restart.
+6. Duplicate items stack correctly.
+7. Inventory displays quantities correctly.
+8. Item rarity displays correctly.
+9. Item inspection works if implemented.
+10. Existing Deben rewards still work.
+11. Existing XP rewards still work.
+12. No duplicate inventory records are created.
+13. Developer item tools work if implemented.
+14. Existing commands remain functional.
+15. Existing Passport remains functional.
+16. Existing titles remain functional.
+17. Existing lore remains functional.
+18. Existing contracts remain functional.
+19. Bot starts without errors.
+
+==================================================
+26. IMPORTANT SCOPE LIMIT
+==================================================
+
+DO NOT IMPLEMENT:
+
+❌ /use
+❌ Active effects
+❌ /effects
+❌ /sell
+❌ Bazaar
+❌ Trading
+❌ Crafting
+❌ Item quests
+❌ Item-based contracts
+❌ Secret items
+❌ Item lore chains
+❌ Passport item stamps
+❌ Multiplayer item systems
+
+Those will be future phases.
+
+Beta-17 is specifically:
+
+VENTURE → INVENTORY
+
+==================================================
+27. FINAL REPORT
+==================================================
+
+When finished, report:
+
+- Files changed
+- Files created
+- Database changes
+- Number of items created
+- Item categories
+- Item rarities
+- Venture encounters modified
+- Existing systems reused
+- Developer tools added
+- Any issues discovered
+- Anything intentionally NOT implemented
+- Recommended next phase
+
+==================================================
+BETA-17 SUCCESS CRITERIA
+==================================================
+
+Beta-17 is successful when:
+
+A user can run:
+
+/venture
+
+discover an item,
+
+open:
+
+/inventory
+
+and clearly understand:
+
+"I found something during my adventure."
+
+The item should feel like a meaningful part of Zekhet rather than a random database entry.
+
+The architecture must also make it possible for a future phase to implement:
+
+/use item:<item>
+
+with temporary effects such as:
+
+Luck Boost
+Deben Boost
+XP Boost
+Cooldown Reduction
+Rare Encounter Chance
+Item Discovery Chance
+
+without needing to rebuild the Inventory or Venture systems.
+
+Keep the implementation focused, stable, and credit-efficient.
