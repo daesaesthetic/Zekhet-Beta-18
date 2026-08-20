@@ -11,7 +11,7 @@ Zekhet is a lightweight Discord.js bot that keeps persistent personal profiles a
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
 - Required bot env: `DISCORD_TOKEN`, `DISCORD_CLIENT_ID`
-- Optional bot env: `ZEKHET_CREATOR`, `ZEKHET_DATABASE_PATH`
+- Optional bot env: `DEVELOPER_ID`, `ZEKHET_CREATOR`, `ZEKHET_DATABASE_PATH`
 
 ## Stack
 
@@ -25,7 +25,7 @@ Zekhet is a lightweight Discord.js bot that keeps persistent personal profiles a
 ## Where things live
 
 - `artifacts/zekhet-bot/src/commands.ts` — slash-command definitions and embed responses
-- `artifacts/zekhet-bot/src/database.ts` — SQLite schema and profile persistence
+- `artifacts/zekhet-bot/src/database.ts` — SQLite schema, profile persistence, Deben ledger, item catalog, and inventory persistence
 - `artifacts/zekhet-bot/src/config.ts` — environment-backed configuration
 
 ## Architecture decisions
@@ -36,16 +36,20 @@ Zekhet is a lightweight Discord.js bot that keeps persistent personal profiles a
 
 ## Product
 
-The MVP includes `/help`, `/credits`, and a persistent Record profile with bio, theme, accent color, avatar, creation date, profile number, and a placeholder title.
+The MVP includes `/help`, `/credits`, `/balance`, and a persistent Record profile with bio, theme, accent color, avatar, creation date, profile number, and a placeholder title.
+
+Beta 10 adds a persistent Deben balance with transaction history and idempotency protection, plus 15 Egyptian-inspired artifacts in the existing item catalog.
 
 ## User preferences
 
-The requested scope is intentionally limited to the current MVP; future systems such as titles, lore, economy, leveling, and achievements are not included.
+The current scope includes titles, lore, achievements, tutorials, contracts, curses, the item/inventory foundation, and the Deben economy foundation. Shops, trading, marketplaces, XP, and levels remain intentionally unimplemented.
 
 ## Gotchas
 
 - Discord credentials must be configured before starting the bot.
+- `DEVELOPER_ID` restricts the `/developer` control panel to one Discord user; it is optional for normal bot operation.
 - The SQLite database directory is created automatically from `ZEKHET_DATABASE_PATH`.
+- Node.js 24 is required because the bot uses the built-in `node:sqlite` module.
 
 ## Pointers
 
