@@ -1,4 +1,5 @@
 import type { Rewards } from "./rewards.js";
+import { getItems, type Item } from "./database.js";
 
 export type VentureRarity = "COMMON" | "UNCOMMON" | "RARE" | "EPIC" | "LEGENDARY" | "MYTHIC";
 
@@ -193,20 +194,39 @@ function pick<T>(values: readonly T[]): T {
   return values[Math.floor(Math.random() * values.length)];
 }
 
-function rollRarity(): VentureRarity {
-  const roll = Math.random() * 100;
+function rollRarity(rareEncounterBoost = 0): VentureRarity {
+  const controlledBoost = Math.min(1, Math.max(0, rareEncounterBoost / 100));
+  const weights = rarityWeights.map(({ rarity, weight }) => ({
+    rarity,
+    weight: rarity === "RARE" || rarity === "EPIC" || rarity === "LEGENDARY" || rarity === "MYTHIC"
+      ? weight * (1 + controlledBoost * 0.75)
+      : weight,
+  }));
+  const totalWeight = weights.reduce((total, entry) => total + entry.weight, 0);
+  const roll = Math.random() * totalWeight;
   let cursor = 0;
-  for (const entry of rarityWeights) {
+  for (const entry of weights) {
     cursor += entry.weight;
     if (roll < cursor) return entry.rarity;
   }
   return "COMMON";
 }
 
-export function chooseVentureEncounter(forcedRarity?: VentureRarity): VentureEncounter {
-  const rarity = forcedRarity ?? rollRarity();
+export function chooseVentureEncounter(forcedRarity?: VentureRarity, rareEncounterBoost = 0): VentureEncounter {
+  const rarity = forcedRarity ?? rollRarity(rareEncounterBoost);
   const available = ventureEncounters.filter((encounter) => encounter.rarity === rarity);
   return pick(available.length ? available : ventureEncounters);
+}
+
+export function chooseVentureItem(): Item | undefined {
+  const available = getItems().filter((item) => item.rarity !== "Mythic" && item.metadata?.secret !== true);
+  return available.length ? pick(available) : undefined;
+}
+
+export function shouldDiscoverItem(itemFindBoost = 0): boolean {
+  const baseChance = 0.12;
+  const boostedChance = baseChance * (1 + Math.min(1, Math.max(0, itemFindBoost / 100)));
+  return Math.random() < Math.min(0.35, boostedChance);
 }
 
 export function renderVentureDescription(encounter: VentureEncounter): string {

@@ -60,9 +60,15 @@ import {
   getProgression,
   getInventory,
   getItem,
+  getItems,
   getItemQuantity,
   setItemQuantity,
   clearInventory,
+  activateItemEffect,
+  getActiveEffects,
+  clearActiveEffects,
+  forceItemEffect,
+  getActiveEffectMagnitude,
   getCurrencyBalance,
   beginVenture,
   completeVenture,
@@ -90,12 +96,13 @@ import {
   type UnlockedAchievement,
   type Item,
   type InventoryEntry,
+  type ActiveEffect,
   type Passport,
   type UnlockedPassportStamp,
   type PassportStampView,
 } from "./database.js";
 import { achievementRewards, formatRewards, grantAchievementReward, grantRewards, progressionSummary, type Rewards } from "./rewards.js";
-import { chooseVentureEncounter, rarityLabel, renderVentureDescription, type VentureRarity } from "./venture.js";
+import { chooseVentureEncounter, chooseVentureItem, rarityLabel, renderVentureDescription, shouldDiscoverItem, type VentureRarity } from "./venture.js";
 
 const themes = ["Nightshade", "Celestial", "Eclipse", "Ancient", "Royal", "Void"] as const;
 const dialogue = {
@@ -461,6 +468,15 @@ const itemCommand = new SlashCommandBuilder()
   .addSubcommand((sub) => sub.setName("inspect").setDescription("Inspect an item.")
     .addStringOption((option) => option.setName("item").setDescription("The item ID to inspect.").setRequired(true)));
 
+const useCommand = new SlashCommandBuilder()
+  .setName("use")
+  .setDescription("Activate a usable item and record its temporary effect.")
+  .addStringOption((option) => option.setName("item").setDescription("The item ID or name to use.").setRequired(true));
+
+const effectsCommand = new SlashCommandBuilder()
+  .setName("effects")
+  .setDescription("View the temporary effects active on your Record.");
+
 const balanceCommand = new SlashCommandBuilder()
   .setName("balance")
   .setDescription("View the Deben held by your Record.");
@@ -485,6 +501,8 @@ export const commands = [
   ventureCommand,
   passportCommand,
   itemCommand,
+  useCommand,
+  effectsCommand,
   profileCommand,
   new SlashCommandBuilder().setName("titles").setDescription("View your owned titles and the Court."),
   titleCommand,
@@ -1258,7 +1276,9 @@ const ventureColors: Record<VentureRarity, number> = {
 function ventureReply(
   user: { id: string; username: string; avatarUrl: string | null },
 ): { content: string; embeds?: EmbedBuilder[] } {
-  const cooldownSeconds = Math.max(1, Number.isFinite(config.ventureCooldownSeconds) ? config.ventureCooldownSeconds : 900);
+  const baseCooldownSeconds = Math.max(1, Number.isFinite(config.ventureCooldownSeconds) ? config.ventureCooldownSeconds : 900);
+  const cooldownReduction = getActiveEffectMagnitude(user.id, "COOLDOWN_REDUCTION");
+  const cooldownSeconds = Math.max(60, Math.round(baseCooldownSeconds * (1 - Math.min(75, cooldownReduction) / 100)));
   const started = beginVenture(user.id, user.username, user.avatarUrl, cooldownSeconds);
   if (!started.ok) {
     return {
@@ -1270,12 +1290,27 @@ function ventureReply(
   developerVentureForces.delete(user.id);
   const forcedItemId = developerItemForces.get(user.id);
   developerItemForces.delete(user.id);
-  const encounter = chooseVentureEncounter(forcedRarity);
+  const luckBoost = getActiveEffectMagnitude(user.id, "LUCK_BOOST");
+  const rareEncounterBoost = getActiveEffectMagnitude(user.id, "RARE_ENCOUNTER_BOOST");
+  const itemFindBoost = getActiveEffectMagnitude(user.id, "ITEM_FIND_BOOST");
+  const encounter = chooseVentureEncounter(forcedRarity, luckBoost + rareEncounterBoost);
   const startedProgression = processProgressionEvent(user.id, user.username, user.avatarUrl, "VENTURE_STARTED");
   let rewardNotice = "No material reward was recorded.";
-  const rewards: Rewards | undefined = forcedItemId
-    ? { ...(encounter.reward ?? {}), items: [{ id: forcedItemId, quantity: 1 }, ...(encounter.reward?.items ?? [])] }
-    : encounter.reward;
+  const encounterItems = encounter.reward?.items ?? [];
+  const discoveredItem = encounterItems.length === 0 && shouldDiscoverItem(itemFindBoost) ? chooseVentureItem() : undefined;
+  const itemRewards = [
+    ...(forcedItemId ? [{ id: forcedItemId, quantity: 1 }] : []),
+    ...encounterItems,
+    ...(discoveredItem ? [{ id: discoveredItem.id, quantity: 1 }] : []),
+  ];
+  const baseRewards = encounter.reward || itemRewards.length > 0 ? { ...(encounter.reward ?? {}), items: itemRewards } : undefined;
+  const rewards: Rewards | undefined = baseRewards
+    ? {
+      ...baseRewards,
+      currency: baseRewards.currency ? Math.max(1, Math.round(baseRewards.currency * (1 + Math.min(100, getActiveEffectMagnitude(user.id, "DEBEN_BOOST")) / 100))) : undefined,
+      xp: baseRewards.xp ? Math.max(1, Math.round(baseRewards.xp * (1 + Math.min(100, getActiveEffectMagnitude(user.id, "XP_BOOST")) / 100))) : undefined,
+    }
+    : undefined;
   if (rewards) {
     const reward = grantRewards(user.id, rewards, { type: "venture", id: String(started.runId) }, {
       username: user.username,
@@ -1283,6 +1318,12 @@ function ventureReply(
       oneTimeKey: `venture:${started.runId}`,
     });
     rewardNotice = reward.ok ? formatRewards(rewards) : "The Archives recorded the result, but no reward could be issued.";
+    const usableDiscoveries = rewards.items
+      ?.map((entry) => getItem(entry.id))
+      .filter((item): item is Item => Boolean(item?.usable));
+    if (reward.ok && usableDiscoveries?.length) {
+      rewardNotice += `\n\n🎒 **${usableDiscoveries[0].name}** can be activated with \`/use item:${usableDiscoveries[0].id}\`.`;
+    }
   }
   completeVenture(started.runId, encounter.id, encounter.rarity, encounter.successful);
   const completedProgression = processProgressionEvent(
@@ -1470,6 +1511,58 @@ function itemEmbed(item: Item, quantity: number): EmbedBuilder {
       { name: "Tradable", value: item.tradable ? "Planned" : "No", inline: true },
     )
     .setFooter({ text: "Item effects are delegated to future reward systems." });
+}
+
+function resolveItemInput(input: string): Item | undefined {
+  const normalized = input.trim().toLowerCase();
+  return getItem(normalized) ?? getItems().find((item) => item.name.toLowerCase() === normalized);
+}
+
+function remainingEffect(effect: ActiveEffect): string {
+  return formatDuration(Math.max(0, effect.expiresAt - Math.floor(Date.now() / 1000)));
+}
+
+function effectLabel(effect: ActiveEffect): string {
+  const labels: Record<ActiveEffect["type"], string> = {
+    LUCK_BOOST: "Luck",
+    DEBEN_BOOST: "Deben rewards",
+    XP_BOOST: "XP rewards",
+    COOLDOWN_REDUCTION: "Venture cooldown",
+    RARE_ENCOUNTER_BOOST: "Rare encounter chance",
+    ITEM_FIND_BOOST: "Item discovery chance",
+  };
+  const prefix = effect.type === "COOLDOWN_REDUCTION" ? "-" : "+";
+  return `${prefix}${effect.magnitude}% ${labels[effect.type]}`;
+}
+
+function effectsEmbed(effects: ActiveEffect[]): EmbedBuilder {
+  return new EmbedBuilder()
+    .setColor(0x65d18b)
+    .setAuthor({ name: "⛤ ACTIVE EFFECTS ⛤" })
+    .setTitle("Temporary advantages")
+    .setDescription(effects.length
+      ? effects.map((effect) => {
+        const source = getItem(effect.sourceItemId);
+        return `${source?.icon ?? "✦"} **${source?.name ?? effect.sourceItemId}**\n${effectLabel(effect)}\nRemaining: **${remainingEffect(effect)}**`;
+      }).join("\n\n")
+      : "You currently have no active effects.\n\nZekhet has nothing to record.")
+    .setFooter({ text: effects.length ? "Effects expire automatically when their timestamps pass." : "Use a usable relic to change the record." });
+}
+
+function useItemReply(user: { id: string; username: string; avatarUrl: string | null }, input: string): { content: string; embeds?: EmbedBuilder[] } {
+  const item = resolveItemInput(input);
+  if (!item) return { content: "Zekhet cannot identify that item." };
+  const result = activateItemEffect(user.id, item.id, user.username, user.avatarUrl);
+  if (!result.ok) {
+    if (result.reason === "not-owned") return { content: "You do not possess that item." };
+    if (result.reason === "not-usable") return { content: "That item cannot be used." };
+    return { content: "Zekhet cannot determine an effect for that item." };
+  }
+  const effect = result.effect;
+  const stackNotice = result.extended ? "\nThe existing effect has been extended rather than intensified." : "";
+  return {
+    content: `⛤ ITEM USED ⛤\n\n${item.icon} **${item.name}**\n\n${effectLabel(effect)}\nDuration: **${remainingEffect(effect)}**\n\nThe item has been consumed.${stackNotice}`,
+  };
 }
 
 function loreEmbed(lore: DiscoveredLore, profile: Profile): EmbedBuilder {
@@ -1710,6 +1803,14 @@ export async function handlePrefixCommand(message: Message): Promise<void> {
     await message.reply(ventureReply({ id: message.author.id, username, avatarUrl }));
     return;
   }
+  if (command === "use") {
+    await message.reply(useItemReply({ id: message.author.id, username, avatarUrl }, args.join(" ")));
+    return;
+  }
+  if (command === "effects") {
+    await message.reply({ embeds: [effectsEmbed(getActiveEffects(message.author.id, username, avatarUrl))] });
+    return;
+  }
   if (command === "passport") {
     const target = message.mentions.users.first() ?? message.author;
     const newlyUnlocked = target.id === message.author.id
@@ -1791,6 +1892,22 @@ export async function handleCommand(interaction: ChatInputCommandInteraction): P
       username: interaction.user.username,
       avatarUrl: interaction.user.displayAvatarURL(),
     }));
+    return;
+  }
+
+  if (interaction.commandName === "use") {
+    await interaction.reply(useItemReply({
+      id: interaction.user.id,
+      username: interaction.user.username,
+      avatarUrl: interaction.user.displayAvatarURL(),
+    }, interaction.options.getString("item", true)));
+    return;
+  }
+
+  if (interaction.commandName === "effects") {
+    await interaction.reply({
+      embeds: [effectsEmbed(getActiveEffects(interaction.user.id, interaction.user.username, interaction.user.displayAvatarURL()))],
+    });
     return;
   }
 

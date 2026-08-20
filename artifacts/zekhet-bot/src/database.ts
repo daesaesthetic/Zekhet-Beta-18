@@ -153,6 +153,13 @@ export type AchievementProgress = {
 
 export type ItemCategory = "Consumable" | "Material" | "Collectible" | "Currency" | "Quest" | "Special" | "Cosmetic";
 export type ItemRarity = "Common" | "Uncommon" | "Rare" | "Epic" | "Legendary" | "Mythic";
+export type EffectType =
+  | "LUCK_BOOST"
+  | "DEBEN_BOOST"
+  | "XP_BOOST"
+  | "COOLDOWN_REDUCTION"
+  | "RARE_ENCOUNTER_BOOST"
+  | "ITEM_FIND_BOOST";
 export type Item = {
   id: string;
   name: string;
@@ -168,6 +175,16 @@ export type Item = {
   metadata: Record<string, unknown> | null;
 };
 export type InventoryEntry = Item & { quantity: number; acquiredAt: string; updatedAt: string };
+export type ActiveEffect = {
+  id: number;
+  effectId: string;
+  type: EffectType;
+  magnitude: number;
+  startedAt: number;
+  expiresAt: number;
+  sourceItemId: string;
+  stackable: boolean;
+};
 export type CurrencyTransactionKind = "credit" | "debit" | "set";
 export type CurrencyResult =
   | { ok: true; balance: number; transactionId: string }
@@ -373,6 +390,19 @@ database.exec(`
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (discord_id, item_id)
   );
+  CREATE TABLE IF NOT EXISTS active_effects (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    discord_id TEXT NOT NULL REFERENCES users(discord_id) ON DELETE CASCADE,
+    effect_id TEXT NOT NULL,
+    effect_type TEXT NOT NULL,
+    magnitude REAL NOT NULL,
+    started_at INTEGER NOT NULL,
+    expires_at INTEGER NOT NULL,
+    source_item_id TEXT NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+    stackable INTEGER NOT NULL DEFAULT 0 CHECK (stackable IN (0, 1))
+  );
+  CREATE INDEX IF NOT EXISTS active_effects_user_expiration
+    ON active_effects(discord_id, expires_at);
   CREATE TABLE IF NOT EXISTS currency_balances (
     discord_id TEXT PRIMARY KEY REFERENCES users(discord_id) ON DELETE CASCADE,
     balance INTEGER NOT NULL DEFAULT 100 CHECK (balance >= 0),
@@ -767,7 +797,7 @@ const initialItems: Item[] = [
   {
     id: "moonlit-tonic",
     name: "Moonlit Tonic",
-    description: "A sealed tonic with a pale glow. Its eventual effect belongs to a future reward system.",
+    description: "A sealed tonic with a pale glow that sharpens the keeper's instincts for a short while.",
     icon: "🧪",
     category: "Consumable",
     rarity: "Uncommon",
@@ -775,8 +805,92 @@ const initialItems: Item[] = [
     maxStack: 10,
     tradable: false,
     usable: true,
-    effects: { handler: "future-reward-effect" },
+    effects: { effectId: "moonlit-focus", type: "ITEM_FIND_BOOST", magnitude: 50, durationSeconds: 3600, label: "Item discovery chance", stackable: false },
     metadata: null,
+  },
+  {
+    id: "lucky-scarab",
+    name: "Lucky Scarab",
+    description: "A dark scarab whose markings seem to shift whenever fortune draws near.",
+    icon: "🪲",
+    category: "Charm",
+    rarity: "Uncommon",
+    stackable: true,
+    maxStack: 10,
+    tradable: true,
+    usable: true,
+    effects: { effectId: "lucky-scarab", type: "LUCK_BOOST", magnitude: 100, durationSeconds: 7200, label: "Luck", stackable: false },
+    metadata: { source: "buried-shrines", value: 75 },
+  },
+  {
+    id: "merchants-seal",
+    name: "Merchant's Seal",
+    description: "A bronze seal that makes every honest exchange feel slightly more generous.",
+    icon: "🪙",
+    category: "Charm",
+    rarity: "Rare",
+    stackable: true,
+    maxStack: 10,
+    tradable: true,
+    usable: true,
+    effects: { effectId: "merchants-seal", type: "DEBEN_BOOST", magnitude: 25, durationSeconds: 7200, label: "Deben rewards", stackable: false },
+    metadata: { source: "merchant-vaults", value: 150 },
+  },
+  {
+    id: "explorers-draught",
+    name: "Explorer's Draught",
+    description: "A bright cordial distilled for travelers who intend to remember what they find.",
+    icon: "🧪",
+    category: "Consumable",
+    rarity: "Rare",
+    stackable: true,
+    maxStack: 10,
+    tradable: false,
+    usable: true,
+    effects: { effectId: "explorers-draught", type: "XP_BOOST", magnitude: 25, durationSeconds: 7200, label: "XP rewards", stackable: false },
+    metadata: { source: "archive-apothecary", value: 175 },
+  },
+  {
+    id: "sandglass-of-passage",
+    name: "Sandglass of Passage",
+    description: "The sand inside falls sideways, briefly persuading the desert to make room.",
+    icon: "⏳",
+    category: "Relic",
+    rarity: "Epic",
+    stackable: true,
+    maxStack: 5,
+    tradable: false,
+    usable: true,
+    effects: { effectId: "sandglass-of-passage", type: "COOLDOWN_REDUCTION", magnitude: 25, durationSeconds: 3600, label: "Venture cooldown", stackable: false },
+    metadata: { source: "passage-shrines", value: 300 },
+  },
+  {
+    id: "eye-of-the-watcher",
+    name: "Eye of the Watcher",
+    description: "A polished eye-shaped stone that notices rare doors before they open.",
+    icon: "👁️",
+    category: "Charm",
+    rarity: "Epic",
+    stackable: true,
+    maxStack: 5,
+    tradable: false,
+    usable: true,
+    effects: { effectId: "eye-of-the-watcher", type: "RARE_ENCOUNTER_BOOST", magnitude: 35, durationSeconds: 1800, label: "Rare encounter chance", stackable: false },
+    metadata: { source: "watcher-temples", value: 350 },
+  },
+  {
+    id: "relic-seekers-charm",
+    name: "Relic Seeker's Charm",
+    description: "A small charm that grows warm whenever something worth keeping is close.",
+    icon: "🧿",
+    category: "Charm",
+    rarity: "Rare",
+    stackable: true,
+    maxStack: 5,
+    tradable: false,
+    usable: true,
+    effects: { effectId: "relic-seekers-charm", type: "ITEM_FIND_BOOST", magnitude: 100, durationSeconds: 3600, label: "Item discovery chance", stackable: false },
+    metadata: { source: "relic-keepers", value: 250 },
   },
   {
     id: "violet-seal",
@@ -1724,6 +1838,156 @@ export function setItemQuantity(
 
 export function clearInventory(userId: string): number {
   return Number(database.prepare("DELETE FROM user_inventory WHERE discord_id = ?").run(userId).changes);
+}
+
+function isEffectType(value: unknown): value is EffectType {
+  return ["LUCK_BOOST", "DEBEN_BOOST", "XP_BOOST", "COOLDOWN_REDUCTION", "RARE_ENCOUNTER_BOOST", "ITEM_FIND_BOOST"].includes(String(value));
+}
+
+function effectDefinition(item: Item): {
+  effectId: string;
+  type: EffectType;
+  magnitude: number;
+  durationSeconds: number;
+  stackable: boolean;
+} | undefined {
+  const data = item.effects;
+  if (!data || typeof data.effectId !== "string" || !isEffectType(data.type)) return undefined;
+  const magnitude = Number(data.magnitude);
+  const durationSeconds = Number(data.durationSeconds);
+  if (!Number.isFinite(magnitude) || magnitude <= 0 || !Number.isSafeInteger(durationSeconds) || durationSeconds <= 0) return undefined;
+  return {
+    effectId: data.effectId,
+    type: data.type,
+    magnitude,
+    durationSeconds,
+    stackable: data.stackable === true,
+  };
+}
+
+function cleanupExpiredEffects(userId: string): void {
+  database.prepare("DELETE FROM active_effects WHERE discord_id = ? AND expires_at <= ?").run(userId, Math.floor(Date.now() / 1000));
+}
+
+function mapActiveEffect(row: Record<string, unknown>): ActiveEffect {
+  return {
+    id: Number(row["id"]),
+    effectId: String(row["effectId"]),
+    type: row["type"] as EffectType,
+    magnitude: Number(row["magnitude"]),
+    startedAt: Number(row["startedAt"]),
+    expiresAt: Number(row["expiresAt"]),
+    sourceItemId: String(row["sourceItemId"]),
+    stackable: Boolean(row["stackable"]),
+  };
+}
+
+export function getActiveEffects(userId: string, username = "Unknown Record", avatarUrl: string | null = null): ActiveEffect[] {
+  ensureProfile(userId, username, avatarUrl);
+  cleanupExpiredEffects(userId);
+  return database.prepare(`
+    SELECT id, effect_id AS effectId, effect_type AS type, magnitude,
+      started_at AS startedAt, expires_at AS expiresAt, source_item_id AS sourceItemId, stackable
+    FROM active_effects
+    WHERE discord_id = ?
+    ORDER BY expires_at, id
+  `).all(userId).map((row) => mapActiveEffect(row as Record<string, unknown>));
+}
+
+export function getActiveEffectMagnitude(userId: string, type: EffectType): number {
+  cleanupExpiredEffects(userId);
+  const row = database.prepare(`
+    SELECT COALESCE(MAX(magnitude), 0) AS magnitude
+    FROM active_effects WHERE discord_id = ? AND effect_type = ?
+  `).get(userId, type) as { magnitude?: number } | undefined;
+  return Number(row?.magnitude ?? 0);
+}
+
+function upsertEffect(userId: string, item: Item, username: string, avatarUrl: string | null, consume: boolean): ActiveEffect | { reason: string } {
+  const definition = effectDefinition(item);
+  if (!definition) return { reason: "invalid-effect" };
+  ensureProfile(userId, username, avatarUrl);
+  cleanupExpiredEffects(userId);
+  database.exec("BEGIN IMMEDIATE");
+  try {
+    if (consume && !hasItem(userId, item.id)) {
+      database.exec("ROLLBACK");
+      return { reason: "not-owned" };
+    }
+    const now = Math.floor(Date.now() / 1000);
+    const existing = database.prepare(`
+      SELECT id, effect_id AS effectId, effect_type AS type, magnitude,
+        started_at AS startedAt, expires_at AS expiresAt, source_item_id AS sourceItemId, stackable
+      FROM active_effects
+      WHERE discord_id = ? AND effect_type = ? AND expires_at > ?
+      ORDER BY expires_at DESC LIMIT 1
+    `).get(userId, definition.type, now) as Record<string, unknown> | undefined;
+    if (consume) {
+      const removed = database.prepare(`
+        UPDATE user_inventory SET quantity = quantity - 1, updated_at = CURRENT_TIMESTAMP
+        WHERE discord_id = ? AND item_id = ? AND quantity > 0
+      `).run(userId, item.id);
+      if (Number(removed.changes) !== 1) {
+        database.exec("ROLLBACK");
+        return { reason: "not-owned" };
+      }
+      database.prepare("DELETE FROM user_inventory WHERE discord_id = ? AND item_id = ? AND quantity <= 0").run(userId, item.id);
+    }
+    let effectId: number;
+    let expiresAt: number;
+    if (existing && !definition.stackable) {
+      expiresAt = Math.max(now, Number(existing["expiresAt"])) + definition.durationSeconds;
+      database.prepare("UPDATE active_effects SET expires_at = ? WHERE id = ?").run(expiresAt, Number(existing["id"]));
+      effectId = Number(existing["id"]);
+    } else {
+      expiresAt = now + definition.durationSeconds;
+      const result = database.prepare(`
+        INSERT INTO active_effects (discord_id, effect_id, effect_type, magnitude, started_at, expires_at, source_item_id, stackable)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(userId, definition.effectId, definition.type, definition.magnitude, now, expiresAt, item.id, definition.stackable ? 1 : 0);
+      effectId = Number(result.lastInsertRowid);
+    }
+    database.exec("COMMIT");
+    return {
+      id: effectId,
+      effectId: definition.effectId,
+      type: definition.type,
+      magnitude: definition.magnitude,
+      startedAt: now,
+      expiresAt,
+      sourceItemId: item.id,
+      stackable: definition.stackable,
+    };
+  } catch (error) {
+    database.exec("ROLLBACK");
+    throw error;
+  }
+}
+
+export function activateItemEffect(
+  userId: string,
+  itemId: string,
+  username = "Unknown Record",
+  avatarUrl: string | null = null,
+): { ok: true; effect: ActiveEffect; item: Item; extended: boolean } | { ok: false; reason: "invalid-item" | "not-usable" | "invalid-effect" | "not-owned" } {
+  const item = getItem(itemId);
+  if (!item) return { ok: false, reason: "invalid-item" };
+  if (!item.usable) return { ok: false, reason: "not-usable" };
+  const before = getActiveEffects(userId, username, avatarUrl).some((effect) => effect.type === effectDefinition(item)?.type);
+  const result = upsertEffect(userId, item, username, avatarUrl, true);
+  if ("reason" in result) return { ok: false, reason: result.reason as "invalid-effect" | "not-owned" };
+  return { ok: true, effect: result, item, extended: before };
+}
+
+export function forceItemEffect(userId: string, itemId: string, username = "Unknown Record", avatarUrl: string | null = null): ActiveEffect | undefined {
+  const item = getItem(itemId);
+  if (!item?.usable) return undefined;
+  const result = upsertEffect(userId, item, username, avatarUrl, false);
+  return "reason" in result ? undefined : result;
+}
+
+export function clearActiveEffects(userId: string): number {
+  return Number(database.prepare("DELETE FROM active_effects WHERE discord_id = ?").run(userId).changes);
 }
 
 export function useItem(userId: string, itemId: string, effect?: (item: Item) => void): { ok: boolean; reason?: string; item?: Item } {
