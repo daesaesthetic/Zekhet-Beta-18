@@ -1,15 +1,17 @@
-# [Project name]
+# ⛤ Zekhet ⛤
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+Zekhet is a lightweight Discord.js bot that keeps persistent personal profiles as polished Discord embeds.
 
 ## Run & Operate
 
 - `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
+- `pnpm --filter @workspace/zekhet-bot run dev` — run the Discord bot
 - `pnpm run typecheck` — full typecheck across all packages
 - `pnpm run build` — typecheck + build all packages
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- Required env: `DATABASE_URL` — Postgres connection string
+- Required bot env: `DISCORD_TOKEN`, `DISCORD_CLIENT_ID`
+- Optional bot env: `ZEKHET_CREATOR`, `ZEKHET_DATABASE_PATH`
 
 ## Stack
 
@@ -22,23 +24,28 @@ _Replace the heading above with the project's name, and this line with one sente
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `artifacts/zekhet-bot/src/commands.ts` — slash-command definitions and embed responses
+- `artifacts/zekhet-bot/src/database.ts` — SQLite schema and profile persistence
+- `artifacts/zekhet-bot/src/config.ts` — environment-backed configuration
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- The bot uses only the `Guilds` gateway intent; no Message Content Intent is needed.
+- Discord user IDs are the stable profile identifier, with only `users` and `profiles` SQLite tables.
+- Global slash commands are registered on startup so the same personal profile surface can work in user-installed contexts.
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+The MVP includes `/help`, `/credits`, and a persistent Record profile with bio, theme, accent color, avatar, creation date, profile number, and a placeholder title.
 
 ## User preferences
 
-_Populate as you build — explicit user instructions worth remembering across sessions._
+The requested scope is intentionally limited to the current MVP; future systems such as titles, lore, economy, leveling, and achievements are not included.
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- Discord credentials must be configured before starting the bot.
+- The SQLite database directory is created automatically from `ZEKHET_DATABASE_PATH`.
 
 ## Pointers
 

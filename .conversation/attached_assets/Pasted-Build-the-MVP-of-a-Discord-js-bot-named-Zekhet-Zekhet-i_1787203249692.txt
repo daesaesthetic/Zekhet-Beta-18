@@ -1,0 +1,99 @@
+Build the MVP of a Discord.js bot named ⛤ Zekhet ⛤.
+
+Zekhet is a mysterious personal attendant and keeper of records. His personality should be sophisticated, calm, slightly intimidating, and mystical. Use a dark purple/magenta fantasy aesthetic inspired by the bot's provided artwork.
+
+Bot description:
+"Your personal attendant & keeper of records."
+
+TECHNICAL REQUIREMENTS:
+- Node.js
+- Discord.js
+- SQLite
+- Slash commands only
+- Persistent data
+- Environment variables for Discord credentials
+- No AI
+- No external APIs
+- No web dashboard
+- Do not use Message Content Intent
+- Keep the project lightweight and simple
+- Design personal functionality to support Discord USER_INSTALL where possible
+
+MANDATORY COMMANDS:
+- /help
+- /credits
+
+PROFILE SYSTEM — "THE RECORD":
+
+Commands:
+- /profile
+- /profile user:@user
+- /profile edit
+- /profile bio
+- /profile color
+- /profile theme
+
+A profile should display:
+- Discord username
+- Discord avatar
+- Custom bio
+- Equipped title placeholder
+- Profile creation date
+- Unique profile number
+
+Allow these themes:
+- Nightshade
+- Celestial
+- Eclipse
+- Ancient
+- Royal
+- Void
+
+Use polished Discord embeds. Do not create image-rendered profile cards for this MVP.
+
+DATABASE:
+Use SQLite.
+
+Create only the tables needed for the current MVP:
+- users
+- profiles
+
+Use Discord user ID as the primary identifier.
+
+IMPORTANT:
+Do not build titles, lore, curses, contracts, achievements, economy, leveling, server statistics, or unrelated systems yet.
+
+However, structure the code cleanly so those systems can be added later.
+
+USER INSTALLATION:
+The profile should be designed as a personal feature that can work when Zekhet is user-installed. Do not attempt to access server-wide information.
+
+HELP:
+Organize /help into:
+
+⛤ THE RECORD — Profile
+👑 THE COURT — Coming Soon
+📜 THE ARCHIVES — Coming Soon
+🧿 THE RITUALS — Coming Soon
+⚖️ THE LEDGER — Coming Soon
+
+Make /help concise and visually polished.
+
+CREDITS:
+Make /credits display Zekhet's creator/developer information from an easily editable configuration value.
+
+IMPORTANT:
+Build ONLY this MVP.
+
+First make sure:
+1. The bot connects successfully.
+2. Slash commands register correctly.
+3. /help works.
+4. /credits works.
+5. /profile works.
+6. Profile edits persist after restarting the bot.
+7. Invalid input is handled gracefully.
+
+Do not unnecessarily rewrite working code.
+
+After completing the MVP, briefly explain how to run and test it.
