@@ -5,7 +5,11 @@ import {
   ButtonStyle,
   ChatInputCommandInteraction,
   EmbedBuilder,
+  ModalBuilder,
+  ModalSubmitInteraction,
   SlashCommandBuilder,
+  TextInputBuilder,
+  TextInputStyle,
   User,
 } from "discord.js";
 import { config } from "./config.js";
@@ -235,7 +239,25 @@ export async function handleDeveloperComponent(interaction: ButtonInteraction): 
     return;
   }
   if (section === "create-contract") {
-    await interaction.reply({ content: "Use `/contract create` with a test recipient to create a controlled contract. The developer panel does not invent or modify another Discord user.", ephemeral: true });
+    const modal = new ModalBuilder().setCustomId("developer:create-contract-modal").setTitle("Create Test Contract");
+    const recipient = new TextInputBuilder()
+      .setCustomId("recipient-id")
+      .setLabel("Recipient Discord user ID")
+      .setStyle(TextInputStyle.Short)
+      .setRequired(true)
+      .setMinLength(17)
+      .setMaxLength(32);
+    const description = new TextInputBuilder()
+      .setCustomId("description")
+      .setLabel("Test agreement description")
+      .setStyle(TextInputStyle.Paragraph)
+      .setRequired(true)
+      .setMaxLength(1000);
+    modal.addComponents(
+      new ActionRowBuilder<TextInputBuilder>().addComponents(recipient),
+      new ActionRowBuilder<TextInputBuilder>().addComponents(description),
+    );
+    await interaction.showModal(modal);
     return;
   }
   if (section === "profile") {
@@ -266,6 +288,41 @@ export async function handleDeveloperComponent(interaction: ButtonInteraction): 
       .setTitle(titles[section] ?? "Content review")
       .setDescription(descriptions[section] ?? "Choose a section from the panel.")],
   });
+}
+
+export async function handleDeveloperModal(interaction: ModalSubmitInteraction): Promise<void> {
+  if (interaction.customId !== "developer:create-contract-modal") return;
+  if (interaction.user.id !== config.developerId) {
+    await interaction.reply({ content: "You do not have access to that panel.", ephemeral: true });
+    return;
+  }
+  const recipientId = interaction.fields.getTextInputValue("recipient-id").trim();
+  const description = interaction.fields.getTextInputValue("description").trim();
+  if (!/^\d{17,20}$/.test(recipientId)) {
+    await interaction.reply({ content: "That does not look like a Discord user ID.", ephemeral: true });
+    return;
+  }
+  const target = await interaction.client.users.fetch(recipientId).catch(() => null);
+  if (!target) {
+    await interaction.reply({ content: "Zekhet could not resolve that Discord user ID.", ephemeral: true });
+    return;
+  }
+  const result = createContract(
+    interaction.user.id,
+    interaction.user.username,
+    interaction.user.displayAvatarURL(),
+    target.id,
+    target.username,
+    target.displayAvatarURL(),
+    description,
+    "Challenge",
+    7,
+  );
+  if (!result.ok) {
+    await interaction.reply({ content: "A test contract still needs a different recipient than the developer.", ephemeral: true });
+    return;
+  }
+  await interaction.reply({ content: `Test contract **#${result.contract.id}** created for <@${target.id}>.`, embeds: [contractEmbed(result.contract)], ephemeral: true });
 }
 
 function colorFromProfile(profile: Profile): number {

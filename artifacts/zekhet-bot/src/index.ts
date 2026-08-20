@@ -1,6 +1,6 @@
 import { Client, Events, GatewayIntentBits, REST, Routes } from "discord.js";
 import { assertDiscordConfig, config } from "./config.js";
-import { commands, handleCommand, handleDeveloperComponent } from "./commands.js";
+import { commands, handleCommand, handleDeveloperComponent, handleDeveloperModal } from "./commands.js";
 
 assertDiscordConfig();
 
@@ -20,6 +20,14 @@ client.on(Events.InteractionCreate, async (interaction) => {
       await handleDeveloperComponent(interaction);
     } catch (error) {
       console.error("Developer panel handling failed", error);
+    }
+    return;
+  }
+  if (interaction.isModalSubmit()) {
+    try {
+      await handleDeveloperModal(interaction);
+    } catch (error) {
+      console.error("Developer modal handling failed", error);
     }
     return;
   }
