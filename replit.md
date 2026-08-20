@@ -11,7 +11,7 @@ Zekhet is a lightweight Discord.js bot that keeps persistent personal profiles a
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
 - Required bot env: `DISCORD_TOKEN`, `DISCORD_CLIENT_ID`
-- Optional bot env: `DEVELOPER_ID`, `ZEKHET_CREATOR`, `ZEKHET_DATABASE_PATH`
+- Optional bot env: `DEVELOPER_ID`, `ZEKHET_CREATOR`, `ZEKHET_DATABASE_PATH`, `ZEKHET_LORE_COOLDOWN_SECONDS`, `ZEKHET_VENTURE_COOLDOWN_SECONDS`
 
 ## Stack
 
@@ -65,6 +65,13 @@ The current scope includes titles, lore, achievements, tutorials, contracts, cur
 - `/passport stamp:<id>` inspects a stamp without exposing sealed requirements. Passport stamp pages are paginated to keep Discord embeds compact.
 - Combination-based secret records are checked through the existing Passport progression path and remain idempotent for existing users.
 - The developer panel includes a private “List All Stamps” view for reviewing hidden IDs and categories.
+
+## Beta 16 — Phase 1: The First Venture
+
+- `/venture` and the configured prefix equivalent (`z!venture` by default) provide a small repeatable encounter loop.
+- Venture cooldowns and completed encounter statistics persist in SQLite; the default cooldown is 15 minutes.
+- Venture rewards reuse the existing XP and Deben systems only.
+- Developer controls can force Common, Rare, Epic, Legendary, or Mythic encounters and reset the Venture cooldown.
 
 ## Pointers
 
