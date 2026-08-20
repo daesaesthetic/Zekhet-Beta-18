@@ -16,6 +16,8 @@ export type Profile = {
   color: string;
   theme: string;
   activeCurses: number;
+  contractsCreated: number;
+  contractsCompleted: number;
 };
 
 export type TitleRarity = "Common" | "Uncommon" | "Rare" | "Epic" | "Legendary" | "Mythic" | "Secret";
@@ -62,6 +64,22 @@ export type ActiveCurse = Curse & {
   inflictedById: string;
   appliedAt: number;
   expiresAt: number;
+};
+
+export type ContractStatus = "Pending" | "Accepted" | "Rejected" | "Completed" | "Expired" | "Cancelled";
+export type ContractTemplate = "Duel" | "Challenge" | "Pizza" | "Favor" | "Trade" | "Promise" | "Bet";
+
+export type Contract = {
+  id: string;
+  creatorId: string;
+  creatorUsername: string;
+  recipientId: string;
+  recipientUsername: string;
+  description: string;
+  template: ContractTemplate | null;
+  createdAt: number;
+  expiresAt: number | null;
+  status: ContractStatus;
 };
 
 mkdirSync(dirname(config.databasePath), { recursive: true });
@@ -135,6 +153,18 @@ database.exec(`
     discord_id TEXT PRIMARY KEY REFERENCES users(discord_id) ON DELETE CASCADE,
     used_at INTEGER NOT NULL
   );
+  CREATE TABLE IF NOT EXISTS contracts (
+    id TEXT PRIMARY KEY,
+    creator_id TEXT NOT NULL REFERENCES users(discord_id) ON DELETE CASCADE,
+    recipient_id TEXT NOT NULL REFERENCES users(discord_id) ON DELETE CASCADE,
+    description TEXT NOT NULL,
+    template TEXT CHECK (template IN ('Duel', 'Challenge', 'Pizza', 'Favor', 'Trade', 'Promise', 'Bet')),
+    created_at INTEGER NOT NULL,
+    expires_at INTEGER,
+    status TEXT NOT NULL CHECK (status IN ('Pending', 'Accepted', 'Rejected', 'Completed', 'Expired', 'Cancelled'))
+  );
+  CREATE INDEX IF NOT EXISTS contracts_creator_status ON contracts(creator_id, status);
+  CREATE INDEX IF NOT EXISTS contracts_recipient_status ON contracts(recipient_id, status);
 `);
 
 const initialTitles: Title[] = [
@@ -240,6 +270,10 @@ export function getProfile(userId: string, username: string, avatarUrl: string |
       (SELECT COUNT(*) FROM user_titles ut_count WHERE ut_count.discord_id = u.discord_id) AS titlesOwned,
       (SELECT COUNT(*) FROM user_lore ul_count WHERE ul_count.discord_id = u.discord_id) AS loreDiscovered,
       (SELECT COUNT(*) FROM active_curses ac_count WHERE ac_count.target_id = u.discord_id AND ac_count.expires_at > unixepoch()) AS activeCurses,
+      (SELECT COUNT(*) FROM contracts c_created WHERE c_created.creator_id = u.discord_id) AS contractsCreated,
+      (SELECT COUNT(*) FROM contracts c_completed
+        WHERE c_completed.status = 'Completed'
+          AND (c_completed.creator_id = u.discord_id OR c_completed.recipient_id = u.discord_id)) AS contractsCompleted,
       p.created_at AS createdAt, p.profile_number AS profileNumber,
       p.color, p.theme
     FROM users u JOIN profiles p ON p.discord_id = u.discord_id
@@ -345,6 +379,113 @@ export function inflictCurse(
   const inserted = getActiveCurses(targetId).find((entry) => entry.id === curse.id);
   if (!inserted) throw new Error("The inflicted curse could not be recorded.");
   return { ok: true, curse: inserted };
+}
+
+function expireContracts(): void {
+  database.prepare(`
+    UPDATE contracts SET status = 'Expired'
+    WHERE status IN ('Pending', 'Accepted') AND expires_at IS NOT NULL AND expires_at <= ?
+  `).run(Math.floor(Date.now() / 1000));
+}
+
+function mapContract(row: Record<string, unknown>): Contract {
+  return {
+    id: row["id"] as string,
+    creatorId: row["creatorId"] as string,
+    creatorUsername: row["creatorUsername"] as string,
+    recipientId: row["recipientId"] as string,
+    recipientUsername: row["recipientUsername"] as string,
+    description: row["description"] as string,
+    template: (row["template"] as ContractTemplate | null) ?? null,
+    createdAt: row["createdAt"] as number,
+    expiresAt: (row["expiresAt"] as number | null) ?? null,
+    status: row["status"] as ContractStatus,
+  };
+}
+
+const contractSelect = `
+  SELECT c.id, c.creator_id AS creatorId, creator.username AS creatorUsername,
+    c.recipient_id AS recipientId, recipient.username AS recipientUsername,
+    c.description, c.template, c.created_at AS createdAt,
+    c.expires_at AS expiresAt, c.status
+  FROM contracts c
+  JOIN users creator ON creator.discord_id = c.creator_id
+  JOIN users recipient ON recipient.discord_id = c.recipient_id
+`;
+
+export function getContract(contractId: string): Contract | undefined {
+  expireContracts();
+  const normalizedId = contractId.replace(/^#/, "").trim();
+  const row = database.prepare(`${contractSelect} WHERE c.id = ?`).get(normalizedId) as Record<string, unknown> | undefined;
+  return row ? mapContract(row) : undefined;
+}
+
+export function getContractsForUser(userId: string): Contract[] {
+  expireContracts();
+  return database.prepare(`
+    ${contractSelect}
+    WHERE c.creator_id = ? OR c.recipient_id = ?
+    ORDER BY c.created_at DESC
+  `).all(userId, userId).map((row) => mapContract(row as Record<string, unknown>));
+}
+
+export function createContract(
+  creatorId: string,
+  creatorUsername: string,
+  creatorAvatarUrl: string | null,
+  recipientId: string,
+  recipientUsername: string,
+  recipientAvatarUrl: string | null,
+  description: string,
+  template: ContractTemplate | null,
+  expirationDays: number | null,
+): { ok: true; contract: Contract } | { ok: false; reason: "self" } {
+  if (creatorId === recipientId) return { ok: false, reason: "self" };
+  ensureProfile(creatorId, creatorUsername, creatorAvatarUrl);
+  ensureProfile(recipientId, recipientUsername, recipientAvatarUrl);
+  const now = Math.floor(Date.now() / 1000);
+  const expiresAt = expirationDays ? now + expirationDays * 24 * 60 * 60 : null;
+  const nextNumber = (database.prepare("SELECT COALESCE(MAX(CAST(id AS INTEGER)), 420) + 1 AS nextId FROM contracts").get() as { nextId: number }).nextId;
+  const id = String(nextNumber).padStart(5, "0");
+  database.prepare(`
+    INSERT INTO contracts (id, creator_id, recipient_id, description, template, created_at, expires_at, status)
+    VALUES (?, ?, ?, ?, ?, ?, ?, 'Pending')
+  `).run(id, creatorId, recipientId, description.trim(), template, now, expiresAt);
+  return { ok: true, contract: getContract(id)! };
+}
+
+type ContractAction = "accept" | "reject" | "complete" | "cancel";
+type ContractActionResult =
+  | { ok: true; contract: Contract }
+  | { ok: false; reason: "missing" | "unauthorized" | "invalid-status" };
+
+export function updateContractStatus(
+  contractId: string,
+  actorId: string,
+  action: ContractAction,
+): ContractActionResult {
+  const contract = getContract(contractId);
+  if (!contract) return { ok: false, reason: "missing" };
+  const isCreator = actorId === contract.creatorId;
+  const isRecipient = actorId === contract.recipientId;
+  if (action === "accept" || action === "reject") {
+    if (!isRecipient) return { ok: false, reason: "unauthorized" };
+    if (contract.status !== "Pending") return { ok: false, reason: "invalid-status" };
+  } else {
+    if (!isCreator && !isRecipient) return { ok: false, reason: "unauthorized" };
+    if (action === "complete" && contract.status !== "Accepted") return { ok: false, reason: "invalid-status" };
+    if (action === "cancel" && !["Pending", "Accepted"].includes(contract.status)) {
+      return { ok: false, reason: "invalid-status" };
+    }
+  }
+  const nextStatus: Record<ContractAction, ContractStatus> = {
+    accept: "Accepted",
+    reject: "Rejected",
+    complete: "Completed",
+    cancel: "Cancelled",
+  };
+  database.prepare("UPDATE contracts SET status = ? WHERE id = ?").run(nextStatus[action], contract.id);
+  return { ok: true, contract: getContract(contract.id)! };
 }
 
 export function updateProfile(

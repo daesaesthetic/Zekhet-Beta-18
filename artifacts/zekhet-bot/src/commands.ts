@@ -18,9 +18,15 @@ import {
   getActiveCurses,
   getCurse,
   getCurses,
+  createContract,
+  getContract,
+  getContractsForUser,
   inflictCurse,
+  updateContractStatus,
   updateProfile,
   type ActiveCurse,
+  type Contract,
+  type ContractTemplate,
   type Curse,
   type OwnedTitle,
   type DiscoveredLore,
@@ -100,6 +106,27 @@ const curseCommand = new SlashCommandBuilder()
   .addSubcommand((sub) => sub.setName("inspect").setDescription("Inspect a curse in the catalog.")
     .addStringOption((option) => option.setName("curse").setDescription("The curse ID to inspect.").setRequired(true)));
 
+const contractTemplates: ContractTemplate[] = ["Duel", "Challenge", "Pizza", "Favor", "Trade", "Promise", "Bet"];
+const contractCommand = new SlashCommandBuilder()
+  .setName("contract")
+  .setDescription("Create and manage fictional social agreements.")
+  .addSubcommand((sub) => sub.setName("create").setDescription("Offer a contract to another user.")
+    .addUserOption((option) => option.setName("user").setDescription("The recipient of the agreement.").setRequired(true))
+    .addStringOption((option) => option.setName("description").setDescription("The harmless social agreement.").setRequired(true).setMaxLength(1000))
+    .addStringOption((option) => option.setName("template").setDescription("An optional Ledger template.")
+      .addChoices(...contractTemplates.map((template) => ({ name: template, value: template }))))
+    .addIntegerOption((option) => option.setName("expiration_days").setDescription("Optional lifetime in days.").setMinValue(1).setMaxValue(365)))
+  .addSubcommand((sub) => sub.setName("accept").setDescription("Accept a contract offered to you.")
+    .addStringOption((option) => option.setName("id").setDescription("The contract ID.").setRequired(true)))
+  .addSubcommand((sub) => sub.setName("reject").setDescription("Reject a contract offered to you.")
+    .addStringOption((option) => option.setName("id").setDescription("The contract ID.").setRequired(true)))
+  .addSubcommand((sub) => sub.setName("inspect").setDescription("Inspect a contract you are party to.")
+    .addStringOption((option) => option.setName("id").setDescription("The contract ID.").setRequired(true)))
+  .addSubcommand((sub) => sub.setName("complete").setDescription("Mark an accepted contract complete.")
+    .addStringOption((option) => option.setName("id").setDescription("The contract ID.").setRequired(true)))
+  .addSubcommand((sub) => sub.setName("cancel").setDescription("Cancel a pending or accepted contract.")
+    .addStringOption((option) => option.setName("id").setDescription("The contract ID.").setRequired(true)));
+
 export const commands = [
   new SlashCommandBuilder().setName("help").setDescription("Consult Zekhet's available records."),
   new SlashCommandBuilder().setName("credits").setDescription("See who keeps Zekhet's records."),
@@ -108,6 +135,8 @@ export const commands = [
   titleCommand,
   loreCommand,
   curseCommand,
+  contractCommand,
+  new SlashCommandBuilder().setName("contracts").setDescription("Review contracts connected to your Record."),
 ].map((command) => command.toJSON());
 
 function colorFromProfile(profile: Profile): number {
@@ -126,6 +155,8 @@ function profileEmbed(profile: Profile, user: User): EmbedBuilder {
       { name: "Titles owned", value: String(profile.titlesOwned), inline: true },
       { name: "Lore discovered", value: String(profile.loreDiscovered), inline: true },
       { name: "Active curses", value: String(profile.activeCurses), inline: true },
+      { name: "Contracts created", value: String(profile.contractsCreated), inline: true },
+      { name: "Contracts completed", value: String(profile.contractsCompleted), inline: true },
       { name: "Theme", value: profile.theme, inline: true },
       { name: "Record number", value: `#${String(profile.profileNumber).padStart(4, "0")}`, inline: true },
     )
