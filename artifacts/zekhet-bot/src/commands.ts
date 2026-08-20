@@ -44,7 +44,7 @@ import {
   getUnlockedAchievements,
   developerUnlockAchievement,
   recordInteraction,
-  unlockEligibleAchievements,
+  processProgressionEvent,
   resetAchievementProgress,
   getGuildPrefix,
   setGuildPrefix,
@@ -476,6 +476,9 @@ function developerPanel() {
         new ButtonBuilder().setCustomId("developer:tutorial-complete").setLabel("Complete Tutorial").setStyle(ButtonStyle.Primary),
         new ButtonBuilder().setCustomId("developer:tutorial-reset").setLabel("Reset Tutorial").setStyle(ButtonStyle.Danger),
       ),
+      new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder().setCustomId("developer:progression-check").setLabel("Run Progression Check").setStyle(ButtonStyle.Primary),
+      ),
     ],
   };
 }
@@ -548,6 +551,19 @@ export async function handleDeveloperComponent(interaction: ButtonInteraction): 
   if (section === "tutorial-reset") {
     resetTutorialProgress(interaction.user.id);
     await interaction.reply({ content: "Your tutorial progress and tutorial rewards have been reset.", ephemeral: true });
+    return;
+  }
+  if (section === "progression-check") {
+    const progression = processProgressionEvent(
+      interaction.user.id,
+      interaction.user.username,
+      interaction.user.displayAvatarURL(),
+      "ACHIEVEMENT_UNLOCKED",
+    );
+    await interaction.reply({
+      content: progressionNotice(progression) || "Progression checked. No new interconnected rewards are currently eligible.",
+      ephemeral: true,
+    });
     return;
   }
   if (section === "apply-curse") {
@@ -727,6 +743,23 @@ function achievementLabel(achievement: Achievement, unlocked: boolean): string {
 function achievementNotification(achievement: Achievement | UnlockedAchievement): string {
   const dramatic = achievement.rarity === "Secret" || achievement.rarity === "Legendary";
   return `⛤ ACHIEVEMENT UNLOCKED ⛤\n\n${dramatic ? "🌑" : "🏺"} ${achievement.name}\n\n_${achievement.description}_\n\nRarity: ${achievement.rarity}${achievement.rewardTitleId ? `\nTitle granted: **${getTitle(achievement.rewardTitleId)?.name ?? achievement.rewardTitleId}**` : ""}`;
+}
+
+function progressionNotice(update: {
+  achievements: UnlockedAchievement[];
+  titleIds: string[];
+  loreIds?: string[];
+}): string {
+  const achievementTitleIds = new Set(update.achievements.map((achievement) => achievement.rewardTitleId).filter(Boolean));
+  const titleNotices = update.titleIds
+    .filter((titleId) => !achievementTitleIds.has(titleId))
+    .map((titleId) => getTitle(titleId))
+    .filter((title): title is Title => Boolean(title))
+    .map((title) => `⛤ NEW TITLE ACQUIRED ⛤\n\n📜 **${title.name}**\n\n_${title.description}_`);
+  const loreNotices = (update.loreIds ?? []).map((loreId) =>
+    `⛤ THE ARCHIVES HAVE CHANGED ⛤\n\nA new record has appeared: \`${loreId}\`.`,
+  );
+  return [...update.achievements.map(achievementNotification), ...titleNotices, ...loreNotices].join("\n\n");
 }
 
 function achievementEmbed(achievement: Achievement, unlocked: boolean): EmbedBuilder {
@@ -1228,7 +1261,16 @@ export async function handleCommand(interaction: ChatInputCommandInteraction): P
         });
         return;
       }
-      await interaction.reply({ content: `${pick(dialogue.titleEquip)}\n\nThe title **${result.title.name}** is now equipped upon your Record.` });
+      const progression = processProgressionEvent(
+        interaction.user.id,
+        interaction.user.username,
+        interaction.user.displayAvatarURL(),
+        "TITLE_EQUIPPED",
+      );
+      const notice = progressionNotice(progression);
+      await interaction.reply({
+        content: `${pick(dialogue.titleEquip)}\n\nThe title **${result.title.name}** is now equipped upon your Record.${notice ? `\n\n${notice}` : ""}`,
+      });
       return;
     }
 
@@ -1267,8 +1309,20 @@ export async function handleCommand(interaction: ChatInputCommandInteraction): P
       const updatedProfile = getProfile(interaction.user.id, interaction.user.username, interaction.user.displayAvatarURL());
       recordTutorialAction(interaction.user.id, interaction.user.username, interaction.user.displayAvatarURL(), "lore-discover");
       syncTutorial(interaction.user.id, interaction.user.username, interaction.user.displayAvatarURL());
-      const postUnlocks = unlockEligibleAchievements(interaction.user.id);
-      const notice = [...newlyUnlocked, ...postUnlocks].map(achievementNotification).join("\n\n");
+      const progression = processProgressionEvent(
+        interaction.user.id,
+        interaction.user.username,
+        interaction.user.displayAvatarURL(),
+        result.lore.rarity === "Secret"
+          ? "SECRET_LORE_DISCOVERED"
+          : result.lore.rarity === "Rare" || result.lore.rarity === "Legendary"
+            ? "RARE_LORE_DISCOVERED"
+            : "LORE_DISCOVERED",
+      );
+      const notice = [
+        ...newlyUnlocked.map(achievementNotification),
+        progressionNotice(progression),
+      ].filter(Boolean).join("\n\n");
       await interaction.reply({ content: notice || undefined, embeds: [loreEmbed(result.lore, updatedProfile)] });
       return;
     }
@@ -1350,8 +1404,15 @@ export async function handleCommand(interaction: ChatInputCommandInteraction): P
     }
     recordTutorialAction(target.id, target.username, target.displayAvatarURL(), "curse-applied");
     syncTutorial(target.id, target.username, target.displayAvatarURL());
+    const progression = processProgressionEvent(
+      target.id,
+      target.username,
+      target.displayAvatarURL(),
+      "CURSE_RECEIVED",
+    );
+    const notice = progressionNotice(progression);
     await interaction.reply({
-      content: `${pick(dialogue.curseApplied)} <@${target.id}> has been marked.${target.id === interaction.user.id ? `\n\n${achievementNotice}` : ""}`,
+      content: `${pick(dialogue.curseApplied)} <@${target.id}> has been marked.${target.id === interaction.user.id && (achievementNotice || notice) ? `\n\n${[achievementNotice, notice].filter(Boolean).join("\n\n")}` : ""}`,
       embeds: [activeCurseEmbed(result.curse)],
     });
     return;
@@ -1394,8 +1455,15 @@ export async function handleCommand(interaction: ChatInputCommandInteraction): P
       }
       recordTutorialAction(interaction.user.id, interaction.user.username, interaction.user.displayAvatarURL(), "contract-create");
       syncTutorial(interaction.user.id, interaction.user.username, interaction.user.displayAvatarURL());
+      const progression = processProgressionEvent(
+        interaction.user.id,
+        interaction.user.username,
+        interaction.user.displayAvatarURL(),
+        "CONTRACT_CREATED",
+      );
+      const contractNotice = progressionNotice(progression);
       await interaction.reply({
-        content: `${pick(dialogue.contractCreated)}\n\nContract **#${result.contract.id}** has been offered to <@${target.id}>.${achievementNotice ? `\n\n${achievementNotice}` : ""}`,
+        content: `${pick(dialogue.contractCreated)}\n\nContract **#${result.contract.id}** has been offered to <@${target.id}>.${[achievementNotice, contractNotice].filter(Boolean).length ? `\n\n${[achievementNotice, contractNotice].filter(Boolean).join("\n\n")}` : ""}`,
         embeds: [contractEmbed(result.contract)],
       });
       return;
@@ -1436,8 +1504,20 @@ export async function handleCommand(interaction: ChatInputCommandInteraction): P
     if (result.contract.status === "Accepted") recordTutorialAction(interaction.user.id, interaction.user.username, interaction.user.displayAvatarURL(), "contract-accept");
     if (result.contract.status === "Completed") recordTutorialAction(interaction.user.id, interaction.user.username, interaction.user.displayAvatarURL(), "contract-complete");
     syncTutorial(interaction.user.id, interaction.user.username, interaction.user.displayAvatarURL());
-    const postUnlocks = unlockEligibleAchievements(interaction.user.id);
-    const notice = [...newlyUnlocked, ...postUnlocks].map(achievementNotification).join("\n\n");
+    const progression = processProgressionEvent(
+      interaction.user.id,
+      interaction.user.username,
+      interaction.user.displayAvatarURL(),
+      result.contract.status === "Completed"
+        ? "CONTRACT_COMPLETED"
+        : result.contract.status === "Accepted"
+          ? "CONTRACT_ACCEPTED"
+          : "CONTRACT_CREATED",
+    );
+    const notice = [
+      ...newlyUnlocked.map(achievementNotification),
+      progressionNotice(progression),
+    ].filter(Boolean).join("\n\n");
     await interaction.reply({
       content: `${pick(dialogue.contractChanged)} Contract **#${result.contract.id}** is now **${contractStatusLabel(result.contract.status)}**.${notice ? `\n\n${notice}` : ""}`,
       embeds: [contractEmbed(result.contract)],
@@ -1480,5 +1560,12 @@ export async function handleCommand(interaction: ChatInputCommandInteraction): P
   }
 
   const profile = updateProfile(target.id, target.username, target.displayAvatarURL(), updates);
-    await interaction.reply({ content: `${pick(dialogue.profileEdit)}${rareAside()}`, embeds: [profileEmbed(profile, target)] });
+  const progression = processProgressionEvent(
+    interaction.user.id,
+    interaction.user.username,
+    interaction.user.displayAvatarURL(),
+    subcommand === "bio" ? "BIOGRAPHY_SET" : "PROFILE_CREATED",
+  );
+  const notice = progressionNotice(progression);
+  await interaction.reply({ content: `${pick(dialogue.profileEdit)}${rareAside()}${notice ? `\n\n${notice}` : ""}`, embeds: [profileEmbed(profile, target)] });
 }

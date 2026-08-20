@@ -384,6 +384,9 @@ const initialLore: LoreEntry[] = [
   { id: "classified-door", entryNumber: 1904, rarity: "Secret", bodyTemplate: "CLASSIFIED", isSecret: true },
   { id: "classified-third-name", entryNumber: 1905, rarity: "Secret", bodyTemplate: "CLASSIFIED", isSecret: true },
   { id: "classified-zekhlets-note", entryNumber: 1906, rarity: "Secret", bodyTemplate: "CLASSIFIED", isSecret: true },
+  { id: "crown-beneath-ashes", entryNumber: 1910, rarity: "Secret", bodyTemplate: "The title beneath the ash was not meant for {{username}}. It recognized the shape of the Record anyway.", isSecret: true },
+  { id: "ledger-without-end", entryNumber: 1911, rarity: "Secret", bodyTemplate: "The Ledger has recorded a promise completed after the Archives had already begun to remember {{username}}.", isSecret: true },
+  { id: "violet-ritual-margin", entryNumber: 1912, rarity: "Secret", bodyTemplate: "A violet mark has appeared beside {{username}}'s name. The Court insists it is harmless; the margin remains unconvinced.", isSecret: true },
 ];
 
 const initialCurses: Curse[] = [
@@ -784,6 +787,13 @@ function achievementRequirements(userId: string): Set<string> {
     WHERE ut.discord_id = ? AND t.is_secret = 1
   `).get(userId) as { count: number }).count);
   const curses = Number((database.prepare("SELECT COUNT(DISTINCT curse_id) AS count FROM curse_history WHERE target_id = ?").get(userId) as { count: number }).count);
+  const rareLore = Number((database.prepare(`
+    SELECT COUNT(*) AS count FROM user_lore ul JOIN lore_entries le ON le.id = ul.lore_id
+    WHERE ul.discord_id = ? AND le.rarity IN ('Rare', 'Legendary')
+  `).get(userId) as { count: number }).count);
+  const contractsCreated = Number((database.prepare(`
+    SELECT COUNT(*) AS count FROM contracts WHERE creator_id = ? OR recipient_id = ?
+  `).get(userId, userId) as { count: number }).count);
   const completedContracts = Number((database.prepare(`
     SELECT COUNT(*) AS count FROM contracts WHERE status = 'Completed' AND (creator_id = ? OR recipient_id = ?)
   `).get(userId, userId) as { count: number }).count);
@@ -812,6 +822,15 @@ function achievementRequirements(userId: string): Set<string> {
   if (completedContracts >= 5) unlocked.add("unbroken-ledger");
   if (lore >= 10 && titles > 0) unlocked.add("quiet-court");
   if (secretTitles > 0 && secretLore > 0) unlocked.add("beyond-the-record");
+  if (titles > 3) unlocked.add("first-title");
+  if (lore > 0) unlocked.add("first-lore");
+  if (curses > 0) unlocked.add("first-curse");
+  if (contractsCreated > 0) unlocked.add("first-contract");
+  if (rareLore > 0) unlocked.add("rare-page");
+  if (completedContracts >= 10) unlocked.add("ten-contracts");
+  if (secretLore > 0) unlocked.add("secret-page");
+  if (titles > 0 && lore >= 10) unlocked.add("archive-court");
+  if (completedContracts > 0 && lore > 0 && curses > 0) unlocked.add("woven-record");
   if (activity?.lastInteractedAt && new Date(activity.lastInteractedAt).getHours() < 6) unlocked.add("night-visitor");
   return unlocked;
 }
@@ -843,6 +862,34 @@ export function unlockEligibleAchievements(userId: string): UnlockedAchievement[
     unlocked.push({ ...achievement, unlockedAt });
   }
   return unlocked;
+}
+
+export type ProgressionUpdate = {
+  event: ProgressionEvent;
+  achievements: UnlockedAchievement[];
+  titleIds: string[];
+  loreIds: string[];
+};
+
+export function processProgressionEvent(
+  userId: string,
+  username: string,
+  avatarUrl: string | null,
+  event: ProgressionEvent,
+): ProgressionUpdate {
+  ensureProfile(userId, username, avatarUrl);
+  const before = new Set(
+    (database.prepare("SELECT title_id AS titleId FROM user_titles WHERE discord_id = ?").all(userId) as Array<{ titleId: string }>)
+      .map((row) => row.titleId),
+  );
+  const achievements = unlockEligibleAchievements(userId);
+  const loreIds = unlockProgressionLore(userId, username, avatarUrl);
+  const followUpAchievements = loreIds.length > 0 ? unlockEligibleAchievements(userId) : [];
+  const allAchievements = [...achievements, ...followUpAchievements];
+  const titleIds = (database.prepare("SELECT title_id AS titleId FROM user_titles WHERE discord_id = ?").all(userId) as Array<{ titleId: string }>)
+    .map((row) => row.titleId)
+    .filter((titleId) => !before.has(titleId));
+  return { event, achievements: allAchievements, titleIds, loreIds };
 }
 
 export function developerUnlockAchievement(userId: string, achievementId: string, username: string, avatarUrl: string | null): UnlockedAchievement | undefined {
@@ -1049,6 +1096,40 @@ function renderLore(template: string, userId: string, profile: Profile, entryId:
     .replaceAll("{{theme}}", profile.theme)
     .replaceAll("{{bio}}", profile.bio || "an unentered name");
   return `${openings[stableIndex(`${userId}:${entryId}:opening`, openings.length)]} ${body}\n\n${closings[stableIndex(`${userId}:${entryId}:closing`, closings.length)]}`;
+}
+
+function unlockProgressionLore(userId: string, username: string, avatarUrl: string | null): string[] {
+  const profile = getProfile(userId, username, avatarUrl);
+  const completedContracts = Number((database.prepare(`
+    SELECT COUNT(*) AS count FROM contracts
+    WHERE status = 'Completed' AND (creator_id = ? OR recipient_id = ?)
+  `).get(userId, userId) as { count: number }).count);
+  const discoveredLore = Number((database.prepare("SELECT COUNT(*) AS count FROM user_lore WHERE discord_id = ?").get(userId) as { count: number }).count);
+  const curses = Number((database.prepare("SELECT COUNT(DISTINCT curse_id) AS count FROM curse_history WHERE target_id = ?").get(userId) as { count: number }).count);
+  const tutorialComplete = database.prepare(`
+    SELECT COUNT(*) AS count FROM tutorial_rewards WHERE discord_id = ?
+  `).get(userId) as { count: number };
+  const archiveCourt = database.prepare(`
+    SELECT 1 FROM user_achievements WHERE discord_id = ? AND achievement_id = 'archive-court'
+  `).get(userId);
+  const candidates = [
+    completedContracts > 0 && discoveredLore > 0 ? "ledger-without-end" : null,
+    curses > 0 && profile.titlesOwned > 3 ? "violet-ritual-margin" : null,
+    Number(tutorialComplete.count) >= 6 && archiveCourt ? "crown-beneath-ashes" : null,
+  ].filter((entry): entry is string => Boolean(entry));
+  const unlocked: string[] = [];
+  for (const loreId of candidates) {
+    if (database.prepare("SELECT 1 FROM user_lore WHERE discord_id = ? AND lore_id = ?").get(userId, loreId)) continue;
+    const entry = getLoreEntry(loreId);
+    if (!entry) continue;
+    const text = renderLore(entry.bodyTemplate, userId, profile, entry.id);
+    database.prepare(`
+      INSERT INTO user_lore (discord_id, lore_id, rendered_text, discovered_at)
+      VALUES (?, ?, ?, ?)
+    `).run(userId, entry.id, text, new Date().toISOString());
+    unlocked.push(loreId);
+  }
+  return unlocked;
 }
 
 function mapLore(row: Record<string, unknown>): LoreEntry {
