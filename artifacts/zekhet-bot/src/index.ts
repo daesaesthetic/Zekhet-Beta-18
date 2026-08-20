@@ -6,6 +6,7 @@ assertDiscordConfig();
 
 const rest = new REST({ version: "10" }).setToken(config.token);
 await rest.put(Routes.applicationCommands(config.clientId), { body: commands });
+console.info(`Registered ${commands.length} global slash commands.`);
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
