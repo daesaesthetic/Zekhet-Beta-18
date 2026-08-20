@@ -33,5 +33,9 @@ The bot registers global slash commands on startup. It uses only the `Guilds` in
 - `/title`
 - `/title equip title:<id>`
 - `/title inspect title:<id>`
+- `/lore`
+- `/lore discover`
+- `/lore archive`
+- `/lore inspect entry:<id>`
 
-Profiles and title ownership are stored in SQLite and remain available after restarts. New users receive `wanderer`, `newcomer`, and `archivist` for immediate testing; sealed titles remain locked.
+Profiles, title ownership, and lore discoveries are stored in SQLite and remain available after restarts. New users receive `wanderer`, `newcomer`, and `archivist` for immediate testing; sealed titles remain locked. Lore discovery has a 60-second cooldown by default, configurable with `ZEKHET_LORE_COOLDOWN_SECONDS`.
