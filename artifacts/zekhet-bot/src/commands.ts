@@ -28,6 +28,11 @@ import {
   inflictCurse,
   updateContractStatus,
   updateProfile,
+  clearActiveCurses,
+  developerApplyCurse,
+  resetUserData,
+  unlockAllLore,
+  unlockAllTitles,
   type ActiveCurse,
   type Contract,
   type ContractTemplate,
@@ -151,12 +156,25 @@ function developerPanel() {
       .setAuthor({ name: "⛤ DEVELOPER ARCHIVE ⛤" })
       .setTitle("Content review panel")
       .setDescription("This private panel exposes the current catalog for controlled testing. It does not alter ordinary user permissions or Discord server state.")],
-    components: [new ActionRowBuilder<ButtonBuilder>().addComponents(
+    components: [
+      new ActionRowBuilder<ButtonBuilder>().addComponents(
       new ButtonBuilder().setCustomId("developer:titles").setLabel("View All Titles").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId("developer:unlock-titles").setLabel("Unlock Any Title").setStyle(ButtonStyle.Primary),
       new ButtonBuilder().setCustomId("developer:lore").setLabel("View All Lore").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId("developer:unlock-lore").setLabel("Unlock Any Lore").setStyle(ButtonStyle.Primary),
+      ),
+      new ActionRowBuilder<ButtonBuilder>().addComponents(
       new ButtonBuilder().setCustomId("developer:curses").setLabel("View All Curses").setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId("developer:contracts").setLabel("View Contracts").setStyle(ButtonStyle.Secondary),
-    )],
+      new ButtonBuilder().setCustomId("developer:apply-curse").setLabel("Apply Any Curse").setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId("developer:contracts").setLabel("View All Contracts").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId("developer:create-contract").setLabel("Create Test Contract").setStyle(ButtonStyle.Primary),
+      ),
+      new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder().setCustomId("developer:clear-curses").setLabel("Clear Active Curses").setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId("developer:reset").setLabel("Reset Test Data").setStyle(ButtonStyle.Danger),
+        new ButtonBuilder().setCustomId("developer:profile").setLabel("View Profile Data").setStyle(ButtonStyle.Secondary),
+      ),
+    ],
   };
 }
 
@@ -168,6 +186,66 @@ export async function handleDeveloperComponent(interaction: ButtonInteraction): 
   }
 
   const section = interaction.customId.split(":")[1];
+  if (section === "unlock-titles") {
+    const count = unlockAllTitles(interaction.user.id, interaction.user.username, interaction.user.displayAvatarURL());
+    await interaction.reply({ content: `Developer access granted: ${count} previously locked title(s) are now on your Record.`, ephemeral: true });
+    return;
+  }
+  if (section === "unlock-lore") {
+    const count = unlockAllLore(interaction.user.id, interaction.user.username, interaction.user.displayAvatarURL());
+    await interaction.reply({ content: `Developer access granted: ${count} previously classified archive entr${count === 1 ? "y is" : "ies are"} now available on your Record.`, ephemeral: true });
+    return;
+  }
+  if (section === "apply-curse") {
+    const curse = getCurses()[0];
+    const applied = curse && developerApplyCurse(
+      interaction.user.id,
+      interaction.user.id,
+      curse.id,
+      interaction.user.username,
+      interaction.user.username,
+      interaction.user.displayAvatarURL(),
+    );
+    await interaction.reply({ content: applied ? `Test curse applied to your Record: **${applied.name}**.` : "No curse is available to apply.", ephemeral: true });
+    return;
+  }
+  if (section === "clear-curses") {
+    const count = clearActiveCurses(interaction.user.id);
+    await interaction.reply({ content: `Cleared ${count} active test curse(s) from your Record.`, ephemeral: true });
+    return;
+  }
+  if (section === "reset") {
+    await interaction.reply({
+      content: "This removes only your Zekhet test data, including your profile, titles, lore, curses, and contracts. Confirm the reset?",
+      ephemeral: true,
+      components: [new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder().setCustomId("developer:confirm-reset").setLabel("Confirm Reset").setStyle(ButtonStyle.Danger),
+        new ButtonBuilder().setCustomId("developer:cancel-reset").setLabel("Cancel").setStyle(ButtonStyle.Secondary),
+      )],
+    });
+    return;
+  }
+  if (section === "confirm-reset") {
+    resetUserData(interaction.user.id);
+    await interaction.update({ content: "Your Zekhet test data has been reset. No other user or database record was changed.", embeds: [], components: [] });
+    return;
+  }
+  if (section === "cancel-reset") {
+    await interaction.update({ content: "Reset cancelled. Your test data remains unchanged.", embeds: [], components: [] });
+    return;
+  }
+  if (section === "create-contract") {
+    await interaction.reply({ content: "Use `/contract create` with a test recipient to create a controlled contract. The developer panel does not invent or modify another Discord user.", ephemeral: true });
+    return;
+  }
+  if (section === "profile") {
+    const profile = getProfile(interaction.user.id, interaction.user.username, interaction.user.displayAvatarURL());
+    await interaction.reply({
+      content: `Profile data (developer-only): titles owned ${profile.titlesOwned}, lore discovered ${profile.loreDiscovered}, active curses ${profile.activeCurses}, contracts created ${profile.contractsCreated}, contracts completed ${profile.contractsCompleted}.`,
+      ephemeral: true,
+    });
+    return;
+  }
   const descriptions: Record<string, string> = {
     titles: getTitles().map((title) => `\`${title.id}\` · ${title.name} · ${title.rarity}${title.isSecret ? " · 🔒 secret" : ""}`).join("\n") || "No titles are recorded.",
     lore: getLoreCatalog().map((entry) => `\`${entry.id}\` · #${entry.entryNumber} · ${entry.rarity}${entry.isSecret ? " · 🔒 classified" : ""}`).join("\n") || "No lore is recorded.",

@@ -1,0 +1,60 @@
+Developer options should include:
+
+- View All Titles
+- Unlock Any Title
+- View All Lore
+- Unlock Any Lore
+- View All Curses
+- Apply Any Curse
+- View All Contracts
+- Create Test Contract
+- Clear Active Curses
+- Reset Test Data
+- View Database/Profile Data
+
+The developer should be able to access and test content without normally having to unlock it.
+
+==================================================
+DEVELOPER TESTING BEHAVIOR
+==================================================
+
+The developer system is intended for testing and content review.
+
+For titles:
+- Allow the developer to view every title.
+- Allow the developer to unlock any title.
+- Allow the developer to equip any title.
+- Allow the developer to inspect secret titles.
+
+For lore:
+- Allow the developer to view every lore entry.
+- Allow the developer to unlock any lore entry.
+- Allow the developer to inspect secret/classified lore.
+
+For curses:
+- Allow the developer to apply any curse to themselves or another user.
+- Allow the developer to view all curses.
+- Allow the developer to clear active curses.
+
+For contracts:
+- Allow the developer to create test contracts without normal restrictions.
+- Allow the developer to inspect contracts.
+- Allow the developer to test different contract states where practical.
+
+Developer testing should NOT bypass the underlying systems themselves. It should simply provide controlled developer-only access to otherwise locked content.
+
+Do not add developer-only functionality to ordinary commands that normal users could exploit.
+
+==================================================
+DEVELOPER RESET
+==================================================
+
+Include a developer-only reset option.
+
+It should allow the developer to reset their own Zekhet test data without affecting other users.
+
+The reset should require a confirmation step before executing.
+
+Do NOT provide a command that can accidentally wipe the entire database.
+
+If a database-wide reset is ever implemented, it must require an additional explicit confirmation and should not be part of the normal developer menu.

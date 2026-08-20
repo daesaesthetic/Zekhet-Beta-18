@@ -520,6 +520,15 @@ export function getOwnedTitles(userId: string, username: string, avatarUrl: stri
   }));
 }
 
+export function unlockAllTitles(userId: string, username: string, avatarUrl: string | null): number {
+  ensureProfile(userId, username, avatarUrl);
+  const result = database.prepare(`
+    INSERT OR IGNORE INTO user_titles (discord_id, title_id)
+    SELECT ?, id FROM titles
+  `).run(userId);
+  return Number(result.changes);
+}
+
 export function getTitles(): Title[] {
   return database.prepare(`
     SELECT id, name, description, rarity, is_secret AS isSecret FROM titles ORDER BY id
@@ -630,6 +639,26 @@ export function getDiscoveredLore(userId: string, username: string, avatarUrl: s
   });
 }
 
+export function unlockAllLore(userId: string, username: string, avatarUrl: string | null): number {
+  const profile = getProfile(userId, username, avatarUrl);
+  const entries = getLoreCatalog();
+  let unlocked = 0;
+  for (const entry of entries) {
+    const existing = database.prepare("SELECT 1 FROM user_lore WHERE discord_id = ? AND lore_id = ?")
+      .get(userId, entry.id);
+    if (existing) continue;
+    const text = entry.isSecret
+      ? `${entry.bodyTemplate} (Developer access: classified content revealed.)`
+      : renderLore(entry.bodyTemplate, userId, profile, entry.id);
+    database.prepare(`
+      INSERT INTO user_lore (discord_id, lore_id, rendered_text, discovered_at)
+      VALUES (?, ?, ?, ?)
+    `).run(userId, entry.id, text, new Date().toISOString());
+    unlocked += 1;
+  }
+  return unlocked;
+}
+
 export function discoverLore(
   userId: string,
   username: string,
@@ -664,4 +693,51 @@ export function discoverLore(
     VALUES (?, ?, ?, ?)
   `).run(userId, loreEntry.id, text, discoveredAt);
   return { ok: true, lore: { ...loreEntry, text, discoveredAt } };
+}
+
+export function developerApplyCurse(
+  casterId: string,
+  targetId: string,
+  curseId: string,
+  casterUsername: string,
+  targetUsername: string,
+  targetAvatarUrl: string | null,
+): ActiveCurse | undefined {
+  const curse = getCurse(curseId);
+  if (!curse) return undefined;
+  ensureProfile(casterId, casterUsername, null);
+  ensureProfile(targetId, targetUsername, targetAvatarUrl);
+  purgeExpiredCurses();
+  database.prepare(`
+    DELETE FROM active_curses WHERE target_id = ? AND curse_id = ?
+  `).run(targetId, curseId);
+  const now = Math.floor(Date.now() / 1000);
+  database.prepare(`
+    INSERT INTO active_curses (target_id, curse_id, inflicted_by_id, applied_at, expires_at)
+    VALUES (?, ?, ?, ?, ?)
+  `).run(targetId, curseId, casterId, now, now + curse.durationMinutes * 60);
+  return getActiveCurses(targetId, targetUsername).find((active) => active.id === curseId);
+}
+
+export function clearActiveCurses(userId: string): number {
+  const result = database.prepare("DELETE FROM active_curses WHERE target_id = ?").run(userId);
+  database.prepare("DELETE FROM curse_cooldowns WHERE discord_id = ?").run(userId);
+  return Number(result.changes);
+}
+
+export function resetUserData(userId: string): void {
+  database.exec("BEGIN");
+  try {
+    database.prepare("DELETE FROM active_curses WHERE target_id = ? OR inflicted_by_id = ?").run(userId, userId);
+    database.prepare("DELETE FROM curse_cooldowns WHERE discord_id = ?").run(userId);
+    database.prepare("DELETE FROM contracts WHERE creator_id = ? OR recipient_id = ?").run(userId, userId);
+    database.prepare("DELETE FROM user_lore WHERE discord_id = ?").run(userId);
+    database.prepare("DELETE FROM user_titles WHERE discord_id = ?").run(userId);
+    database.prepare("DELETE FROM profiles WHERE discord_id = ?").run(userId);
+    database.prepare("DELETE FROM users WHERE discord_id = ?").run(userId);
+    database.exec("COMMIT");
+  } catch (error) {
+    database.exec("ROLLBACK");
+    throw error;
+  }
 }
