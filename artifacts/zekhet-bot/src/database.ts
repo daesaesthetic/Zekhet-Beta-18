@@ -115,6 +115,10 @@ export type Item = {
   metadata: Record<string, unknown> | null;
 };
 export type InventoryEntry = Item & { quantity: number; acquiredAt: string; updatedAt: string };
+export type CurrencyTransactionKind = "credit" | "debit" | "set";
+export type CurrencyResult =
+  | { ok: true; balance: number; transactionId: string }
+  | { ok: false; reason: "invalid-amount" | "insufficient-funds" | "duplicate-transaction" | "invalid-balance" };
 
 export type ProgressionEvent =
   | "PROFILE_CREATED"
@@ -286,6 +290,22 @@ database.exec(`
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (discord_id, item_id)
   );
+  CREATE TABLE IF NOT EXISTS currency_balances (
+    discord_id TEXT PRIMARY KEY REFERENCES users(discord_id) ON DELETE CASCADE,
+    balance INTEGER NOT NULL DEFAULT 100 CHECK (balance >= 0),
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+  CREATE TABLE IF NOT EXISTS currency_transactions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    discord_id TEXT NOT NULL REFERENCES users(discord_id) ON DELETE CASCADE,
+    kind TEXT NOT NULL CHECK (kind IN ('credit', 'debit', 'set')),
+    amount INTEGER NOT NULL CHECK (amount >= 0),
+    balance_after INTEGER NOT NULL CHECK (balance_after >= 0),
+    idempotency_key TEXT UNIQUE,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+  CREATE INDEX IF NOT EXISTS currency_transactions_user_created
+    ON currency_transactions(discord_id, created_at);
 `);
 
 const contractTable = database.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'contracts'").get() as { sql?: string } | undefined;
@@ -578,6 +598,216 @@ const initialItems: Item[] = [
     effects: null,
     metadata: { sealed: true },
   },
+  {
+    id: "papyrus-fragment",
+    name: "Papyrus Fragment",
+    description: "A weathered fragment covered in faded hieroglyphs.",
+    icon: "𓏏",
+    category: "Material",
+    rarity: "Common",
+    stackable: true,
+    maxStack: 99,
+    tradable: true,
+    usable: false,
+    effects: null,
+    metadata: { source: "desert-archives", value: 5 },
+  },
+  {
+    id: "scribes-ink",
+    name: "Scribe's Ink",
+    description: "Dark ink once used to record names that were never meant to be forgotten.",
+    icon: "𓂋",
+    category: "Material",
+    rarity: "Common",
+    stackable: true,
+    maxStack: 99,
+    tradable: true,
+    usable: false,
+    effects: null,
+    metadata: { source: "scribe-sanctums", value: 8 },
+  },
+  {
+    id: "desert-glass",
+    name: "Desert Glass",
+    description: "A translucent shard formed beneath the ancient desert sands.",
+    icon: "◇",
+    category: "Material",
+    rarity: "Common",
+    stackable: true,
+    maxStack: 99,
+    tradable: true,
+    usable: false,
+    effects: null,
+    metadata: { source: "great-sand-sea", value: 12 },
+  },
+  {
+    id: "nile-pearl",
+    name: "Nile Pearl",
+    description: "A pale pearl said to have been recovered beneath the moonlit Nile.",
+    icon: "◈",
+    category: "Collectible",
+    rarity: "Uncommon",
+    stackable: true,
+    maxStack: 25,
+    tradable: true,
+    usable: false,
+    effects: null,
+    metadata: { source: "moonlit-nile", value: 35 },
+  },
+  {
+    id: "scarab-of-rebirth",
+    name: "Scarab of Rebirth",
+    description: "A small scarab charm bearing a symbol of renewal.",
+    icon: "𓆣",
+    category: "Collectible",
+    rarity: "Uncommon",
+    stackable: false,
+    maxStack: 1,
+    tradable: true,
+    usable: false,
+    effects: null,
+    metadata: { source: "buried-shrines", value: 50 },
+  },
+  {
+    id: "moonlit-papyrus",
+    name: "Moonlit Papyrus",
+    description: "Papyrus that glows faintly beneath a night sky.",
+    icon: "𓂀",
+    category: "Special",
+    rarity: "Uncommon",
+    stackable: true,
+    maxStack: 10,
+    tradable: false,
+    usable: false,
+    effects: null,
+    metadata: { source: "night-archives", value: 65 },
+  },
+  {
+    id: "eye-of-horus",
+    name: "Eye of Horus",
+    description: "An ancient symbol said to watch over those who carry it.",
+    icon: "𓂀",
+    category: "Relic" as ItemCategory,
+    rarity: "Rare",
+    stackable: false,
+    maxStack: 1,
+    tradable: true,
+    usable: false,
+    effects: null,
+    metadata: { source: "watchful-temples", value: 120 },
+  },
+  {
+    id: "golden-scarab",
+    name: "Golden Scarab",
+    description: "A golden scarab untouched by centuries beneath the sand.",
+    icon: "𓆣",
+    category: "Collectible",
+    rarity: "Rare",
+    stackable: false,
+    maxStack: 1,
+    tradable: true,
+    usable: false,
+    effects: null,
+    metadata: { source: "sealed-tombs", value: 180 },
+  },
+  {
+    id: "tombkeepers-key",
+    name: "Tombkeeper's Key",
+    description: "An ornate key whose lock has long since vanished.",
+    icon: "⚿",
+    category: "Quest",
+    rarity: "Rare",
+    stackable: false,
+    maxStack: 1,
+    tradable: false,
+    usable: false,
+    effects: null,
+    metadata: { source: "forgotten-tombs", questItem: true },
+  },
+  {
+    id: "pharaohs-seal",
+    name: "Pharaoh's Seal",
+    description: "A royal seal bearing the mark of a forgotten dynasty.",
+    icon: "𓋹",
+    category: "Relic" as ItemCategory,
+    rarity: "Epic",
+    stackable: false,
+    maxStack: 1,
+    tradable: true,
+    usable: false,
+    effects: null,
+    metadata: { source: "royal-vaults", value: 350 },
+  },
+  {
+    id: "niles-heart",
+    name: "Nile's Heart",
+    description: "A strange blue gemstone said to hold a fragment of the river's spirit.",
+    icon: "✦",
+    category: "Relic" as ItemCategory,
+    rarity: "Epic",
+    stackable: false,
+    maxStack: 1,
+    tradable: false,
+    usable: false,
+    effects: null,
+    metadata: { source: "river-sanctum", value: 500 },
+  },
+  {
+    id: "ankh-of-eternity",
+    name: "Ankh of Eternity",
+    description: "An ancient ankh said to represent life beyond the mortal world.",
+    icon: "𓋹",
+    category: "Special",
+    rarity: "Legendary",
+    stackable: false,
+    maxStack: 1,
+    tradable: false,
+    usable: false,
+    effects: null,
+    metadata: { source: "eternal-chambers", value: 1000 },
+  },
+  {
+    id: "crown-of-the-forgotten-pharaoh",
+    name: "Crown of the Forgotten Pharaoh",
+    description: "A crown belonging to a ruler whose name has been deliberately erased from history.",
+    icon: "♕",
+    category: "Collectible",
+    rarity: "Legendary",
+    stackable: false,
+    maxStack: 1,
+    tradable: false,
+    usable: false,
+    effects: null,
+    metadata: { source: "erased-dynasty", value: 1500 },
+  },
+  {
+    id: "feather-of-maat",
+    name: "Feather of Ma'at",
+    description: "A feather said to weigh the truth of every soul placed before it.",
+    icon: "𓆄",
+    category: "Special",
+    rarity: "Mythic",
+    stackable: false,
+    maxStack: 1,
+    tradable: false,
+    usable: false,
+    effects: null,
+    metadata: { source: "hall-of-truth", unpriced: true },
+  },
+  {
+    id: "star-of-khepri",
+    name: "Star of Khepri",
+    description: "A fragment of something that fell from the heavens long before the first dynasty.",
+    icon: "✶",
+    category: "Collectible",
+    rarity: "Mythic",
+    stackable: false,
+    maxStack: 1,
+    tradable: false,
+    usable: false,
+    effects: null,
+    metadata: { source: "pre-dynastic-sky", unpriced: true },
+  },
 ];
 
 for (const item of initialItems) {
@@ -608,6 +838,10 @@ function ensureProfile(userId: string, username: string, avatarUrl: string | nul
     SELECT ?, COALESCE((SELECT MAX(profile_number) FROM profiles), 0) + 1
     WHERE NOT EXISTS (SELECT 1 FROM profiles WHERE discord_id = ?)
   `).run(userId, userId);
+  database.prepare(`
+    INSERT OR IGNORE INTO currency_balances (discord_id, balance)
+    VALUES (?, 100)
+  `).run(userId);
 
   const starterTitles = ["wanderer", "newcomer", "archivist"];
   for (const titleId of starterTitles) {
@@ -706,6 +940,123 @@ export function getItemQuantity(userId: string, itemId: string): number {
   const row = database.prepare("SELECT quantity FROM user_inventory WHERE discord_id = ? AND item_id = ?")
     .get(userId, itemId) as { quantity?: number } | undefined;
   return Number(row?.quantity ?? 0);
+}
+
+export function getCurrencyBalance(userId: string, username = "Unknown Record", avatarUrl: string | null = null): number {
+  ensureProfile(userId, username, avatarUrl);
+  const row = database.prepare("SELECT balance FROM currency_balances WHERE discord_id = ?")
+    .get(userId) as { balance?: number } | undefined;
+  return Number(row?.balance ?? 0);
+}
+
+function validCurrencyAmount(amount: number): boolean {
+  return Number.isSafeInteger(amount) && amount > 0;
+}
+
+function recordCurrencyTransaction(
+  userId: string,
+  kind: CurrencyTransactionKind,
+  amount: number,
+  balanceAfter: number,
+  idempotencyKey?: string,
+): string {
+  const result = database.prepare(`
+    INSERT INTO currency_transactions (discord_id, kind, amount, balance_after, idempotency_key)
+    VALUES (?, ?, ?, ?, ?)
+  `).run(userId, kind, amount, balanceAfter, idempotencyKey ?? null);
+  return String(result.lastInsertRowid);
+}
+
+export function addCurrency(
+  userId: string,
+  amount: number,
+  username = "Unknown Record",
+  avatarUrl: string | null = null,
+  idempotencyKey?: string,
+): CurrencyResult {
+  if (!validCurrencyAmount(amount)) return { ok: false, reason: "invalid-amount" };
+  ensureProfile(userId, username, avatarUrl);
+  database.exec("BEGIN IMMEDIATE");
+  try {
+    if (idempotencyKey && database.prepare("SELECT 1 FROM currency_transactions WHERE idempotency_key = ?").get(idempotencyKey)) {
+      database.exec("ROLLBACK");
+      return { ok: false, reason: "duplicate-transaction" };
+    }
+    const current = getCurrencyBalance(userId);
+    const next = current + amount;
+    if (!Number.isSafeInteger(next)) {
+      database.exec("ROLLBACK");
+      return { ok: false, reason: "invalid-balance" };
+    }
+    database.prepare("UPDATE currency_balances SET balance = ?, updated_at = CURRENT_TIMESTAMP WHERE discord_id = ?").run(next, userId);
+    const transactionId = recordCurrencyTransaction(userId, "credit", amount, next, idempotencyKey);
+    database.exec("COMMIT");
+    return { ok: true, balance: next, transactionId };
+  } catch (error) {
+    database.exec("ROLLBACK");
+    throw error;
+  }
+}
+
+export function removeCurrency(
+  userId: string,
+  amount: number,
+  username = "Unknown Record",
+  avatarUrl: string | null = null,
+  idempotencyKey?: string,
+): CurrencyResult {
+  if (!validCurrencyAmount(amount)) return { ok: false, reason: "invalid-amount" };
+  ensureProfile(userId, username, avatarUrl);
+  database.exec("BEGIN IMMEDIATE");
+  try {
+    if (idempotencyKey && database.prepare("SELECT 1 FROM currency_transactions WHERE idempotency_key = ?").get(idempotencyKey)) {
+      database.exec("ROLLBACK");
+      return { ok: false, reason: "duplicate-transaction" };
+    }
+    const current = getCurrencyBalance(userId);
+    if (current < amount) {
+      database.exec("ROLLBACK");
+      return { ok: false, reason: "insufficient-funds" };
+    }
+    const next = current - amount;
+    database.prepare("UPDATE currency_balances SET balance = ?, updated_at = CURRENT_TIMESTAMP WHERE discord_id = ?").run(next, userId);
+    const transactionId = recordCurrencyTransaction(userId, "debit", amount, next, idempotencyKey);
+    database.exec("COMMIT");
+    return { ok: true, balance: next, transactionId };
+  } catch (error) {
+    database.exec("ROLLBACK");
+    throw error;
+  }
+}
+
+export function hasCurrency(userId: string, amount: number): boolean {
+  return validCurrencyAmount(amount) && getCurrencyBalance(userId) >= amount;
+}
+
+export function setCurrency(
+  userId: string,
+  balance: number,
+  username = "Unknown Record",
+  avatarUrl: string | null = null,
+  idempotencyKey?: string,
+): CurrencyResult {
+  if (!Number.isSafeInteger(balance) || balance < 0) return { ok: false, reason: "invalid-balance" };
+  ensureProfile(userId, username, avatarUrl);
+  database.exec("BEGIN IMMEDIATE");
+  try {
+    if (idempotencyKey && database.prepare("SELECT 1 FROM currency_transactions WHERE idempotency_key = ?").get(idempotencyKey)) {
+      database.exec("ROLLBACK");
+      return { ok: false, reason: "duplicate-transaction" };
+    }
+    const current = getCurrencyBalance(userId);
+    database.prepare("UPDATE currency_balances SET balance = ?, updated_at = CURRENT_TIMESTAMP WHERE discord_id = ?").run(balance, userId);
+    const transactionId = recordCurrencyTransaction(userId, "set", balance, balance, idempotencyKey);
+    database.exec("COMMIT");
+    return { ok: true, balance, transactionId };
+  } catch (error) {
+    database.exec("ROLLBACK");
+    throw error;
+  }
 }
 
 export function hasItem(userId: string, itemId: string, quantity = 1): boolean {

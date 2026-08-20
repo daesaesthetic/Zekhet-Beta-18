@@ -60,6 +60,7 @@ import {
   getInventory,
   getItem,
   getItemQuantity,
+  getCurrencyBalance,
   type ActiveCurse,
   type Contract,
   type ContractTemplate,
@@ -433,11 +434,16 @@ const itemCommand = new SlashCommandBuilder()
   .addSubcommand((sub) => sub.setName("inspect").setDescription("Inspect an item.")
     .addStringOption((option) => option.setName("item").setDescription("The item ID to inspect.").setRequired(true)));
 
+const balanceCommand = new SlashCommandBuilder()
+  .setName("balance")
+  .setDescription("View the Deben held by your Record.");
+
 export const commands = [
   new SlashCommandBuilder().setName("help").setDescription("Consult Zekhet's available records."),
   new SlashCommandBuilder().setName("credits").setDescription("See who keeps Zekhet's records."),
   new SlashCommandBuilder().setName("developer").setDescription("Open the restricted developer control panel."),
   new SlashCommandBuilder().setName("inventory").setDescription("View the items owned by your Record."),
+  balanceCommand,
   itemCommand,
   profileCommand,
   new SlashCommandBuilder().setName("titles").setDescription("View your owned titles and the Court."),
@@ -863,15 +869,24 @@ const itemRarityColors: Record<Item["rarity"], number> = {
 };
 
 function inventoryEmbed(inventory: InventoryEntry[]): EmbedBuilder {
+  const rarityOrder: Item["rarity"][] = ["Mythic", "Legendary", "Epic", "Rare", "Uncommon", "Common"];
   const itemText = inventory.length
-    ? inventory.map((entry) => `${entry.icon} **${entry.name}** × ${entry.quantity}\n\`${entry.id}\` · ${entry.rarity} · ${entry.category}`).join("\n\n")
+    ? rarityOrder
+      .map((rarity) => {
+        const entries = inventory.filter((entry) => entry.rarity === rarity);
+        return entries.length
+          ? `**${rarity}**\n${entries.map((entry) => `${entry.icon} **${entry.name}** × ${entry.quantity}\n\`${entry.id}\` · ${entry.category}`).join("\n")}`
+          : "";
+      })
+      .filter(Boolean)
+      .join("\n\n")
     : "_Your Record contains no items._";
   return new EmbedBuilder()
     .setColor(0x7e4bb8)
-    .setAuthor({ name: "🎒 THE INVENTORY 🎒" })
-    .setTitle("Personal Inventory")
+    .setAuthor({ name: "𓂀 THE RELICS 𓂀" })
+    .setTitle("The Keeper's Collection")
     .setDescription(inventory.length
-      ? "The keeper has arranged the items currently held by your Record."
+      ? "The keeper has arranged the artifacts currently held by your Record."
       : "The shelves are empty. No placeholder items have been added.")
     .addFields({ name: `Owned Items · ${inventory.length}`, value: itemText })
     .setFooter({ text: "Use /item inspect item:<id> to examine an item." });
@@ -1115,6 +1130,22 @@ export async function handlePrefixCommand(message: Message): Promise<void> {
 
   if (command === "help") {
     await message.reply("⛤ Zekhet commands ⛤\n`z!profile` · `z!titles` · `z!lore` · `z!curse` · `z!contracts` · `z!achievements` · `z!tuto`\nSlash commands remain the primary interface.");
+    return;
+  }
+
+  if (interaction.commandName === "balance") {
+    const balance = getCurrencyBalance(interaction.user.id, interaction.user.username, interaction.user.displayAvatarURL());
+    await interaction.reply({
+      embeds: [
+        new EmbedBuilder()
+          .setColor(0xd6a84f)
+          .setAuthor({ name: "𓂀 THE TREASURY 𓂀" })
+          .setTitle("Deben Balance")
+          .setDescription("The ledger has counted the wealth recorded beneath your name.")
+          .addFields({ name: "Available Deben", value: `**${balance.toLocaleString("en-US")}**`, inline: true })
+          .setFooter({ text: "Deben is Zekhet's fictional in-world currency." }),
+      ],
+    });
     return;
   }
   if (command === "credits") {
