@@ -1,0 +1,713 @@
+You are continuing development of the existing ⛤ Zekhet ⛤ Discord bot.
+
+CURRENT VERSION:
+Beta-15
+
+Begin development planning for:
+
+⛤ BETA-16 — THE REALM ⛤
+PHASE 0 — FOUNDATION
+
+IMPORTANT:
+This phase is ONLY for preparing the architecture and design for the upcoming Realm / Venture gameplay system.
+
+DO NOT implement the full Venture system yet.
+
+DO NOT add a large amount of new content.
+
+DO NOT rebuild any existing systems.
+
+The goal is to prepare Zekhet for a connected gameplay loop that will make the existing systems naturally useful.
+
+==================================================
+1. CORE IDEA
+==================================================
+
+Zekhet currently contains many interconnected systems:
+
+- Profiles
+- Titles
+- Lore
+- Curses
+- Contracts
+- Achievements
+- Tutorial
+- XP
+- Levels
+- Ranks
+- Deben
+- Inventory
+- Items
+- Passport
+- Passport Stamps
+- Unified Rewards
+- Progression Events
+
+The primary weakness we are solving is:
+
+A new user can see many commands, but may not immediately understand:
+
+"What am I supposed to DO?"
+
+Beta-16 will introduce an actual gameplay loop.
+
+The intended long-term loop is:
+
+VENTURE
+↓
+ENCOUNTER
+↓
+DISCOVERY / LOOT / EVENT
+↓
+REWARDS
+↓
+EXISTING ZEKHET SYSTEMS
+↓
+MORE PROGRESSION
+↓
+MORE REASONS TO VENTURE
+
+The goal is NOT to copy Dank Memer.
+
+We want to achieve the same level of interconnectedness while maintaining Zekhet's unique identity.
+
+==================================================
+2. CORE COMMAND NAME
+==================================================
+
+For this project, use:
+
+/venture
+
+as the provisional name for the primary gameplay command.
+
+Also plan support for:
+
+z!venture
+
+Do NOT implement the command yet.
+
+The command should eventually mean:
+
+"Undertake a journey into the unknown."
+
+Other names such as /explore, /seek, /journey, or /wander may be considered in the future, but do not implement them as aliases yet.
+
+==================================================
+3. CORE GAMEPLAY LOOP
+==================================================
+
+Design the future Venture system around:
+
+/venture
+↓
+Encounter
+↓
+Outcome
+↓
+Reward / Discovery
+↓
+Progression Event
+↓
+Existing Zekhet Systems
+
+Possible outcomes include:
+
+- Nothing happens
+- Find Deben
+- Find an item
+- Discover lore
+- Encounter another character
+- Receive a curse
+- Trigger an achievement
+- Unlock a title
+- Discover a location
+- Find a contract opportunity
+- Discover a secret
+- Trigger a rare event
+
+Not every venture should produce a reward.
+
+Some should produce atmosphere or narrative.
+
+Some should produce multiple outcomes.
+
+Some should be extremely rare.
+
+==================================================
+4. ENCOUNTER ARCHITECTURE
+==================================================
+
+Design a lightweight encounter architecture.
+
+An encounter should be able to contain:
+
+- Unique ID
+- Name
+- Description
+- Location
+- Rarity
+- Outcome type
+- Requirements
+- Rewards
+- Progression events
+- Cooldown behavior
+- Secret flag
+- Optional follow-up action
+- Optional narrative response
+
+Do NOT create hundreds of encounters.
+
+For the initial implementation later, we should be able to add encounters without rewriting the Venture command itself.
+
+Prefer a data-driven architecture.
+
+For example, encounters should eventually be defined as data/configuration rather than requiring a completely new command handler for every encounter.
+
+==================================================
+5. ENCOUNTER RARITY
+==================================================
+
+Plan support for:
+
+COMMON
+UNCOMMON
+RARE
+EPIC
+LEGENDARY
+MYTHIC
+SECRET
+
+Rarity should influence:
+
+- Probability
+- Reward quality
+- Narrative importance
+- Potential progression
+- Potential Passport stamps
+
+Do not make rarity purely cosmetic.
+
+However, do not make the system excessively complicated.
+
+==================================================
+6. LOCATION ARCHITECTURE
+==================================================
+
+Plan a future location system.
+
+Initial locations can include concepts such as:
+
+🏺 Sunken Temple
+📜 Grand Archives
+🌴 Golden Oasis
+🏛️ Hall of the Court
+🪦 Forgotten Necropolis
+🏜️ Glass Desert
+🕯️ Silent Sanctuary
+🌑 Unmarked Passage
+
+DO NOT implement all of these yet.
+
+Create an architecture that allows encounters to optionally belong to a location.
+
+A location should eventually be able to influence:
+
+- Available encounters
+- Loot
+- Lore
+- Curses
+- Items
+- Contracts
+- Secret discoveries
+
+==================================================
+7. EXISTING SYSTEM INTEGRATION
+==================================================
+
+The future Venture system MUST use existing Zekhet infrastructure.
+
+Do not create separate systems for:
+
+XP
+Currency
+Items
+Titles
+Achievements
+Rewards
+Passport stamps
+Progression
+
+Instead:
+
+XP
+→ existing progression system
+
+Deben
+→ existing currency system
+
+Items
+→ existing inventory system
+
+Titles
+→ existing title system
+
+Achievements
+→ existing achievement system
+
+Passport stamps
+→ existing Passport system
+
+Rewards
+→ existing unified reward system
+
+Progression
+→ existing progression event system
+
+This is extremely important.
+
+Beta-16 should make existing systems more useful, not replace them.
+
+==================================================
+8. PROGRESSION EVENTS
+==================================================
+
+Plan the following future events where appropriate:
+
+VENTURE_STARTED
+VENTURE_COMPLETED
+ENCOUNTER_FOUND
+RARE_ENCOUNTER_FOUND
+SECRET_ENCOUNTER_FOUND
+LOCATION_DISCOVERED
+ITEM_DISCOVERED
+DEBEN_FOUND
+LORE_DISCOVERED
+CURSE_RECEIVED
+CONTRACT_DISCOVERED
+
+Do NOT add all of these events automatically if the existing event architecture does not require them yet.
+
+Determine which events are genuinely useful.
+
+Keep the event system lightweight.
+
+==================================================
+9. REWARD DESIGN
+==================================================
+
+Future Venture rewards should be able to use:
+
+- XP
+- Deben
+- Existing items
+- Existing titles
+- Existing achievements
+- Existing lore
+- Existing Passport stamps
+
+Do NOT create:
+
+- Venture currency
+- Venture XP
+- Venture inventory
+- Venture rewards database
+
+Use existing infrastructure.
+
+A Venture should be able to produce multiple reward types.
+
+Example:
+
+Rare encounter:
+
++85 XP
++120 Deben
++1 Ancient Relic
++1 Lore Discovery
+
+==================================================
+10. COOLDOWN DESIGN
+==================================================
+
+Plan a Venture cooldown.
+
+The cooldown should prevent spam while still making the command something users want to return to.
+
+Do NOT decide on an unnecessarily long cooldown yet.
+
+The exact timing can be tuned during Phase 1.
+
+The architecture should support:
+
+- Normal cooldown
+- Potential future boosts
+- Future event modifiers
+- Future item modifiers
+
+Do not implement boosts yet.
+
+==================================================
+11. FAILURE / NEUTRAL OUTCOMES
+==================================================
+
+Do not make Venture purely reward-based.
+
+Plan support for outcomes such as:
+
+"Nothing of interest was found."
+
+"You return empty-handed."
+
+"The trail goes cold."
+
+"You discover something, but cannot yet understand it."
+
+"You find something valuable."
+
+"You encounter something dangerous."
+
+The system should feel like exploration rather than a slot machine.
+
+Avoid gambling-like presentation.
+
+==================================================
+12. NARRATIVE DESIGN
+==================================================
+
+Zekhet's personality should remain central.
+
+Venture responses should eventually contain:
+
+- Atmospheric descriptions
+- Zekhet commentary
+- Occasional humor
+- Mystery
+- Ancient/mystical language
+- Rare dramatic responses
+
+Do not make every response overly dramatic.
+
+Some should be short.
+
+Example:
+
+> You search the abandoned courtyard.
+>
+> Nothing.
+>
+> Zekhet makes a note of the disappointment.
+
+Others can be more elaborate for rare encounters.
+
+==================================================
+13. FUTURE DISCOVERY CHAINS
+==================================================
+
+Design the architecture so encounters can lead into multi-step discoveries.
+
+Example:
+
+Venture
+↓
+Find strange artifact
+↓
+Discover related lore
+↓
+Return to a specific location
+↓
+Trigger special encounter
+↓
+Unlock title
+↓
+Passport stamp
+
+Another:
+
+Venture
+↓
+Receive strange curse
+↓
+Discover related lore
+↓
+Complete contract
+↓
+Unlock secret encounter
+
+Do NOT implement these chains yet.
+
+Simply ensure the architecture will support them.
+
+==================================================
+14. SECRET CONTENT
+==================================================
+
+The future Realm should support secret encounters.
+
+Secret content should be able to have:
+
+- Hidden name
+- Hidden description
+- Hidden requirements
+- Hidden rarity
+- Unique reward
+- Unique Passport stamp
+- Unique lore
+- Unique title
+
+Secret content should NOT be exposed by normal command lists.
+
+Do not implement secret content yet.
+
+==================================================
+15. MULTIPLAYER COMPATIBILITY
+==================================================
+
+Design the system so future encounters can involve other Discord users.
+
+Potential future interactions:
+
+- Encounter another user
+- Assist another user
+- Challenge another user
+- Trade with another user
+- Cooperative expedition
+- Shared contract
+
+Do NOT implement multiplayer Venture mechanics in Phase 0.
+
+Simply avoid designing the architecture in a way that prevents them.
+
+==================================================
+16. SERVER-SPECIFIC COMPATIBILITY
+==================================================
+
+The Venture system should eventually support server-specific content.
+
+For example:
+
+Server A could discover:
+
+"The Forgotten Temple"
+
+while Server B could eventually discover:
+
+"The Frozen Archive"
+
+Do NOT build a server-content editor yet.
+
+Simply avoid hard-coding the architecture so everything must be globally identical.
+
+==================================================
+17. DATABASE PLANNING
+==================================================
+
+Inspect the existing Beta-15 database architecture before making changes.
+
+Determine what is genuinely necessary.
+
+Prefer adding only the minimum future tables required.
+
+Possible future structures include:
+
+ventures
+encounters
+locations
+user_venture_state
+venture_cooldowns
+
+However:
+
+DO NOT automatically create all of these tables.
+
+First determine whether existing architecture can support part of the system.
+
+Do not duplicate:
+
+users
+progression
+inventory
+currency
+rewards
+events
+Passport data
+
+==================================================
+18. COMMAND INTEGRATION
+==================================================
+
+Future command structure should fit naturally into the existing command organization.
+
+Potential future commands:
+
+/venture
+/venture status
+/venture history
+/venture location
+
+Do NOT implement these yet.
+
+Only document the recommended structure.
+
+Keep the initial user-facing system extremely simple.
+
+The ideal new user experience should eventually be:
+
+/venture
+
+and immediately understand what the bot is about.
+
+==================================================
+19. HELP / COMMAND DISCOVERY
+==================================================
+
+Do not modify /help extensively during Phase 0.
+
+Plan for a future Adventure category.
+
+Example:
+
+⛤ ADVENTURE
+
+/venture — Venture into the unknown.
+
+This will eventually become the primary entry point for Zekhet's gameplay loop.
+
+==================================================
+20. DEVELOPER SYSTEM
+==================================================
+
+Future Developer tools should eventually support:
+
+- Trigger encounter
+- Trigger rare encounter
+- Trigger secret encounter
+- Grant exploration reward
+- Set cooldown
+- Clear cooldown
+- Discover location
+- Test progression event
+
+Do NOT implement all of these yet.
+
+Simply ensure the architecture will allow them.
+
+==================================================
+21. PERFORMANCE
+==================================================
+
+Beta-16 must remain lightweight.
+
+Do not:
+
+- Scan every user after a Venture
+- Scan every achievement
+- Scan every Passport stamp
+- Query unnecessary tables
+- Add external APIs
+- Add AI generation
+- Add background processes
+
+Use event-driven checks.
+
+Only evaluate systems relevant to the outcome.
+
+==================================================
+22. CREDIT / IMPLEMENTATION EFFICIENCY
+==================================================
+
+This project is being developed using Replit Agent with limited credits.
+
+Therefore:
+
+DO NOT over-engineer Phase 0.
+
+Do not build features that are not needed yet.
+
+Do not refactor working systems merely for style.
+
+Do not rewrite files that do not need modification.
+
+Prefer small, isolated modules.
+
+Prefer reusable data structures.
+
+Prefer existing helper functions.
+
+Keep the implementation simple enough that future phases can be completed independently.
+
+==================================================
+23. PHASE 0 DELIVERABLE
+==================================================
+
+At the end of this task:
+
+DO NOT implement the full Venture gameplay system.
+
+Instead:
+
+1. Inspect the existing Beta-15 architecture.
+2. Determine the cleanest integration point for Venture.
+3. Create only the minimum architectural foundations required.
+4. Document the proposed encounter structure.
+5. Document the proposed location structure.
+6. Document how Venture will use existing rewards.
+7. Document how Venture will emit progression events.
+8. Document how Venture will eventually connect to Inventory, Lore, Curses, Contracts, Achievements, Titles, and Passport.
+9. Ensure no existing functionality is broken.
+10. Ensure the bot starts successfully.
+11. Ensure the database remains compatible.
+
+==================================================
+24. FINAL REPORT
+==================================================
+
+When finished, report:
+
+- Files changed
+- Files created
+- Database changes
+- New architectural components
+- Existing systems reused
+- New progression events, if any
+- Proposed encounter architecture
+- Proposed location architecture
+- Proposed command structure
+- Anything intentionally NOT implemented
+- Any issues discovered
+- Recommended next step
+
+==================================================
+BETA-16 PHASE 0 GOAL
+==================================================
+
+Do not make Zekhet bigger just for the sake of making it bigger.
+
+Prepare Zekhet to become a game.
+
+The eventual user experience should be:
+
+A user joins a server.
+
+They see:
+
+/venture
+
+They try it.
+
+Something happens.
+
+That something gives them a reason to inspect:
+
+/inventory
+/lore
+/achievements
+/profile
+/passport
+/contracts
+
+Those systems then give them reasons to venture again.
+
+That is the core design philosophy of Beta-16.
+
+Build the foundation for that loop without implementing the full loop yet.
