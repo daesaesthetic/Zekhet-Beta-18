@@ -1,0 +1,233 @@
+You are continuing development of the existing ⛤ Zekhet ⛤ Discord bot.
+
+CURRENT VERSION:
+Zekhet-Beta-18
+
+IMPORTANT:
+Do NOT modify the code yet.
+
+We have discovered a server compatibility issue that needs to be diagnosed before Beta-19.
+
+==================================================
+ISSUE
+==================================================
+
+Some Zekhet commands work correctly in the primary development server but fail when the bot is used in other Discord servers.
+
+The user-facing error is:
+
+"The Archives are momentarily sealed. Please try again later."
+
+The bot otherwise appears to be online and functional.
+
+We need to determine the REAL underlying cause.
+
+==================================================
+GOAL
+==================================================
+
+Perform a read-only diagnostic audit of the bot's command execution and server initialization systems.
+
+Do NOT fix anything yet.
+
+Do NOT refactor anything.
+
+Do NOT create new features.
+
+Do NOT modify the database schema.
+
+Do NOT modify existing commands.
+
+==================================================
+1. COMMAND ERROR HANDLING
+==================================================
+
+Find where the message:
+
+"The Archives are momentarily sealed. Please try again later."
+
+is generated.
+
+Determine:
+
+- Which error handler produces it
+- Whether it is a global error handler
+- Which exceptions trigger it
+- Whether the original error is logged
+- Whether guild/server information is included in the logs
+
+Report the exact file and function responsible.
+
+==================================================
+2. IDENTIFY AFFECTED COMMANDS
+==================================================
+
+Determine which commands can produce this error.
+
+Create a list categorized as:
+
+WORKS IN NEW SERVERS
+FAILS IN NEW SERVERS
+UNKNOWN
+
+Do not assume that every command has the same problem.
+
+==================================================
+3. GUILD INITIALIZATION
+==================================================
+
+Inspect how Zekhet initializes a new Discord server.
+
+Determine whether the following are automatically created when the bot joins a server:
+
+- Guild/server configuration
+- Prefix configuration
+- User records
+- Economy configuration
+- Tutorial state
+- Passport state
+- Inventory state
+- Progression state
+- Other required server records
+
+Identify anything that exists automatically in the development server but may not exist in a newly joined server.
+
+==================================================
+4. DATABASE ASSUMPTIONS
+==================================================
+
+Inspect commands that fail in other servers.
+
+Look for assumptions such as:
+
+- A guild configuration row must already exist
+- A server ID must already exist in a table
+- A channel ID must already be configured
+- A role ID must already exist
+- A server-specific setting must already exist
+- A user must already have a database record
+
+Identify every likely missing initialization requirement.
+
+==================================================
+5. PERMISSIONS
+==================================================
+
+Determine whether any affected commands require Discord permissions that may not exist in other servers.
+
+Check for:
+
+- Send Messages
+- Embed Links
+- Use Application Commands
+- Manage Channels
+- Manage Roles
+- View Channels
+- Read Message History
+- Other relevant permissions
+
+Do not change permissions.
+
+Only report potential permission dependencies.
+
+==================================================
+6. SLASH COMMAND REGISTRATION
+==================================================
+
+Inspect how slash commands are registered.
+
+Determine whether commands are:
+
+- Global
+- Guild-specific
+- Mixed
+
+Determine whether any commands are only registered to the development server.
+
+Do not change registration yet.
+
+==================================================
+7. PREFIX SYSTEM
+==================================================
+
+Inspect the configurable prefix system.
+
+Determine whether a newly joined server receives a default prefix automatically.
+
+Determine whether prefix-dependent commands can fail when no server-specific prefix exists.
+
+Do not change the prefix system.
+
+==================================================
+8. SERVER-SPECIFIC FEATURES
+==================================================
+
+Identify commands that inherently require server-specific resources.
+
+Examples may include:
+
+- Channel creation
+- Server Passport
+- Server-specific lore
+- Server configuration
+- Server newspaper
+- Server-specific achievements
+
+Determine which commands should work immediately in any server and which legitimately require setup.
+
+==================================================
+9. ERROR LOGGING
+==================================================
+
+Determine whether the real underlying exception is currently visible in the Replit console.
+
+If it is being hidden, identify how.
+
+Do not remove the user-friendly error message.
+
+We need the bot to continue showing the friendly message to users while providing useful diagnostic information to the developer.
+
+==================================================
+10. COMPATIBILITY REPORT
+==================================================
+
+At the end, provide a report containing:
+
+A. Exact source of:
+"The Archives are momentarily sealed."
+
+B. Commands known to fail outside the development server.
+
+C. Most likely root cause.
+
+D. Database records that may be missing.
+
+E. Required server initialization steps.
+
+F. Permission requirements.
+
+G. Slash-command registration status.
+
+H. Any commands that intentionally require server configuration.
+
+I. Recommended minimal fix.
+
+J. Any potential risks of implementing that fix.
+
+==================================================
+IMPORTANT
+==================================================
+
+DO NOT MODIFY ANY FILES.
+
+DO NOT MAKE ANY DATABASE CHANGES.
+
+DO NOT IMPLEMENT THE FIX.
+
+This task is diagnostic only.
+
+The next task will use your findings to create:
+
+⛤ BETA-18.1 — THE OPEN ARCHIVES ⛤
+
+whose purpose will be making Zekhet safely usable in new Discord servers without manually configuring every system.
