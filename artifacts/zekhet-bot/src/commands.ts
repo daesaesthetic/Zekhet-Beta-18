@@ -475,8 +475,6 @@ function developerPanel() {
         new ButtonBuilder().setCustomId("developer:tutorial-unlock").setLabel("Unlock Next Chapter").setStyle(ButtonStyle.Primary),
         new ButtonBuilder().setCustomId("developer:tutorial-complete").setLabel("Complete Tutorial").setStyle(ButtonStyle.Primary),
         new ButtonBuilder().setCustomId("developer:tutorial-reset").setLabel("Reset Tutorial").setStyle(ButtonStyle.Danger),
-      ),
-      new ActionRowBuilder<ButtonBuilder>().addComponents(
         new ButtonBuilder().setCustomId("developer:progression-check").setLabel("Run Progression Check").setStyle(ButtonStyle.Primary),
       ),
     ],
