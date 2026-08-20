@@ -1,0 +1,413 @@
+# Zekhet-B Beta 11 — XP & Rank Progression System
+
+We are continuing development of Zekhet-B.
+
+The current codebase is at Beta 10 and the existing systems are functioning correctly.
+
+Confirmed existing systems include:
+
+* Tuto system
+* Tuto objectives
+* Tuto progression/unlocks
+* Item definitions
+* User inventories
+* Item persistence
+* Currency/economy
+* Existing reward functionality
+
+This update should introduce the **XP and Rank progression system**.
+
+IMPORTANT:
+
+XP and ranks are NOT currently present in the codebase. They should be implemented as a new system in this beta.
+
+Do NOT replace the existing Tuto progression system.
+
+---
+
+# 1. XP SYSTEM
+
+Create a persistent XP system for every Zekhet-B user.
+
+Each user should have:
+
+* Current XP
+* Current level
+* Total/lifetime XP if useful to the existing architecture
+
+Use the existing user data/database architecture.
+
+Do NOT create a separate database if the existing user model can safely support these fields.
+
+## XP Requirements
+
+Create a centralized XP service capable of:
+
+* Getting a user's XP
+* Adding XP
+* Calculating the user's level
+* Determining XP required for the next level
+* Checking level-up events
+* Persisting XP
+* Preventing invalid/negative XP operations where appropriate
+
+Use reusable functions rather than implementing XP logic independently inside individual commands.
+
+---
+
+# 2. LEVEL CURVE
+
+Create a scalable level progression system.
+
+Do not use a simple fixed amount of XP required for every level.
+
+The XP requirement should increase as the user's level increases.
+
+Use a reasonable progression curve that feels achievable at early levels while allowing long-term progression.
+
+The exact formula should be centralized and easy to modify later.
+
+For example, conceptually:
+
+Level 1 → Level 2 requires relatively little XP.
+
+Level 10 → Level 11 requires substantially more.
+
+Level 50 → Level 51 should represent a meaningful long-term milestone.
+
+Do NOT hardcode hundreds of individual level requirements unless the existing architecture specifically benefits from it.
+
+---
+
+# 3. RANK SYSTEM
+
+Create a rank/title system tied to progression.
+
+Ranks should fit Zekhet-B's mystical/ancient Egyptian identity.
+
+Do NOT simply use generic titles such as:
+
+* Beginner
+* Novice
+* Intermediate
+* Expert
+
+Instead, create original thematic ranks.
+
+Example progression:
+
+**Level 1**
+𓂀 Wanderer
+
+**Level 5**
+𓏏 Initiate
+
+**Level 10**
+𓆣 Acolyte
+
+**Level 20**
+𓂀 Scribe
+
+**Level 30**
+𓋹 Keeper
+
+**Level 50**
+𓁶 High Priest
+
+**Level 75**
+𓅃 Oracle
+
+**Level 100**
+𓆓 Ascendant
+
+These are examples only.
+
+Inspect the existing Zekhet-B terminology and aesthetic before finalizing the rank names.
+
+The rank system should be data-driven so names and thresholds can be changed without rewriting progression logic.
+
+---
+
+# 4. RANK PROGRESSION
+
+Ranks should be determined from the user's current level.
+
+The system should be able to answer:
+
+* What rank does this user currently have?
+* What level unlocks the next rank?
+* What rank comes after the current one?
+* How far is the user from the next rank?
+
+Do not store redundant rank data if it can safely be derived from the user's level.
+
+If rank is stored for performance or display reasons, ensure it cannot become inconsistent with the user's actual level.
+
+---
+
+# 5. XP SOURCES
+
+Create the infrastructure necessary for existing and future systems to award XP.
+
+At minimum, implement a reusable XP reward function/service.
+
+For example:
+
+`addXP(user, amount, source)`
+
+The source should allow the system to identify where XP came from.
+
+Potential future sources include:
+
+* Tuto objectives
+* Commands
+* Achievements
+* Items
+* Daily activity
+* Events
+* Quests
+
+Do not implement every possible XP source yet.
+
+---
+
+# 6. TUTO INTEGRATION
+
+Integrate XP with the existing Tuto system where appropriate.
+
+IMPORTANT:
+
+Do NOT replace Tuto progression with XP.
+
+Tuto objectives should continue functioning exactly as they currently do.
+
+If Tuto objectives already have rewards, extend their reward handling so they can optionally provide XP.
+
+For example:
+
+> ✦ Objective Complete
+>
+> +250 XP
+> +100 Deben
+> +1 Papyrus Fragment
+
+However, do not force XP onto every existing objective if the current system does not support that cleanly.
+
+The architecture should allow XP rewards to be added to objectives without rewriting the Tuto system.
+
+---
+
+# 7. LEVEL-UP EVENTS
+
+When a user gains enough XP to reach a new level, automatically detect the level-up.
+
+Display an appropriate Zekhet-B-themed notification.
+
+Example:
+
+> 𓂀 **ASCENSION**
+>
+> Your knowledge has grown.
+>
+> **Level 9 → Level 10**
+>
+> ✦ New Rank: **Acolyte**
+
+Keep the notification visually consistent with the bot's existing embeds/UI.
+
+---
+
+# 8. RANK-UP EVENTS
+
+When crossing a rank threshold, provide a more significant notification than an ordinary level-up.
+
+Example:
+
+> 𓋹 **A NEW TITLE HAS BEEN BESTOWED**
+>
+> You have reached Level 20.
+>
+> **Rank Unlocked**
+> **Scribe**
+>
+> Your name has been recorded among the keepers of knowledge.
+
+Do not treat rank changes as separate progression systems.
+
+Ranks should be naturally triggered by levels.
+
+---
+
+# 9. PROGRESSION COMMAND
+
+Create a command that allows users to inspect their XP and progression if an equivalent command does not already exist.
+
+A suitable command could be:
+
+`/level`
+
+or
+
+`/rank`
+
+If one command can cleanly display both, prefer a single command rather than creating unnecessary commands.
+
+The display should include:
+
+* Current level
+* Current XP
+* XP required for next level
+* Current rank
+* Next rank
+* Progress toward next level
+* Progress toward next rank if useful
+
+Example:
+
+> 𓂀 **AZURION**
+>
+> **Rank**
+> Acolyte
+>
+> **Level 12**
+> `1,420 / 1,800 XP`
+>
+> ████████░░
+>
+> **Next Rank**
+> Scribe — Level 20
+
+Use the existing Zekhet-B UI conventions.
+
+---
+
+# 10. FUTURE UNLOCK SUPPORT
+
+Create hooks that allow future systems to react to:
+
+* XP gained
+* Level reached
+* Rank reached
+
+Future features may use these events to unlock:
+
+* Commands
+* Tuto pages
+* Items
+* Titles
+* Achievements
+* Special features
+* Cosmetics
+
+Do NOT implement those future systems yet.
+
+The goal is to make XP/rank progression extensible.
+
+---
+
+# 11. DATA INTEGRITY
+
+Pay particular attention to:
+
+* XP duplication
+* XP being lost
+* Negative XP
+* Incorrect level calculations
+* Incorrect rank calculations
+* Multiple level-up notifications from one transaction
+* Multiple rank-up notifications from one transaction
+* Persistence after restart
+
+If a single XP award causes a user to cross multiple levels, handle the progression correctly.
+
+For example:
+
+Level 4 → Level 7 from a large XP reward
+
+should correctly process the progression without corrupting the user's data.
+
+If multiple rank thresholds are crossed, process those correctly as well.
+
+---
+
+# 12. EXISTING SYSTEM COMPATIBILITY
+
+Before modifying anything, inspect the existing architecture.
+
+Integrate XP with:
+
+* Existing user data
+* Existing Tuto objectives
+* Existing reward handling
+* Existing currency system
+* Existing inventory system
+
+Do not create duplicate versions of these systems.
+
+The future reward system will eventually unify:
+
+**XP + Currency + Items + Unlocks + Titles**
+
+This beta only needs to establish XP and rank infrastructure.
+
+---
+
+# 13. TESTING
+
+Thoroughly test:
+
+1. New users receive valid default XP/level/rank values.
+2. XP persists after restart.
+3. XP can be awarded.
+4. XP calculations are correct.
+5. Level progression works.
+6. Multiple levels can be crossed from one XP reward.
+7. Rank progression works.
+8. Rank thresholds are correct.
+9. Level-up notifications trigger once.
+10. Rank-up notifications trigger once.
+11. `/level` or `/rank` displays correct information.
+12. Tuto objectives continue working.
+13. Currency continues working.
+14. Inventory continues working.
+15. Existing rewards continue working.
+16. No existing user data is reset or overwritten.
+17. Invalid XP transactions fail safely.
+
+---
+
+# IMPORTANT DEVELOPMENT RULES
+
+* Do NOT rebuild Tuto.
+* Do NOT replace Tuto progression with XP.
+* Do NOT create a second currency system.
+* Do NOT create a second inventory system.
+* Do NOT reset existing user data.
+* Do NOT hardcode rank logic into individual commands.
+* Do NOT hardcode XP calculations into individual commands.
+* Do NOT implement achievements yet.
+* Do NOT implement a shop yet.
+* Do NOT implement trading yet.
+
+Keep XP, levels, and ranks centralized and extensible.
+
+The ultimate progression architecture should eventually look like:
+
+**Actions**
+↓
+**Rewards**
+↓
+**XP / Currency / Items / Unlocks**
+↓
+**Level / Rank / Tuto / Achievements**
+↓
+**Profile**
+
+At the end, provide a concise summary of:
+
+1. What was implemented.
+2. What existing systems were modified.
+3. What new database/data fields were introduced.
+4. The final XP/level formula.
+5. The rank names and thresholds.
+6. What remains intentionally unimplemented for future betas.
