@@ -1,0 +1,868 @@
+You are working on the existing ⛤ Zekhet ⛤ Discord bot.
+
+CURRENT VERSION:
+Beta-14
+
+Create Beta-15: THE PASSPORT.
+
+IMPORTANT:
+This is an expansion of the existing bot, NOT a rebuild.
+
+The existing Beta-14 systems are already functional and must remain intact:
+
+- Profiles / Records
+- Titles
+- Lore / Archives
+- Curses / Rituals
+- Contracts / Ledger
+- Achievements
+- Tutorial / Tuto
+- XP
+- Levels
+- Ranks
+- Deben currency
+- Inventory
+- Items
+- Unified rewards
+- Progression events
+- Custom server prefixes
+- Developer Console
+
+DO NOT rebuild any of these systems.
+
+DO NOT replace existing database tables unnecessarily.
+
+DO NOT remove existing commands.
+
+DO NOT add AI, external APIs, a web dashboard, gambling, or real-money functionality.
+
+The goal of Beta-15 is to create a new IDENTITY / COLLECTION layer called:
+
+⛤ THE ZEKHET PASSPORT ⛤
+
+==================================================
+1. PASSPORT CONCEPT
+==================================================
+
+The Passport should represent everything a user has accomplished within Zekhet.
+
+The existing /profile represents:
+
+"Who you are."
+
+The Passport should represent:
+
+"What you have done."
+
+The Passport should feel like an ancient official document issued by Zekhet.
+
+It should be prestigious, collectible, and visually distinct from /profile.
+
+The Passport should NOT simply duplicate the entire profile.
+
+It should summarize the user's history and accomplishments.
+
+==================================================
+2. PRIMARY COMMAND
+==================================================
+
+Create:
+
+/passport
+
+Also support:
+
+z!passport
+
+The command should display the user's Passport.
+
+Allow:
+
+/passport @user
+
+to inspect another user's public Passport.
+
+If another user's Passport is private or restricted by an existing privacy system, respect the existing behavior.
+
+==================================================
+3. PASSPORT DESIGN
+==================================================
+
+Create a visually polished Discord embed.
+
+Example concept:
+
+⛤ ZEKHET PASSPORT ⛤
+
+PASSPORT NO. #0042
+
+AZURION
+
+"The Archives recognize this individual."
+
+────────────────────
+
+STATUS
+Recognized Citizen
+
+RANK
+Archivist
+
+LEVEL
+17
+
+────────────────────
+
+RECORD
+
+👑 Titles ........ 18
+📜 Lore .......... 24
+🏆 Achievements .. 31
+⚖️ Contracts ..... 7
+🧿 Curses ........ 5
+🎒 Items ......... 12
+
+────────────────────
+
+PASSPORT STAMPS
+
+⛤ First Record
+📜 Archivist
+⚖️ Oathbound
+🧿 Marked
+🌑 ???
+
+────────────────────
+
+ISSUED BY
+⛤ Zekhet
+
+Do NOT copy this exact layout if a better design fits the existing bot.
+
+The final design should match Zekhet's existing dark purple / magenta / ancient aesthetic.
+
+==================================================
+4. PASSPORT NUMBER
+==================================================
+
+Every user should receive a unique Passport Number.
+
+Example:
+
+#0001
+#0002
+#0042
+
+Passport numbers should be persistent.
+
+Do NOT generate a random number every time.
+
+Do NOT expose database IDs directly if they would reveal internal implementation details.
+
+Use a clean sequential or otherwise deterministic numbering system.
+
+The first user should receive a reasonable starting number such as:
+
+#0001
+
+==================================================
+5. PASSPORT STATUS
+==================================================
+
+Create a lightweight Passport Status system.
+
+Status should be determined from existing progression.
+
+Examples:
+
+Unrecorded
+Recognized
+Acquainted
+Citizen
+Courtier
+Archivist
+Keeper
+Exalted
+???
+
+Do NOT add a complicated new leveling system.
+
+Statuses should use existing progression data wherever possible.
+
+For example:
+
+New user
+→ Unrecorded
+
+Some progression
+→ Recognized
+
+Several achievements/titles/lore
+→ Citizen
+
+High progression
+→ Archivist
+
+Extremely advanced
+→ Exalted
+
+The exact thresholds should be reasonable and easy to modify.
+
+The highest status can remain secret.
+
+==================================================
+6. PASSPORT STAMPS
+==================================================
+
+Create a collectible Passport Stamp system.
+
+Stamps are permanent records of notable accomplishments.
+
+Examples:
+
+⛤ FIRST RECORD
+Create your first Zekhet profile.
+
+👑 FIRST TITLE
+Obtain your first title.
+
+📜 FIRST DISCOVERY
+Discover your first lore entry.
+
+🧿 MARKED
+Receive your first curse.
+
+⚖️ OATHBOUND
+Complete your first contract.
+
+🏆 RECOGNIZED
+Unlock your first achievement.
+
+📖 STUDENT
+Complete the Zekhet tutorial.
+
+📜 ARCHIVIST
+Discover a significant amount of lore.
+
+👑 COURTIER
+Collect a significant number of titles.
+
+⚖️ OATHKEEPER
+Complete multiple contracts.
+
+🌑 SECRET
+Unlock a hidden accomplishment.
+
+Do NOT create hundreds of stamps.
+
+Start with approximately 15–25 well-designed stamps.
+
+==================================================
+7. STAMP RARITIES
+==================================================
+
+Give stamps rarity where appropriate.
+
+Possible rarities:
+
+Common
+Uncommon
+Rare
+Epic
+Legendary
+Mythic
+Secret
+
+Not every stamp needs a rarity.
+
+Secret stamps should not reveal their requirements before discovery.
+
+==================================================
+8. AUTOMATIC STAMP UNLOCKING
+==================================================
+
+Stamps should unlock automatically when the appropriate progression event occurs.
+
+Examples:
+
+PROFILE_CREATED
+→ FIRST RECORD
+
+TITLE_OBTAINED
+→ FIRST TITLE
+
+LORE_DISCOVERED
+→ FIRST DISCOVERY
+
+CURSE_RECEIVED
+→ MARKED
+
+CONTRACT_COMPLETED
+→ OATHBOUND
+
+ACHIEVEMENT_UNLOCKED
+→ RECOGNIZED
+
+TUTORIAL_COMPLETED
+→ STUDENT
+
+Use the existing progression event architecture.
+
+DO NOT create duplicate command-specific implementations if an existing event can be reused.
+
+==================================================
+9. STAMP REWARDS
+==================================================
+
+Stamps should primarily be collectible accomplishments.
+
+Do NOT make every stamp give a reward.
+
+Some notable stamps may grant:
+
+- Existing title
+- Existing achievement
+- Existing lore
+- XP
+- Deben
+- Existing item
+
+Only use existing reward infrastructure.
+
+Do NOT create a second reward system.
+
+Example:
+
+Unlocking:
+
+📜 ARCHIVIST
+
+could grant:
+
+👑 Title: Archivist
+
+if that title does not already exist.
+
+If the title already exists, do not create a duplicate title.
+
+==================================================
+10. SECRET PASSPORT STAMPS
+==================================================
+
+Add several secret stamps.
+
+Their requirements should not be displayed until unlocked.
+
+Example:
+
+🌑 THE UNRECORDED
+
+Requirement:
+???
+
+After unlocking:
+
+🌑 THE UNRECORDED
+
+"The Archives acknowledge something that should not have been recorded."
+
+Other examples:
+
+🔒 FORBIDDEN
+
+???
+
+⛤ ZEKHET REMEMBERS
+
+???
+
+Do not make secret requirements arbitrary or frustrating.
+
+They should be discoverable through normal interaction or interesting combinations of existing systems.
+
+==================================================
+11. PASSPORT PAGES
+==================================================
+
+Do not put every piece of information into one giant embed.
+
+Create a page system.
+
+For example:
+
+/passport
+
+shows the primary Passport.
+
+Buttons can navigate to:
+
+📜 Records
+🎟️ Stamps
+👑 Titles
+📊 Progress
+🔒 Secrets
+
+Use buttons if practical.
+
+The first page should remain concise.
+
+==================================================
+12. RECORDS PAGE
+==================================================
+
+Create a Passport Records page showing summarized accomplishments.
+
+Example:
+
+⛤ PASSPORT RECORDS ⛤
+
+Titles
+18 / 45
+
+Lore
+24 / 35
+
+Achievements
+31 / 37
+
+Contracts
+7
+
+Curses encountered
+5 / 20
+
+Tutorial
+6 / 6
+
+Items discovered
+12 / 19
+
+Level
+17
+
+Rank
+Archivist
+
+Use the actual current database/content counts.
+
+Do not hardcode these numbers.
+
+If content is later added, totals should update automatically.
+
+==================================================
+13. STAMPS PAGE
+==================================================
+
+Create a page showing collected Passport Stamps.
+
+Example:
+
+⛤ PASSPORT STAMPS ⛤
+
+COLLECTED
+
+⛤ First Record
+👑 First Title
+📜 First Discovery
+⚖️ Oathbound
+📖 Student
+
+LOCKED
+
+████████
+████████
+████████
+
+Secret stamps should not reveal their names or requirements before discovery.
+
+Normal locked stamps may show their name and a vague description.
+
+==================================================
+14. PROGRESS PAGE
+==================================================
+
+Create a page summarizing progression.
+
+Show:
+
+Level
+XP
+Rank
+Deben
+Titles
+Lore
+Achievements
+Contracts
+Inventory
+
+Where appropriate, link the user toward the existing commands.
+
+Do not duplicate every piece of detailed information.
+
+The Passport should remain a summary.
+
+==================================================
+15. PASSPORT + PROFILE INTEGRATION
+==================================================
+
+Add a small Passport reference to /profile.
+
+For example:
+
+⛤ Passport #0042
+Status: Archivist
+
+Do NOT add the entire Passport to /profile.
+
+The profile should remain visually clean.
+
+==================================================
+16. PASSPORT + ACHIEVEMENTS
+==================================================
+
+Integrate Passport stamps with the existing achievement system.
+
+Some achievements may unlock stamps.
+
+Some stamps may unlock existing titles.
+
+Do not create duplicate achievements for the same requirement unless there is a clear reason.
+
+Example:
+
+Achievement:
+ARCHIVIST
+
+can unlock:
+
+Passport Stamp:
+📜 ARCHIVIST
+
+==================================================
+17. PASSPORT + TUTORIAL
+==================================================
+
+Integrate with the existing /tuto system.
+
+Completing the tutorial should automatically grant:
+
+📖 STUDENT
+
+Passport Stamp.
+
+Completing the tutorial should NOT reset anything.
+
+Existing users who already completed the tutorial should automatically receive the stamp when Beta-15 is installed.
+
+==================================================
+18. EXISTING USER MIGRATION
+==================================================
+
+This is extremely important.
+
+Do NOT reset existing users.
+
+When Beta-15 is installed:
+
+Existing users should automatically receive Passport Numbers.
+
+Existing progression should be recognized.
+
+Examples:
+
+A user who already has 20 titles should qualify for the appropriate title-related stamp.
+
+A user who already discovered 20 lore entries should qualify for the appropriate archive stamp.
+
+A user who already completed contracts should qualify.
+
+A user who already completed the tutorial should qualify.
+
+Do not require users to repeat old actions.
+
+Create a safe migration or lazy initialization strategy.
+
+==================================================
+19. PASSPORT PRIVACY
+==================================================
+
+The Passport should be publicly inspectable by default.
+
+Do not expose:
+
+- Internal database IDs
+- Developer information
+- Secret requirements
+- Hidden progression conditions
+- Private/internal metadata
+
+Only display information intended for normal users.
+
+If the existing bot has privacy settings, respect them.
+
+==================================================
+20. DEVELOPER INTEGRATION
+==================================================
+
+Expand the existing /developer system.
+
+Add developer controls for Passport testing.
+
+Developer should be able to:
+
+- View any user's Passport
+- Grant a Passport Stamp
+- Remove a Passport Stamp
+- Unlock all stamps for testing
+- Reset Passport stamps
+- Assign/test Passport status
+- Generate/test Passport number
+- View Passport data
+- Test Passport pages
+- Trigger Passport-related progression events
+
+The developer should be able to fully test the Passport without grinding.
+
+Normal users must never have access to these controls.
+
+==================================================
+21. DATABASE
+==================================================
+
+Use the existing SQLite architecture.
+
+Create only the necessary tables.
+
+Suggested structure:
+
+passport_numbers
+- user_id
+- passport_number
+- created_at
+
+passport_stamps
+- id
+- key
+- name
+- description
+- rarity
+- secret
+- requirement metadata
+
+user_passport_stamps
+- user_id
+- stamp_id
+- unlocked_at
+
+Do not duplicate existing progression information.
+
+The Passport should query existing systems for:
+
+- Titles
+- Lore
+- Achievements
+- Contracts
+- Curses
+- XP
+- Levels
+- Ranks
+- Inventory
+
+Only Passport-specific information should be stored in Passport tables.
+
+==================================================
+22. UNIFIED REWARD SYSTEM
+==================================================
+
+If Passport stamps grant rewards, use the EXISTING unified reward system.
+
+Do not create:
+
+passport_rewards
+
+if the existing reward system can handle the reward.
+
+Use existing:
+
+- XP
+- Deben
+- Items
+- Titles
+- Achievements
+
+Do not create another currency.
+
+==================================================
+23. DUPLICATE PREVENTION
+==================================================
+
+Passport stamps must be one-time unlocks.
+
+If the same progression event happens repeatedly:
+
+Do not duplicate the stamp.
+
+If a user already owns a stamp:
+
+Do nothing.
+
+If a reward has already been granted:
+
+Do not grant it again.
+
+Use the existing idempotency/reward protection architecture.
+
+==================================================
+24. PERFORMANCE
+==================================================
+
+Do not calculate every possible Passport condition after every command.
+
+Use existing progression events.
+
+Examples:
+
+TITLE_OBTAINED
+→ check relevant title stamps
+
+LORE_DISCOVERED
+→ check relevant lore stamps
+
+CONTRACT_COMPLETED
+→ check contract stamps
+
+ACHIEVEMENT_UNLOCKED
+→ check achievement stamps
+
+TUTORIAL_COMPLETED
+→ check tutorial stamps
+
+Only perform relevant checks.
+
+==================================================
+25. ZEKHET PERSONALITY
+==================================================
+
+Passport unlocks should feel like Zekhet acknowledging the user.
+
+Examples:
+
+⛤ PASSPORT UPDATED ⛤
+
+A new stamp has been added to your record.
+
+📜 FIRST DISCOVERY
+
+"The Archives have recorded your first discovery."
+
+Or:
+
+⛤ NEW RECORD ⛤
+
+Zekhet has added another mark to your Passport.
+
+👑 COURTIER
+
+"The Court has begun to recognize you."
+
+Avoid repeating the same message every time.
+
+Use the existing response variety system.
+
+==================================================
+26. FUTURE COMPATIBILITY
+==================================================
+
+Design the Passport so future systems can easily add stamps.
+
+Future systems may include:
+
+- Server identity
+- Server newspaper
+- Familiarity
+- Seasonal events
+- Special quests
+- Additional collectibles
+
+Do not implement these now.
+
+Simply make the Passport architecture extensible.
+
+==================================================
+27. COMMAND HELP
+==================================================
+
+Update /help with:
+
+⛤ PASSPORT
+
+/passport — View your Zekhet Passport.
+
+Do not significantly expand /help beyond this.
+
+==================================================
+28. FINAL TESTING
+==================================================
+
+Before considering Beta-15 complete, test:
+
+1. New user receives a Passport number.
+2. Existing user receives a Passport number.
+3. /passport works.
+4. /passport @user works.
+5. Passport pages work.
+6. First profile creation grants the appropriate stamp.
+7. First title grants the appropriate stamp.
+8. First lore discovery grants the appropriate stamp.
+9. First curse grants the appropriate stamp.
+10. First completed contract grants the appropriate stamp.
+11. First achievement grants the appropriate stamp.
+12. Tutorial completion grants the appropriate stamp.
+13. Existing users automatically qualify for old accomplishments.
+14. Secret stamps remain hidden.
+15. Secret stamp unlocks work.
+16. Duplicate stamps cannot occur.
+17. Duplicate rewards cannot occur.
+18. Passport data persists after restart.
+19. Developer controls work.
+20. Existing commands remain functional.
+21. Existing progression remains intact.
+22. Existing database data is preserved.
+
+==================================================
+29. BETA-15 SCOPE CONTROL
+==================================================
+
+DO NOT add during this task:
+
+- Familiarity system
+- Server newspaper
+- Server identity
+- AI
+- Web dashboard
+- New economy
+- Gambling
+- Trading marketplace
+- Passport shop
+- Passport XP
+- Passport levels
+- New currency
+- Major profile redesign
+
+The purpose of Beta-15 is:
+
+CREATE THE PASSPORT AS ZEKHET'S OFFICIAL RECORD OF ACCOMPLISHMENT.
+
+Make it polished, collectible, extensible, and deeply connected to the systems that already exist.
+
+Do not rebuild what already works.
+
+When finished, report:
+
+1. Files changed
+2. Database changes
+3. New commands
+4. New Passport stamps
+5. Existing systems integrated
+6. Any migration performed
+7. Any issues or limitations

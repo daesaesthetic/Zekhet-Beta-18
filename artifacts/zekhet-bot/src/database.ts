@@ -22,6 +22,43 @@ export type Profile = {
   xp: number;
   level: number;
   rank: string;
+  passportNumber: number;
+};
+
+export type PassportStatus = "Unrecorded" | "Recognized" | "Acquainted" | "Citizen" | "Courtier" | "Archivist" | "Keeper" | "Exalted";
+export type PassportStampRarity = "Common" | "Uncommon" | "Rare" | "Epic" | "Legendary" | "Mythic" | "Secret";
+export type PassportStamp = {
+  id: string;
+  name: string;
+  description: string;
+  rarity: PassportStampRarity;
+  secret: boolean;
+};
+export type UnlockedPassportStamp = PassportStamp & { unlockedAt: string };
+export type PassportRecords = {
+  titles: number;
+  totalTitles: number;
+  lore: number;
+  totalLore: number;
+  achievements: number;
+  totalAchievements: number;
+  contracts: number;
+  completedContracts: number;
+  curses: number;
+  totalCurses: number;
+  items: number;
+  totalItems: number;
+  tutorialPages: number;
+  totalTutorialPages: number;
+  xp: number;
+  level: number;
+  rank: string;
+};
+export type Passport = {
+  number: number;
+  status: PassportStatus;
+  records: PassportRecords;
+  stamps: UnlockedPassportStamp[];
 };
 
 export type TitleRarity = "Common" | "Uncommon" | "Rare" | "Epic" | "Legendary" | "Mythic" | "Secret";
@@ -346,6 +383,24 @@ database.exec(`
     source TEXT NOT NULL,
     claimed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   );
+  CREATE TABLE IF NOT EXISTS passport_numbers (
+    discord_id TEXT PRIMARY KEY REFERENCES users(discord_id) ON DELETE CASCADE,
+    passport_number INTEGER NOT NULL UNIQUE,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+  CREATE TABLE IF NOT EXISTS passport_stamps (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE,
+    description TEXT NOT NULL,
+    rarity TEXT NOT NULL CHECK (rarity IN ('Common', 'Uncommon', 'Rare', 'Epic', 'Legendary', 'Mythic', 'Secret')),
+    secret INTEGER NOT NULL DEFAULT 0 CHECK (secret IN (0, 1))
+  );
+  CREATE TABLE IF NOT EXISTS user_passport_stamps (
+    discord_id TEXT NOT NULL REFERENCES users(discord_id) ON DELETE CASCADE,
+    stamp_id TEXT NOT NULL REFERENCES passport_stamps(id) ON DELETE CASCADE,
+    unlocked_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (discord_id, stamp_id)
+  );
 `);
 
 const contractTable = database.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'contracts'").get() as { sql?: string } | undefined;
@@ -579,6 +634,35 @@ for (const achievement of initialAchievements) {
       reward_title_id = excluded.reward_title_id
   `).run(achievement.id, achievement.name, achievement.description, achievement.category,
     achievement.rarity, achievement.isHidden ? 1 : 0, achievement.rewardTitleId);
+}
+
+const initialPassportStamps: PassportStamp[] = [
+  { id: "first-record", name: "FIRST RECORD", description: "Create your first Zekhet profile.", rarity: "Common", secret: false },
+  { id: "first-title", name: "FIRST TITLE", description: "Obtain your first title beyond the starter designations.", rarity: "Common", secret: false },
+  { id: "first-discovery", name: "FIRST DISCOVERY", description: "Discover your first lore entry.", rarity: "Common", secret: false },
+  { id: "marked", name: "MARKED", description: "Receive your first harmless curse.", rarity: "Uncommon", secret: false },
+  { id: "oathbound", name: "OATHBOUND", description: "Complete your first contract.", rarity: "Uncommon", secret: false },
+  { id: "recognized", name: "RECOGNIZED", description: "Unlock your first achievement.", rarity: "Common", secret: false },
+  { id: "student", name: "STUDENT", description: "Complete the Zekhet tutorial.", rarity: "Rare", secret: false },
+  { id: "archivist", name: "ARCHIVIST", description: "Discover 25 lore entries.", rarity: "Epic", secret: false },
+  { id: "courtier", name: "COURTIER", description: "Collect 10 titles.", rarity: "Rare", secret: false },
+  { id: "oathkeeper", name: "OATHKEEPER", description: "Complete 3 contracts.", rarity: "Rare", secret: false },
+  { id: "many-marks", name: "MANY MARKS", description: "Receive 5 different curses.", rarity: "Epic", secret: false },
+  { id: "collector", name: "THE COLLECTOR", description: "Collect 20 titles.", rarity: "Epic", secret: false },
+  { id: "keeper", name: "KEEPER OF RECORDS", description: "Reach level 20.", rarity: "Legendary", secret: false },
+  { id: "archive-heart", name: "ARCHIVE HEART", description: "Discover 40 lore entries.", rarity: "Legendary", secret: false },
+  { id: "the-unrecorded", name: "THE UNRECORDED", description: "A record absent from every official page.", rarity: "Secret", secret: true },
+  { id: "forbidden", name: "FORBIDDEN", description: "Discover a secret lore entry.", rarity: "Secret", secret: true },
+  { id: "zekhet-remembers", name: "ZEKHET REMEMBERS", description: "Complete the tutorial and discover a secret lore entry.", rarity: "Mythic", secret: true },
+  { id: "exalted", name: "EXALTED", description: "Reach level 50 and unlock 10 achievements.", rarity: "Secret", secret: true },
+];
+for (const stamp of initialPassportStamps) {
+  database.prepare(`
+    INSERT INTO passport_stamps (id, name, description, rarity, secret)
+    VALUES (?, ?, ?, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET name = excluded.name, description = excluded.description,
+      rarity = excluded.rarity, secret = excluded.secret
+  `).run(stamp.id, stamp.name, stamp.description, stamp.rarity, stamp.secret ? 1 : 0);
 }
 
 const initialItems: Item[] = [
