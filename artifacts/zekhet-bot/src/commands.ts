@@ -57,7 +57,6 @@ const rarityColors: Record<Title["rarity"], number> = {
   Legendary: 0xffc857,
   Mythic: 0xff6bb5,
   Secret: 0x6e4b8e,
-  Secret: 0x6e4b8e,
 };
 const loreRarityColors: Record<LoreEntry["rarity"], number> = {
   Common: 0xaaa7b8,
@@ -73,6 +72,7 @@ const curseRarityColors: Record<Curse["rarity"], number> = {
   Epic: 0xa873ff,
   Legendary: 0xffc857,
   Mythic: 0xff6bb5,
+  Secret: 0x6e4b8e,
 };
 const profileCommand = new SlashCommandBuilder()
   .setName("profile")
