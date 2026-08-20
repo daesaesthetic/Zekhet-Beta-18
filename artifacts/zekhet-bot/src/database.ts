@@ -502,6 +502,56 @@ if (itemTable?.sql && !itemTable.sql.includes("'Charm'")) {
   `);
 }
 
+const brokenItemReferences = database.prepare(`
+  SELECT name
+  FROM sqlite_master
+  WHERE type = 'table' AND sql LIKE '%items_legacy%'
+`).all() as Array<{ name: string }>;
+const brokenItemReferenceNames = new Set(brokenItemReferences.map((row) => row.name));
+if (brokenItemReferenceNames.has("user_inventory") || brokenItemReferenceNames.has("active_effects")) {
+  database.exec(`
+    PRAGMA foreign_keys = OFF;
+    BEGIN;
+    DROP INDEX IF EXISTS active_effects_user_expiration;
+    ${brokenItemReferenceNames.has("user_inventory") ? `
+    ALTER TABLE user_inventory RENAME TO user_inventory_legacy;
+    CREATE TABLE user_inventory (
+      discord_id TEXT NOT NULL REFERENCES users(discord_id) ON DELETE CASCADE,
+      item_id TEXT NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+      quantity INTEGER NOT NULL CHECK (quantity > 0),
+      acquired_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (discord_id, item_id)
+    );
+    INSERT INTO user_inventory (discord_id, item_id, quantity, acquired_at, updated_at)
+      SELECT discord_id, item_id, quantity, acquired_at, updated_at FROM user_inventory_legacy;
+    DROP TABLE user_inventory_legacy;
+    ` : ""}
+    ${brokenItemReferenceNames.has("active_effects") ? `
+    ALTER TABLE active_effects RENAME TO active_effects_legacy;
+    CREATE TABLE active_effects (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      discord_id TEXT NOT NULL REFERENCES users(discord_id) ON DELETE CASCADE,
+      effect_id TEXT NOT NULL,
+      effect_type TEXT NOT NULL,
+      magnitude REAL NOT NULL,
+      started_at INTEGER NOT NULL,
+      expires_at INTEGER NOT NULL,
+      source_item_id TEXT NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+      stackable INTEGER NOT NULL DEFAULT 0 CHECK (stackable IN (0, 1))
+    );
+    INSERT INTO active_effects (id, discord_id, effect_id, effect_type, magnitude, started_at, expires_at, source_item_id, stackable)
+      SELECT id, discord_id, effect_id, effect_type, magnitude, started_at, expires_at, source_item_id, stackable FROM active_effects_legacy;
+    DROP TABLE active_effects_legacy;
+    CREATE INDEX active_effects_user_expiration
+      ON active_effects(discord_id, expires_at);
+    ` : ""}
+    COMMIT;
+    PRAGMA foreign_keys = ON;
+  `);
+  console.warn("Repaired stale items_legacy foreign-key references in the SQLite database.");
+}
+
 const passportStampColumns = database.prepare("PRAGMA table_info(passport_stamps)").all() as Array<{ name: string }>;
 if (!passportStampColumns.some((column) => column.name === "category")) {
   database.exec("ALTER TABLE passport_stamps ADD COLUMN category TEXT NOT NULL DEFAULT 'Exploration'");
