@@ -1,0 +1,607 @@
+Upgrade the existing ⛤ Zekhet ⛤ Discord bot by interconnecting the systems that already exist.
+
+IMPORTANT:
+Zekhet is already functional and stable.
+
+This is NOT a rebuild.
+
+Do NOT replace, redesign, or unnecessarily refactor existing systems.
+
+The goal of this task is to make existing actions naturally affect other existing systems.
+
+Current systems include:
+
+- Profile / Record
+- Titles / Court
+- Lore / Archives
+- Curses / Rituals
+- Contracts / Ledger
+- Achievements
+- Tutorial / Tuto
+- Developer Console
+- Custom server prefix
+
+Do NOT add the Passport yet.
+Do NOT add Familiarity yet.
+Do NOT add a new economy.
+Do NOT add AI.
+Do NOT add a web dashboard.
+
+==================================================
+1. CORE CONCEPT
+==================================================
+
+Create connections between existing systems.
+
+The user should feel that actions have consequences beyond the command they just used.
+
+Examples:
+
+Completing a contract
+→ may unlock an achievement
+
+Discovering certain lore
+→ may unlock a title
+
+Receiving a curse
+→ may unlock an achievement
+
+Obtaining an achievement
+→ may grant a title
+
+Completing tutorial objectives
+→ may unlock existing titles, lore, or achievements
+
+Owning certain combinations of titles/lore/achievements
+→ may unlock special content
+
+The systems should feel like one interconnected progression system rather than separate features.
+
+==================================================
+2. EXISTING SYSTEMS MUST REMAIN INTACT
+==================================================
+
+Do not change existing command names or behavior unless necessary.
+
+Do not remove existing content.
+
+Do not reset existing user progress.
+
+Do not restructure the database unnecessarily.
+
+Reuse existing database tables, functions, and event handlers wherever possible.
+
+If the current architecture already has a suitable event/callback system, use it.
+
+If not, create lightweight helper functions for progression events.
+
+==================================================
+3. PROGRESSION EVENTS
+==================================================
+
+Create a lightweight internal progression/event system.
+
+Examples of events:
+
+PROFILE_CREATED
+BIOGRAPHY_SET
+TITLE_OBTAINED
+TITLE_EQUIPPED
+LORE_DISCOVERED
+RARE_LORE_DISCOVERED
+SECRET_LORE_DISCOVERED
+CURSE_RECEIVED
+CURSE_EXPIRED
+CONTRACT_CREATED
+CONTRACT_ACCEPTED
+CONTRACT_COMPLETED
+ACHIEVEMENT_UNLOCKED
+TUTORIAL_PAGE_COMPLETED
+TUTORIAL_COMPLETED
+
+Existing commands should trigger these events where appropriate.
+
+These events should allow other systems to react without duplicating command logic.
+
+==================================================
+4. ACHIEVEMENT INTEGRATION
+==================================================
+
+Expand the existing achievement system so achievements can react to existing activity.
+
+Examples:
+
+First title obtained
+→ achievement
+
+First lore discovery
+→ achievement
+
+First curse received
+→ achievement
+
+First contract completed
+→ achievement
+
+Complete all tutorial chapters
+→ achievement
+
+Obtain 10 titles
+→ achievement
+
+Discover 25 lore entries
+→ achievement
+
+Complete 10 contracts
+→ achievement
+
+Discover rare lore
+→ achievement
+
+Discover secret lore
+→ hidden achievement
+
+Obtain a secret title
+→ hidden achievement
+
+Do NOT create dozens of achievements.
+
+Add approximately 10–15 additional interconnected achievements.
+
+Use the existing rarity system.
+
+==================================================
+5. TITLE INTEGRATION
+==================================================
+
+Allow certain achievements and progression milestones to grant titles.
+
+Examples:
+
+Complete the tutorial
+→ "The Student"
+
+Discover 25 lore entries
+→ "Archivist"
+
+Complete 10 contracts
+→ "Oathkeeper"
+
+Receive several curses
+→ "Marked"
+
+Discover secret lore
+→ possible secret title
+
+Do NOT automatically equip rewards.
+
+The title should simply be added to the user's collection.
+
+Notify the user when they receive a new title.
+
+Example:
+
+⛤ NEW TITLE ACQUIRED ⛤
+
+📜 Archivist
+
+"The Archives recognize your persistence."
+
+==================================================
+6. LORE INTEGRATION
+==================================================
+
+Make lore capable of reacting to existing progression.
+
+Some lore entries should only become available after certain conditions.
+
+Examples:
+
+Own a specific title
+→ unlock related lore
+
+Complete a contract
+→ unlock contract-related lore
+
+Receive a particular curse
+→ unlock curse-related lore
+
+Complete the tutorial
+→ unlock an introductory archive entry
+
+Reach a certain achievement
+→ unlock a corresponding lore entry
+
+Do not make every lore entry dependent on progression.
+
+Most lore should remain discoverable normally.
+
+Only a minority should be conditional.
+
+==================================================
+7. CURSE INTEGRATION
+==================================================
+
+Allow curses to interact with progression.
+
+Examples:
+
+Receiving a first curse
+→ achievement
+
+Receiving multiple different curses
+→ achievement
+
+Certain rare curses
+→ unlock lore
+
+A curse expiring
+→ possible achievement
+
+Specific title + curse combination
+→ possible secret discovery
+
+Curses must remain harmless.
+
+They must never modify:
+
+- Discord permissions
+- Roles
+- Nicknames
+- Messages
+- Bans
+- Kicks
+- Timeouts
+- Server functionality
+
+==================================================
+8. CONTRACT INTEGRATION
+==================================================
+
+Make contracts interact with achievements and lore.
+
+Examples:
+
+Create first contract
+→ achievement
+
+Complete first contract
+→ achievement
+
+Complete multiple contracts
+→ achievement
+
+Complete a contract with another user
+→ possible lore
+
+Complete a particularly unusual contract type
+→ possible title or achievement
+
+Do not introduce real money, gambling, or financial rewards.
+
+==================================================
+9. TUTORIAL INTEGRATION
+==================================================
+
+Connect the existing /tuto system to the progression systems.
+
+Tutorial objectives should be able to recognize existing actions.
+
+For example:
+
+View profile
+→ tutorial objective complete
+
+Equip title
+→ tutorial objective complete
+
+Discover lore
+→ tutorial objective complete
+
+Receive curse
+→ tutorial objective complete
+
+Complete contract
+→ tutorial objective complete
+
+Unlock achievement
+→ tutorial objective complete
+
+Do not make users repeat an action solely because the tutorial was added.
+
+If they already completed the action before starting the tutorial, decide whether that existing progress should count where practical.
+
+Prefer counting existing progression when it is safe and unambiguous.
+
+Completing tutorial pages can grant existing titles or achievements.
+
+Completing the entire tutorial should grant one meaningful exclusive reward.
+
+Do not build the Passport yet.
+
+==================================================
+10. CROSS-SYSTEM DISCOVERIES
+==================================================
+
+Add a small number of special combinations.
+
+These should be uncommon and should make Zekhet feel deeper.
+
+Examples:
+
+Specific title + specific lore
+→ secret achievement
+
+Specific curse + specific title
+→ secret lore
+
+Multiple completed contracts
+→ special title
+
+Complete tutorial + rare lore
+→ hidden achievement
+
+Own several rare titles
+→ secret achievement
+
+Do not reveal all requirements to normal users.
+
+Some discoveries should simply appear when the conditions are met.
+
+Example:
+
+⛤ THE ARCHIVES HAVE CHANGED ⛤
+
+A new record has appeared.
+
+📜 "The Crown Beneath the Ashes"
+
+This should feel like discovering something rather than receiving a generic reward.
+
+==================================================
+11. REWARD CHAINING
+==================================================
+
+Create small progression chains.
+
+Example:
+
+Complete first contract
+→ Achievement: Oathbound
+→ Title: Oathkeeper
+→ Title unlocks special lore
+
+Another example:
+
+Discover rare lore
+→ Achievement: Curious
+→ unlock secret title
+
+Another:
+
+Complete tutorial
+→ Title: Student of the Archives
+→ unlock tutorial-related lore
+
+Do NOT create infinite chains.
+
+Keep chains short and understandable.
+
+==================================================
+12. PROFILE INTEGRATION
+==================================================
+
+Keep the existing /profile layout clean.
+
+Do not significantly increase its size.
+
+Where useful, reflect progression through existing fields.
+
+For example:
+
+Titles owned
+Lore discovered
+Active curses
+Contracts
+Achievements
+
+Optionally add a short contextual line such as:
+
+"Zekhet's Observation"
+
+Examples:
+
+"The Archives have begun to remember your name."
+
+"The Court has become rather crowded."
+
+"The Ledger contains several completed agreements."
+
+"You have accumulated a surprising number of records."
+
+This should be determined by the user's actual progression.
+
+Do not expose hidden requirements.
+
+==================================================
+13. RESPONSE INTEGRATION
+==================================================
+
+Use the existing response-variety system.
+
+When an important cross-system event occurs, use a special response.
+
+Examples:
+
+⛤ "The Archives have taken notice."
+
+⛤ "Your actions have altered the record."
+
+⛤ "Another page has been added to your history."
+
+⛤ "Zekhet makes a note of this."
+
+⛤ "The Court recognizes your accomplishment."
+
+Do not show these after every action.
+
+They should be reserved for meaningful progression events.
+
+==================================================
+14. DEVELOPER CONSOLE
+==================================================
+
+Integrate the existing /developer system.
+
+The developer should be able to test cross-system progression without grinding.
+
+Add developer options where practical:
+
+- Trigger progression event
+- Test achievement unlock
+- Test title reward
+- Test lore unlock
+- Test tutorial completion
+- Inspect progression conditions
+- Reset personal progression
+
+The developer should NOT need to manually modify the database.
+
+Normal users must not have access to these controls.
+
+==================================================
+15. DUPLICATE PREVENTION
+==================================================
+
+This is extremely important.
+
+Rewards must never duplicate incorrectly.
+
+If a user already owns a title:
+
+Do not grant a second copy.
+
+If a user already unlocked an achievement:
+
+Do not unlock it again.
+
+If a lore entry is already discovered:
+
+Do not create a duplicate.
+
+If a progression event happens multiple times:
+
+The associated one-time reward should only trigger once.
+
+Make all progression checks idempotent.
+
+==================================================
+16. EXISTING USERS
+==================================================
+
+Do NOT reset existing users.
+
+Existing users should retain:
+
+- Titles
+- Lore
+- Curses
+- Contracts
+- Achievements
+- Tutorial progress
+- Profile information
+
+Where possible, existing data should naturally satisfy progression requirements.
+
+For example:
+
+If a user already owns 15 titles when this update is installed, the achievement for owning 10 titles should be eligible to unlock.
+
+Do not require them to collect 10 additional titles.
+
+==================================================
+17. DATABASE SAFETY
+==================================================
+
+Use the existing SQLite architecture.
+
+Only add tables/columns if genuinely necessary.
+
+Prefer lightweight progression checks and helper functions.
+
+Do not migrate or rebuild the entire database unnecessarily.
+
+Ensure the bot can restart without losing progression.
+
+==================================================
+18. PERFORMANCE
+==================================================
+
+Keep this system lightweight.
+
+Do not query the entire database after every command.
+
+Only check relevant progression conditions when an appropriate event occurs.
+
+For example:
+
+TITLE_OBTAINED
+→ check title-related achievements
+
+Do not check every achievement after every command.
+
+==================================================
+19. DESIGN
+==================================================
+
+Maintain Zekhet's existing aesthetic.
+
+Dark
+Purple
+Magenta
+Ancient
+Mystical
+Elegant
+
+Use the existing visual language:
+
+⛤
+📜
+👑
+🧿
+⚖️
+🔒
+
+Do not turn every interaction into a giant embed.
+
+Normal interactions should remain concise.
+
+Major discoveries can receive a more dramatic presentation.
+
+==================================================
+20. FINAL VALIDATION
+==================================================
+
+After implementation, test at minimum:
+
+1. Obtain a title.
+2. Discover lore.
+3. Receive a curse.
+4. Create a contract.
+5. Complete a contract.
+6. Unlock an achievement.
+7. Complete tutorial objectives.
+8. Complete a tutorial page.
+9. Trigger a cross-system reward.
+10. Trigger the same event twice.
+11. Verify duplicate rewards do not occur.
+12. Restart the bot and verify persistence.
+13. Test existing /developer controls.
+14. Verify existing commands still work.
+15. Verify existing users retain all progress.
+
+Do not add unrelated features during this task.
+
+The objective is simple:
+
+Make Zekhet's existing systems feel like parts of ONE larger world.
