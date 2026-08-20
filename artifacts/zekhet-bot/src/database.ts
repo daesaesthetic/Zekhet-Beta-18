@@ -827,6 +827,12 @@ export function developerUnlockAchievement(userId: string, achievementId: string
   return { ...achievement, unlockedAt };
 }
 
+export function grantTitle(userId: string, titleId: string, username: string, avatarUrl: string | null): boolean {
+  ensureProfile(userId, username, avatarUrl);
+  const result = database.prepare("INSERT OR IGNORE INTO user_titles (discord_id, title_id) VALUES (?, ?)").run(userId, titleId);
+  return Number(result.changes) > 0;
+}
+
 export function resetAchievementProgress(userId: string): number {
   const result = database.prepare("DELETE FROM user_achievements WHERE discord_id = ?").run(userId);
   return Number(result.changes);

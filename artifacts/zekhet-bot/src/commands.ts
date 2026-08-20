@@ -5,8 +5,10 @@ import {
   ButtonStyle,
   ChatInputCommandInteraction,
   EmbedBuilder,
+  Message,
   ModalBuilder,
   ModalSubmitInteraction,
+  PermissionFlagsBits,
   SlashCommandBuilder,
   TextInputBuilder,
   TextInputStyle,
@@ -44,6 +46,17 @@ import {
   recordInteraction,
   unlockEligibleAchievements,
   resetAchievementProgress,
+  getGuildPrefix,
+  setGuildPrefix,
+  resetGuildPrefix,
+  recordTutorialAction,
+  getTutorialActions,
+  getTutorialObjectives,
+  completeTutorialObjective,
+  getTutorialRewards,
+  claimTutorialReward,
+  resetTutorialProgress,
+  grantTitle,
   type ActiveCurse,
   type Contract,
   type ContractTemplate,
@@ -204,6 +217,109 @@ const achievementRarityColors: Record<Achievement["rarity"], number> = {
   Legendary: 0xffc857,
   Secret: 0x6e4b8e,
 };
+
+type TutorialPage = {
+  number: number;
+  title: string;
+  introduction: string;
+  objectives: Array<{ id: string; label: string }>;
+  reward: string;
+  rewardTitleId?: string;
+};
+const tutorialPages: TutorialPage[] = [
+  { number: 1, title: "THE FIRST RECORD", introduction: "Welcome to Zekhet. The Archives will guide you through the systems available to you.", objectives: [
+    { id: "profile-view", label: "View your Record" }, { id: "bio-set", label: "Set a biography" }, { id: "theme-set", label: "Choose a profile theme" },
+  ], reward: "A first lesson recorded.", rewardTitleId: "first-lesson" },
+  { number: 2, title: "THE COURT", introduction: "The Court keeps the designations that may be placed upon a name.", objectives: [
+    { id: "titles-view", label: "View available titles" }, { id: "title-inspect", label: "Inspect a title" }, { id: "title-equip", label: "Equip a title" },
+  ], reward: "A starter designation for your Record.", rewardTitleId: "courtier" },
+  { number: 3, title: "THE ARCHIVES", introduction: "Every discovered page makes the keeper's record a little less quiet.", objectives: [
+    { id: "lore-discover", label: "Discover your first lore entry" }, { id: "lore-inspect", label: "Inspect a lore entry" }, { id: "lore-three", label: "Discover three lore entries" },
+  ], reward: "A name among the archive hands.", rewardTitleId: "archive-apprentice" },
+  { number: 4, title: "THE RITUALS", introduction: "The rituals are fictional marks only. They affect Zekhet's records and nothing beyond them.", objectives: [
+    { id: "curses-view", label: "View the ritual catalog" }, { id: "curse-applied", label: "Experience or apply a harmless curse" }, { id: "curse-inspect", label: "Inspect a curse" },
+  ], reward: "A witness to harmless ritual.", rewardTitleId: "ritual-witness" },
+  { number: 5, title: "THE LEDGER", introduction: "The Ledger records social agreements between named parties. No money or permissions are involved.", objectives: [
+    { id: "contract-create", label: "Create a contract" }, { id: "contract-accept", label: "Have a contract accepted" }, { id: "contract-complete", label: "Complete a contract" },
+  ], reward: "A hand trusted by the Ledger.", rewardTitleId: "ledger-hand" },
+  { number: 6, title: "THE ARCHIVIST", introduction: "You have seen the major records. Now explore them together and let the Archives acknowledge you.", objectives: [
+    { id: "achievement-unlocked", label: "Unlock an achievement" }, { id: "titles-three", label: "Own three titles" }, { id: "lore-three-final", label: "Discover three lore entries" },
+    { id: "contract-complete-final", label: "Complete a contract" }, { id: "systems-four", label: "Interact with four Zekhet systems" },
+  ], reward: "The introductory records no longer require explanation.", rewardTitleId: "archive-adept" },
+];
+
+function syncTutorial(userId: string, username: string, avatarUrl: string | null): { completedPages: number[]; finalComplete: boolean } {
+  const profile = getProfile(userId, username, avatarUrl);
+  const actions = getTutorialActions(userId);
+  const achievements = getUnlockedAchievements(userId, username, avatarUrl).length;
+  const actionCount = (name: string) => actions[name] ?? 0;
+  const objectivesByPage: Record<number, string[]> = {
+    1: [
+      ...(actionCount("profile-view") > 0 ? ["profile-view"] : []),
+      ...(actionCount("bio-set") > 0 ? ["bio-set"] : []),
+      ...(actionCount("theme-set") > 0 ? ["theme-set"] : []),
+    ],
+    2: [
+      ...(actionCount("titles-view") > 0 ? ["titles-view"] : []),
+      ...(actionCount("title-inspect") > 0 ? ["title-inspect"] : []),
+      ...(actionCount("title-equip") > 0 ? ["title-equip"] : []),
+    ],
+    3: [
+      ...(actionCount("lore-discover") > 0 ? ["lore-discover"] : []),
+      ...(actionCount("lore-inspect") > 0 ? ["lore-inspect"] : []),
+      ...(actionCount("lore-discover") >= 3 ? ["lore-three"] : []),
+    ],
+    4: [
+      ...(actionCount("curses-view") > 0 ? ["curses-view"] : []),
+      ...(actionCount("curse-applied") > 0 ? ["curse-applied"] : []),
+      ...(actionCount("curse-inspect") > 0 ? ["curse-inspect"] : []),
+    ],
+    5: [
+      ...(actionCount("contract-create") > 0 ? ["contract-create"] : []),
+      ...(actionCount("contract-accept") > 0 ? ["contract-accept"] : []),
+      ...(actionCount("contract-complete") > 0 ? ["contract-complete"] : []),
+    ],
+    6: [
+      ...(achievements > 0 ? ["achievement-unlocked"] : []),
+      ...(profile.titlesOwned >= 3 ? ["titles-three"] : []),
+      ...(profile.loreDiscovered >= 3 ? ["lore-three-final"] : []),
+      ...(profile.contractsCompleted >= 1 ? ["contract-complete-final"] : []),
+      ...(actionCount("system-interaction") >= 4 ? ["systems-four"] : []),
+    ],
+  };
+  const existing = new Set(getTutorialObjectives(userId).map((entry) => `${entry.pageNumber}:${entry.objectiveId}`));
+  for (const page of tutorialPages) {
+    for (const objectiveId of objectivesByPage[page.number]) {
+      if (!existing.has(`${page.number}:${objectiveId}`)) completeTutorialObjective(userId, page.number, objectiveId);
+    }
+  }
+  const claimed = new Set(getTutorialRewards(userId));
+  const completedPages: number[] = [];
+  for (const page of tutorialPages) {
+    const complete = page.objectives.every((objective) => objectivesByPage[page.number].includes(objective.id));
+    if (!complete || claimed.has(page.number)) continue;
+    if (claimTutorialReward(userId, page.number)) {
+      completedPages.push(page.number);
+      if (page.rewardTitleId) grantTitle(userId, page.rewardTitleId, username, avatarUrl);
+      if (page.number === 1) developerUnlockAchievement(userId, "first-lesson", username, avatarUrl);
+      if (page.number === 3) developerUnlockAchievement(userId, "student-of-the-archives", username, avatarUrl);
+      if (page.number === tutorialPages.length) developerUnlockAchievement(userId, "tutorial-archivist", username, avatarUrl);
+    }
+  }
+  return { completedPages, finalComplete: getTutorialRewards(userId).length === tutorialPages.length };
+}
+
+function forceTutorialPage(userId: string, username: string, avatarUrl: string | null, pageNumber: number): void {
+  const page = tutorialPages[pageNumber - 1];
+  if (!page) return;
+  for (const objective of page.objectives) completeTutorialObjective(userId, page.number, objective.id);
+  if (claimTutorialReward(userId, page.number)) {
+    if (page.rewardTitleId) grantTitle(userId, page.rewardTitleId, username, avatarUrl);
+    if (page.number === 1) developerUnlockAchievement(userId, "first-lesson", username, avatarUrl);
+    if (page.number === 3) developerUnlockAchievement(userId, "student-of-the-archives", username, avatarUrl);
+    if (page.number === tutorialPages.length) developerUnlockAchievement(userId, "tutorial-archivist", username, avatarUrl);
+  }
+}
 const profileCommand = new SlashCommandBuilder()
   .setName("profile")
   .setDescription("Open or amend a personal Record.")
@@ -255,6 +371,14 @@ const achievementCommand = new SlashCommandBuilder()
   .setDescription("Consult the records of your achievements.")
   .addSubcommand((sub) => sub.setName("inspect").setDescription("Inspect an achievement.")
     .addStringOption((option) => option.setName("achievement").setDescription("The achievement ID to inspect.").setRequired(true)));
+
+const prefixCommand = new SlashCommandBuilder()
+  .setName("prefix")
+  .setDescription("View or change this server's text command prefix.")
+  .addSubcommand((sub) => sub.setName("view").setDescription("View the current prefix."))
+  .addSubcommand((sub) => sub.setName("set").setDescription("Set a new prefix.")
+    .addStringOption((option) => option.setName("prefix").setDescription("A short prefix such as z!").setRequired(true).setMaxLength(5)))
+  .addSubcommand((sub) => sub.setName("reset").setDescription("Restore the default z! prefix."));
 
 const contractTemplates: ContractTemplate[] = [
   "Duel", "Challenge", "Pizza", "Favor", "Trade", "Promise", "Bet",
@@ -309,6 +433,8 @@ export const commands = [
   curseCommand,
   new SlashCommandBuilder().setName("achievements").setDescription("View your achievements and sealed records."),
   achievementCommand,
+  prefixCommand,
+  new SlashCommandBuilder().setName("tuto").setDescription("Begin or continue Zekhet's introductory records."),
   contractCommand,
   new SlashCommandBuilder().setName("contracts").setDescription("Review contracts connected to your Record."),
 ].map((command) => command.toJSON());
@@ -343,6 +469,12 @@ function developerPanel() {
         new ButtonBuilder().setCustomId("developer:unlock-achievement").setLabel("Unlock Achievement").setStyle(ButtonStyle.Primary),
         new ButtonBuilder().setCustomId("developer:test-achievement").setLabel("Test Unlock Notice").setStyle(ButtonStyle.Primary),
         new ButtonBuilder().setCustomId("developer:reset-achievements").setLabel("Reset Achievements").setStyle(ButtonStyle.Danger),
+      ),
+      new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder().setCustomId("developer:tutorial-view").setLabel("View Tutorial").setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId("developer:tutorial-unlock").setLabel("Unlock Next Chapter").setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId("developer:tutorial-complete").setLabel("Complete Tutorial").setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId("developer:tutorial-reset").setLabel("Reset Tutorial").setStyle(ButtonStyle.Danger),
       ),
     ],
   };
@@ -395,6 +527,27 @@ export async function handleDeveloperComponent(interaction: ButtonInteraction): 
   if (section === "reset-achievements") {
     const count = resetAchievementProgress(interaction.user.id);
     await interaction.reply({ content: `Reset ${count} achievement record(s) from your Record.`, ephemeral: true });
+    return;
+  }
+  if (section === "tutorial-view") {
+    const page = Math.min(tutorialPages.length, getTutorialRewards(interaction.user.id).length + 1);
+    await interaction.reply({ embeds: [tutorialPageEmbed(interaction.user, page)], components: [tutorialButtons(page)], ephemeral: true });
+    return;
+  }
+  if (section === "tutorial-unlock") {
+    const page = Math.min(tutorialPages.length, getTutorialRewards(interaction.user.id).length + 1);
+    forceTutorialPage(interaction.user.id, interaction.user.username, interaction.user.displayAvatarURL(), page);
+    await interaction.reply({ content: `Developer access: tutorial chapter ${page} is now complete.`, ephemeral: true });
+    return;
+  }
+  if (section === "tutorial-complete") {
+    for (const page of tutorialPages) forceTutorialPage(interaction.user.id, interaction.user.username, interaction.user.displayAvatarURL(), page.number);
+    await interaction.reply({ content: "Developer access: all tutorial chapters and rewards are complete.", ephemeral: true });
+    return;
+  }
+  if (section === "tutorial-reset") {
+    resetTutorialProgress(interaction.user.id);
+    await interaction.reply({ content: "Your tutorial progress and tutorial rewards have been reset.", ephemeral: true });
     return;
   }
   if (section === "apply-curse") {
@@ -803,6 +956,116 @@ function contractsEmbed(user: User, contracts: Contract[]): EmbedBuilder {
     .setFooter({ text: "Use /contract inspect id:<id> to open a full contract." });
 }
 
+function tutorialPageEmbed(user: User, pageNumber: number): EmbedBuilder {
+  const profile = getProfile(user.id, user.username, user.displayAvatarURL());
+  const status = syncTutorial(user.id, user.username, user.displayAvatarURL());
+  const page = tutorialPages[Math.max(0, Math.min(tutorialPages.length - 1, pageNumber - 1))];
+  const completed = new Set(getTutorialObjectives(user.id)
+    .filter((objective) => objective.pageNumber === page.number)
+    .map((objective) => objective.objectiveId));
+  const pageUnlocked = page.number === 1 || getTutorialRewards(user.id).includes(page.number - 1);
+  const progress = page.objectives.filter((objective) => completed.has(objective.id)).length;
+  return new EmbedBuilder()
+    .setColor(0x7e4bb8)
+    .setAuthor({ name: "📜 THE TUTORIAL 📜", iconURL: user.displayAvatarURL({ size: 128 }) })
+    .setTitle(`⛤ ${page.number}/${tutorialPages.length} — ${page.title} ⛤`)
+    .setDescription(pageUnlocked
+      ? `${page.introduction}\n\n**OBJECTIVES**\n${page.objectives.map((objective) => `${completed.has(objective.id) ? "✓" : "○"} ${objective.label}`).join("\n")}\n\n**REWARD**\n${page.reward}\n\n**Progress:** ${progress}/${page.objectives.length}`
+      : "⛤ The Archives remain sealed ⛤\n\nComplete the previous chapter before proceeding.")
+    .addFields(
+      { name: "Overall progress", value: `${getTutorialRewards(user.id).length}/${tutorialPages.length} chapters complete`, inline: true },
+      { name: "Record", value: `#${String(profile.profileNumber).padStart(4, "0")}`, inline: true },
+    )
+    .setFooter({ text: status.finalComplete ? "Tutorial complete · The Archives acknowledge you." : "Use the buttons to revisit available chapters." });
+}
+
+function tutorialButtons(pageNumber: number): ActionRowBuilder<ButtonBuilder> {
+  return new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder().setCustomId(`tutorial:prev:${pageNumber}`).setLabel("Previous").setStyle(ButtonStyle.Secondary).setDisabled(pageNumber <= 1),
+    new ButtonBuilder().setCustomId(`tutorial:next:${pageNumber}`).setLabel("Next").setStyle(ButtonStyle.Primary).setDisabled(pageNumber >= tutorialPages.length),
+  );
+}
+
+export async function handleTutorialComponent(interaction: ButtonInteraction): Promise<void> {
+  if (!interaction.customId.startsWith("tutorial:")) return;
+  const [, direction, rawPage] = interaction.customId.split(":");
+  const requested = Number(rawPage) + (direction === "next" ? 1 : -1);
+  const rewards = getTutorialRewards(interaction.user.id);
+  const unlockedPage = Math.min(tutorialPages.length, rewards.length + 1);
+  const page = Math.max(1, Math.min(unlockedPage, requested));
+  await interaction.update({ embeds: [tutorialPageEmbed(interaction.user, page)], components: [tutorialButtons(page)] });
+}
+
+function validPrefix(prefix: string): boolean {
+  return /^[^\s\\/@#]{1,5}$/.test(prefix);
+}
+
+export async function handlePrefixCommand(message: Message): Promise<void> {
+  if (!message.guild || message.author.bot) return;
+  const prefix = getGuildPrefix(message.guild.id);
+  if (!message.content.startsWith(prefix)) return;
+  const input = message.content.slice(prefix.length).trim();
+  if (!input) return;
+  const [rawCommand, ...args] = input.split(/\s+/);
+  const command = rawCommand.toLowerCase();
+  const username = message.author.username;
+  const avatarUrl = message.author.displayAvatarURL();
+  recordInteraction(message.author.id, username, avatarUrl);
+  recordTutorialAction(message.author.id, username, avatarUrl, "system-interaction");
+  const tutorialStatus = syncTutorial(message.author.id, username, avatarUrl);
+  const tutorialNotice = tutorialStatus.completedPages.length
+    ? `\n\n⛤ PAGE COMPLETE ⛤\nThe Archives have acknowledged chapter ${tutorialStatus.completedPages.join(", ")}.`
+    : "";
+
+  if (command === "help") {
+    await message.reply("⛤ Zekhet commands ⛤\n`z!profile` · `z!titles` · `z!lore` · `z!curse` · `z!contracts` · `z!achievements` · `z!tuto`\nSlash commands remain the primary interface.");
+    return;
+  }
+  if (command === "credits") {
+    await message.reply(`Zekhet was conceived, built, and kept by **${config.creator}**.`);
+    return;
+  }
+  if (command === "profile") {
+    recordTutorialAction(message.author.id, username, avatarUrl, "profile-view");
+    await message.reply({ embeds: [profileEmbed(getProfile(message.author.id, username, avatarUrl), message.mentions.users.first() ?? message.author)] });
+    return;
+  }
+  if (command === "titles") {
+    recordTutorialAction(message.author.id, username, avatarUrl, "titles-view");
+    await message.reply({ embeds: [titlesEmbed(getOwnedTitles(message.author.id, username, avatarUrl))] });
+    return;
+  }
+  if (command === "lore") {
+    await message.reply({ embeds: [archiveEmbed(getDiscoveredLore(message.author.id, username, avatarUrl), getLoreCatalog())] });
+    return;
+  }
+  if (command === "curse") {
+    await message.reply({ embeds: [curseListEmbed(getCurses())] });
+    return;
+  }
+  if (command === "contracts") {
+    await message.reply({ embeds: [contractsEmbed(message.author, getContractsForUser(message.author.id))] });
+    return;
+  }
+  if (command === "achievements") {
+    await message.reply({ content: tutorialNotice || undefined, embeds: [achievementsEmbed(getAchievements(), getUnlockedAchievements(message.author.id, username, avatarUrl))] });
+    return;
+  }
+  if (command === "tuto") {
+    await message.reply({ content: tutorialNotice || undefined, embeds: [tutorialPageEmbed(message.author, Math.min(tutorialPages.length, getTutorialRewards(message.author.id).length + 1))], components: [tutorialButtons(Math.min(tutorialPages.length, getTutorialRewards(message.author.id).length + 1))] });
+    return;
+  }
+  if (command === "title" && (args[0] === "equip" || args[0] === "inspect")) {
+    const titleId = args.slice(1).join("-").replace(/^["']|["']$/g, "").toLowerCase();
+    const title = getTitle(titleId);
+    if (!title) { await message.reply("The Court finds no such title ID."); return; }
+    if (args[0] === "inspect") recordTutorialAction(message.author.id, username, avatarUrl, "title-inspect");
+    await message.reply({ embeds: [titleEmbed(title, Boolean(getOwnedTitles(message.author.id, username, avatarUrl).find((entry) => entry.id === title.id)))] });
+    return;
+  }
+  await message.reply(`The Archives do not recognize \`${command}\`. Try \`${prefix}help\`.`);
+}
+
 export async function handleCommand(interaction: ChatInputCommandInteraction): Promise<void> {
   if (interaction.commandName === "developer") {
     if (!config.developerId || interaction.user.id !== config.developerId) {
@@ -818,7 +1081,51 @@ export async function handleCommand(interaction: ChatInputCommandInteraction): P
     interaction.user.username,
     interaction.user.displayAvatarURL(),
   );
+  recordTutorialAction(interaction.user.id, interaction.user.username, interaction.user.displayAvatarURL(), "system-interaction");
+  const tutorialStatus = syncTutorial(interaction.user.id, interaction.user.username, interaction.user.displayAvatarURL());
   const achievementNotice = newlyUnlocked.map(achievementNotification).join("\n\n");
+  const tutorialNotice = tutorialStatus.completedPages.length
+    ? `⛤ PAGE COMPLETE ⛤\nThe Archives have acknowledged chapter ${tutorialStatus.completedPages.join(", ")}.`
+    : "";
+
+  if (interaction.commandName === "prefix") {
+    if (!interaction.guildId) {
+      await interaction.reply({ content: "A server record is required to configure a prefix.", ephemeral: true });
+      return;
+    }
+    const subcommand = interaction.options.getSubcommand();
+    if (subcommand === "view") {
+      await interaction.reply({ content: `The current server prefix is \`${getGuildPrefix(interaction.guildId)}\`.` });
+      return;
+    }
+    if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
+      await interaction.reply({ content: "Only members with Manage Server permission may change Zekhet's prefix.", ephemeral: true });
+      return;
+    }
+    if (subcommand === "reset") {
+      resetGuildPrefix(interaction.guildId);
+      await interaction.reply({ content: "The server prefix has returned to `z!`." });
+      return;
+    }
+    const prefix = interaction.options.getString("prefix")?.trim() ?? "";
+    if (!validPrefix(prefix)) {
+      await interaction.reply({ content: "Choose a short prefix of 1–5 non-whitespace characters without `/`, `@`, `#`, or `\\`.", ephemeral: true });
+      return;
+    }
+    setGuildPrefix(interaction.guildId, prefix);
+    await interaction.reply({ content: `The server prefix is now \`${prefix}\`.` });
+    return;
+  }
+
+  if (interaction.commandName === "tuto") {
+    const page = Math.min(tutorialPages.length, getTutorialRewards(interaction.user.id).length + 1);
+    await interaction.reply({
+      content: [achievementNotice, tutorialNotice].filter(Boolean).join("\n\n") || undefined,
+      embeds: [tutorialPageEmbed(interaction.user, page)],
+      components: [tutorialButtons(page)],
+    });
+    return;
+  }
 
   if (interaction.commandName === "achievements") {
     await interaction.reply({
@@ -876,6 +1183,7 @@ export async function handleCommand(interaction: ChatInputCommandInteraction): P
   }
 
   if (interaction.commandName === "titles") {
+    recordTutorialAction(interaction.user.id, interaction.user.username, interaction.user.displayAvatarURL(), "titles-view");
     await interaction.reply({
       content: achievementNotice || undefined,
       embeds: [titlesEmbed(getOwnedTitles(interaction.user.id, interaction.user.username, interaction.user.displayAvatarURL()))],
@@ -888,6 +1196,7 @@ export async function handleCommand(interaction: ChatInputCommandInteraction): P
     const titleId = interaction.options.getString("title")?.trim().toLowerCase();
 
     if (subcommand === "inspect") {
+      recordTutorialAction(interaction.user.id, interaction.user.username, interaction.user.displayAvatarURL(), "title-inspect");
       if (!titleId) {
         await interaction.reply({ content: "Name the title ID you wish to inspect; the Court cannot search an unnamed page.", ephemeral: true });
         return;
@@ -904,6 +1213,7 @@ export async function handleCommand(interaction: ChatInputCommandInteraction): P
     }
 
     if (subcommand === "equip") {
+      recordTutorialAction(interaction.user.id, interaction.user.username, interaction.user.displayAvatarURL(), "title-equip");
       if (!titleId) {
         await interaction.reply({ content: "Name the title ID you wish to equip; the Court cannot place an unnamed designation.", ephemeral: true });
         return;
@@ -955,6 +1265,8 @@ export async function handleCommand(interaction: ChatInputCommandInteraction): P
         return;
       }
       const updatedProfile = getProfile(interaction.user.id, interaction.user.username, interaction.user.displayAvatarURL());
+      recordTutorialAction(interaction.user.id, interaction.user.username, interaction.user.displayAvatarURL(), "lore-discover");
+      syncTutorial(interaction.user.id, interaction.user.username, interaction.user.displayAvatarURL());
       const postUnlocks = unlockEligibleAchievements(interaction.user.id);
       const notice = [...newlyUnlocked, ...postUnlocks].map(achievementNotification).join("\n\n");
       await interaction.reply({ content: notice || undefined, embeds: [loreEmbed(result.lore, updatedProfile)] });
@@ -962,6 +1274,7 @@ export async function handleCommand(interaction: ChatInputCommandInteraction): P
     }
 
     if (subcommand === "inspect") {
+      recordTutorialAction(interaction.user.id, interaction.user.username, interaction.user.displayAvatarURL(), "lore-inspect");
       const loreId = interaction.options.getString("entry")?.trim().toLowerCase();
       if (!loreId) {
         await interaction.reply({ content: "Name the archive entry ID you wish to inspect.", ephemeral: true });
@@ -990,11 +1303,13 @@ export async function handleCommand(interaction: ChatInputCommandInteraction): P
   if (interaction.commandName === "curse") {
     const subcommand = interaction.options.getSubcommand();
     if (subcommand === "list") {
+      recordTutorialAction(interaction.user.id, interaction.user.username, interaction.user.displayAvatarURL(), "curses-view");
       await interaction.reply({ embeds: [curseListEmbed(getCurses())] });
       return;
     }
 
     if (subcommand === "inspect") {
+      recordTutorialAction(interaction.user.id, interaction.user.username, interaction.user.displayAvatarURL(), "curse-inspect");
       const curseId = interaction.options.getString("curse")?.trim().toLowerCase();
       const curse = curseId ? getCurse(curseId) : undefined;
       if (!curse) {
@@ -1033,6 +1348,8 @@ export async function handleCommand(interaction: ChatInputCommandInteraction): P
       await interaction.reply({ content: message, ephemeral: true });
       return;
     }
+    recordTutorialAction(target.id, target.username, target.displayAvatarURL(), "curse-applied");
+    syncTutorial(target.id, target.username, target.displayAvatarURL());
     await interaction.reply({
       content: `${pick(dialogue.curseApplied)} <@${target.id}> has been marked.${target.id === interaction.user.id ? `\n\n${achievementNotice}` : ""}`,
       embeds: [activeCurseEmbed(result.curse)],
@@ -1075,6 +1392,8 @@ export async function handleCommand(interaction: ChatInputCommandInteraction): P
         await interaction.reply({ content: "A contract cannot be offered to your own Record.", ephemeral: true });
         return;
       }
+      recordTutorialAction(interaction.user.id, interaction.user.username, interaction.user.displayAvatarURL(), "contract-create");
+      syncTutorial(interaction.user.id, interaction.user.username, interaction.user.displayAvatarURL());
       await interaction.reply({
         content: `${pick(dialogue.contractCreated)}\n\nContract **#${result.contract.id}** has been offered to <@${target.id}>.${achievementNotice ? `\n\n${achievementNotice}` : ""}`,
         embeds: [contractEmbed(result.contract)],
@@ -1114,6 +1433,9 @@ export async function handleCommand(interaction: ChatInputCommandInteraction): P
       await interaction.reply({ content: message, ephemeral: true });
       return;
     }
+    if (result.contract.status === "Accepted") recordTutorialAction(interaction.user.id, interaction.user.username, interaction.user.displayAvatarURL(), "contract-accept");
+    if (result.contract.status === "Completed") recordTutorialAction(interaction.user.id, interaction.user.username, interaction.user.displayAvatarURL(), "contract-complete");
+    syncTutorial(interaction.user.id, interaction.user.username, interaction.user.displayAvatarURL());
     const postUnlocks = unlockEligibleAchievements(interaction.user.id);
     const notice = [...newlyUnlocked, ...postUnlocks].map(achievementNotification).join("\n\n");
     await interaction.reply({
@@ -1134,6 +1456,7 @@ export async function handleCommand(interaction: ChatInputCommandInteraction): P
   }
 
   if (subcommand === "view") {
+    recordTutorialAction(target.id, target.username, target.displayAvatarURL(), "profile-view");
     const profile = getProfile(target.id, target.username, target.displayAvatarURL());
     await interaction.reply({ content: achievementNotice || undefined, embeds: [profileEmbed(profile, target)] });
     return;
@@ -1148,6 +1471,8 @@ export async function handleCommand(interaction: ChatInputCommandInteraction): P
   if (subcommand === "bio") updates.bio = interaction.options.getString("text") ?? "";
   if (subcommand === "color") updates.color = interaction.options.getString("hex") ?? "";
   if (subcommand === "theme") updates.theme = interaction.options.getString("name") ?? "";
+  if (subcommand === "bio") recordTutorialAction(interaction.user.id, interaction.user.username, interaction.user.displayAvatarURL(), "bio-set");
+  if (subcommand === "theme") recordTutorialAction(interaction.user.id, interaction.user.username, interaction.user.displayAvatarURL(), "theme-set");
 
   if (updates.color && !/^#[0-9a-f]{6}$/i.test(updates.color)) {
     await interaction.reply({ content: "The color must be a six-digit hex value such as `#b78cff`.", ephemeral: true });
