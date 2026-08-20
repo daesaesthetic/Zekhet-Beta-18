@@ -1,6 +1,7 @@
 import { Client, Events, GatewayIntentBits, REST, Routes } from "discord.js";
 import { assertDiscordConfig, config } from "./config.js";
 import { commands, handleCommand, handleDeveloperComponent, handleDeveloperModal, handlePassportComponent, handlePrefixCommand, handleTutorialComponent } from "./commands.js";
+import { ensureGuildPrefix } from "./database.js";
 
 assertDiscordConfig();
 
@@ -11,7 +12,16 @@ console.info(`Registered ${commands.length} global slash commands.`);
 const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent] });
 
 client.once(Events.ClientReady, (readyClient) => {
+  for (const guild of readyClient.guilds.cache.values()) {
+    ensureGuildPrefix(guild.id);
+  }
   console.info(`Zekhet is listening as ${readyClient.user.tag}.`);
+  console.info(`Initialized defaults for ${readyClient.guilds.cache.size} guild(s).`);
+});
+
+client.on(Events.GuildCreate, (guild) => {
+  ensureGuildPrefix(guild.id);
+  console.info(`Initialized defaults for guild ${guild.name} (${guild.id}).`);
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {
@@ -37,7 +47,13 @@ client.on(Events.InteractionCreate, async (interaction) => {
   try {
     await handleCommand(interaction);
   } catch (error) {
-    console.error("Command handling failed", error);
+    console.error("Command handling failed", {
+      commandName: interaction.commandName,
+      guildId: interaction.guildId ?? "DM",
+      guildName: interaction.guild?.name ?? "DM",
+      userId: interaction.user.id,
+      error: error instanceof Error ? error.stack : error,
+    });
     if (
       error &&
       typeof error === "object" &&

@@ -2471,6 +2471,12 @@ export function getGuildPrefix(guildId: string): string {
   return (database.prepare("SELECT prefix FROM guild_prefixes WHERE guild_id = ?").get(guildId) as { prefix?: string } | undefined)?.prefix ?? "z!";
 }
 
+export function ensureGuildPrefix(guildId: string): void {
+  database.prepare(`
+    INSERT OR IGNORE INTO guild_prefixes (guild_id, prefix) VALUES (?, 'z!')
+  `).run(guildId);
+}
+
 export function setGuildPrefix(guildId: string, prefix: string): void {
   database.prepare(`
     INSERT INTO guild_prefixes (guild_id, prefix) VALUES (?, ?)
