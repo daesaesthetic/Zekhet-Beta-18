@@ -7,12 +7,18 @@ import {
 import { config } from "./config.js";
 import {
   equipTitle,
+  discoverLore,
+  getDiscoveredLore,
+  getLoreCatalog,
+  getLoreEntry,
   getOwnedTitles,
   getProfile,
   getTitle,
   getTitles,
   updateProfile,
   type OwnedTitle,
+  type DiscoveredLore,
+  type LoreEntry,
   type Profile,
   type Title,
 } from "./database.js";
@@ -25,6 +31,13 @@ const rarityColors: Record<Title["rarity"], number> = {
   Epic: 0xa873ff,
   Legendary: 0xffc857,
   Mythic: 0xff6bb5,
+  Secret: 0x6e4b8e,
+};
+const loreRarityColors: Record<LoreEntry["rarity"], number> = {
+  Common: 0xaaa7b8,
+  Uncommon: 0x65d18b,
+  Rare: 0x5e9cff,
+  Legendary: 0xffc857,
   Secret: 0x6e4b8e,
 };
 const profileCommand = new SlashCommandBuilder()
@@ -54,12 +67,21 @@ const titleCommand = new SlashCommandBuilder()
   .addSubcommand((sub) => sub.setName("inspect").setDescription("Inspect a title.")
     .addStringOption((option) => option.setName("title").setDescription("The title ID to inspect.").setRequired(true)));
 
+const loreCommand = new SlashCommandBuilder()
+  .setName("lore")
+  .setDescription("Consult the personal Archives.")
+  .addSubcommand((sub) => sub.setName("discover").setDescription("Discover a new archive entry."))
+  .addSubcommand((sub) => sub.setName("archive").setDescription("Review your discovered archive entries."))
+  .addSubcommand((sub) => sub.setName("inspect").setDescription("Inspect a discovered archive entry.")
+    .addStringOption((option) => option.setName("entry").setDescription("The archive entry ID.").setRequired(true)));
+
 export const commands = [
   new SlashCommandBuilder().setName("help").setDescription("Consult Zekhet's available records."),
   new SlashCommandBuilder().setName("credits").setDescription("See who keeps Zekhet's records."),
   profileCommand,
   new SlashCommandBuilder().setName("titles").setDescription("View your owned titles and the Court."),
   titleCommand,
+  loreCommand,
 ].map((command) => command.toJSON());
 
 function colorFromProfile(profile: Profile): number {
@@ -76,6 +98,7 @@ function profileEmbed(profile: Profile, user: User): EmbedBuilder {
     .addFields(
       { name: "Equipped title", value: profile.title, inline: true },
       { name: "Titles owned", value: String(profile.titlesOwned), inline: true },
+      { name: "Lore discovered", value: String(profile.loreDiscovered), inline: true },
       { name: "Theme", value: profile.theme, inline: true },
       { name: "Record number", value: `#${String(profile.profileNumber).padStart(4, "0")}`, inline: true },
     )
@@ -123,6 +146,51 @@ function titlesEmbed(ownedTitles: OwnedTitle[]): EmbedBuilder {
     .setFooter({ text: "Use /title equip title:<id> to wear an owned title." });
 }
 
+function loreEmbed(lore: DiscoveredLore, profile: Profile): EmbedBuilder {
+  return new EmbedBuilder()
+    .setColor(loreRarityColors[lore.rarity])
+    .setAuthor({ name: "📜 THE ARCHIVES 📜" })
+    .setTitle(`⛤ ARCHIVE ENTRY #${lore.entryNumber} ⛤`)
+    .setDescription(`**${profile.username.toUpperCase()}** — **${profile.title.toUpperCase()}**\n\n${lore.text}`)
+    .addFields(
+      { name: "Rarity", value: lore.rarity, inline: true },
+      { name: "Discoveries", value: String(profile.loreDiscovered), inline: true },
+    )
+    .setFooter({ text: "The archive records only what Zekhet can observe." });
+}
+
+function classifiedLoreEmbed(entry: LoreEntry): EmbedBuilder {
+  return new EmbedBuilder()
+    .setColor(loreRarityColors.Secret)
+    .setAuthor({ name: "📜 THE ARCHIVES 📜" })
+    .setTitle("🔒 CLASSIFIED ARCHIVE")
+    .setDescription("Some portions of this record have been sealed.")
+    .addFields(
+      { name: "Entry", value: `#${entry.entryNumber}`, inline: true },
+      { name: "Rarity", value: entry.rarity, inline: true },
+      { name: "Status", value: "Locked", inline: true },
+    );
+}
+
+function archiveEmbed(discovered: DiscoveredLore[], catalog: LoreEntry[]): EmbedBuilder {
+  const discoveredIds = new Set(discovered.map((entry) => entry.id));
+  const discoveredText = discovered.length
+    ? discovered.map((entry) => `**#${entry.entryNumber}** · ${entry.rarity}\n\`${entry.id}\``).join("\n")
+    : "_No archive entries have been discovered._";
+  const sealedCount = catalog.filter((entry) => entry.isSecret && !discoveredIds.has(entry.id)).length;
+  return new EmbedBuilder()
+    .setColor(0x7e4bb8)
+    .setAuthor({ name: "📜 THE ARCHIVES 📜" })
+    .setTitle("Personal Archive")
+    .setDescription("The Archives preserve only fragments Zekhet has actually recorded.")
+    .addFields(
+      { name: `Discovered · ${discovered.length}`, value: discoveredText },
+      { name: "Unopened records", value: `${catalog.filter((entry) => !entry.isSecret && !discoveredIds.has(entry.id)).length} entries remain undiscovered.` },
+      { name: "Sealed records", value: `${sealedCount} classified entries remain beyond the visible archive.` },
+    )
+    .setFooter({ text: "Use /lore discover to seek another entry." });
+}
+
 export async function handleCommand(interaction: ChatInputCommandInteraction): Promise<void> {
   if (interaction.commandName === "help") {
     await interaction.reply({
@@ -134,7 +202,7 @@ export async function handleCommand(interaction: ChatInputCommandInteraction): P
         .addFields(
           { name: "⛤ THE RECORD", value: "`/profile` — View or amend your personal Record." },
           { name: "👑 THE COURT", value: "`/titles` — View titles.\n`/title equip` — Equip an owned title.\n`/title inspect` — Inspect a title." },
-          { name: "📜 THE ARCHIVES", value: "Coming Soon" },
+          { name: "📜 THE ARCHIVES", value: "`/lore discover` — Discover an archive entry.\n`/lore archive` — Review discoveries.\n`/lore inspect` — Inspect an entry." },
           { name: "🧿 THE RITUALS", value: "Coming Soon" },
           { name: "⚖️ THE LEDGER", value: "Coming Soon" },
         )],
@@ -207,6 +275,58 @@ export async function handleCommand(interaction: ChatInputCommandInteraction): P
         .setAuthor({ name: "👑 THE COURT 👑" })
         .setDescription("No title is currently equipped upon your Record.")],
     });
+    return;
+  }
+
+  if (interaction.commandName === "lore") {
+    const subcommand = interaction.options.getSubcommand(false) || "archive";
+    const profile = getProfile(interaction.user.id, interaction.user.username, interaction.user.displayAvatarURL());
+    const discovered = getDiscoveredLore(interaction.user.id, interaction.user.username, interaction.user.displayAvatarURL());
+
+    if (subcommand === "discover") {
+      const result = discoverLore(
+        interaction.user.id,
+        interaction.user.username,
+        interaction.user.displayAvatarURL(),
+        config.loreCooldownSeconds,
+      );
+      if (!result.ok) {
+        await interaction.reply({
+          content: result.reason === "cooldown"
+            ? `The Archives are still settling. Try again in ${result.retryAfter} seconds.`
+            : "No unsealed archive entries remain. The deeper records are classified.",
+          ephemeral: true,
+        });
+        return;
+      }
+      const updatedProfile = getProfile(interaction.user.id, interaction.user.username, interaction.user.displayAvatarURL());
+      await interaction.reply({ embeds: [loreEmbed(result.lore, updatedProfile)] });
+      return;
+    }
+
+    if (subcommand === "inspect") {
+      const loreId = interaction.options.getString("entry")?.trim().toLowerCase();
+      if (!loreId) {
+        await interaction.reply({ content: "Name the archive entry ID you wish to inspect.", ephemeral: true });
+        return;
+      }
+      const entry = getLoreEntry(loreId);
+      if (!entry) {
+        await interaction.reply({ content: "That archive entry is not recorded.", ephemeral: true });
+        return;
+      }
+      const found = discovered.find((discoveredEntry) => discoveredEntry.id === entry.id);
+      if (found) {
+        await interaction.reply({ embeds: [loreEmbed(found, profile)] });
+      } else if (entry.isSecret) {
+        await interaction.reply({ embeds: [classifiedLoreEmbed(entry)] });
+      } else {
+        await interaction.reply({ content: "That entry has not yet been discovered. Use `/lore discover`.", ephemeral: true });
+      }
+      return;
+    }
+
+    await interaction.reply({ embeds: [archiveEmbed(discovered, getLoreCatalog())] });
     return;
   }
 

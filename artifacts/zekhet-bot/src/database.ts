@@ -10,6 +10,7 @@ export type Profile = {
   bio: string;
   title: string;
   titlesOwned: number;
+  loreDiscovered: number;
   createdAt: string;
   profileNumber: number;
   color: string;
@@ -27,6 +28,21 @@ export type Title = {
 };
 
 export type OwnedTitle = Title & { equipped: boolean };
+
+export type LoreRarity = "Common" | "Uncommon" | "Rare" | "Legendary" | "Secret";
+
+export type LoreEntry = {
+  id: string;
+  entryNumber: number;
+  rarity: LoreRarity;
+  bodyTemplate: string;
+  isSecret: boolean;
+};
+
+export type DiscoveredLore = LoreEntry & {
+  text: string;
+  discoveredAt: string;
+};
 
 mkdirSync(dirname(config.databasePath), { recursive: true });
 const database = new DatabaseSync(config.databasePath);
@@ -63,6 +79,20 @@ database.exec(`
   );
   CREATE UNIQUE INDEX IF NOT EXISTS one_equipped_title_per_user
     ON user_titles(discord_id) WHERE equipped = 1;
+  CREATE TABLE IF NOT EXISTS lore_entries (
+    id TEXT PRIMARY KEY,
+    entry_number INTEGER NOT NULL UNIQUE,
+    rarity TEXT NOT NULL CHECK (rarity IN ('Common', 'Uncommon', 'Rare', 'Legendary', 'Secret')),
+    body_template TEXT NOT NULL,
+    is_secret INTEGER NOT NULL DEFAULT 0 CHECK (is_secret IN (0, 1))
+  );
+  CREATE TABLE IF NOT EXISTS user_lore (
+    discord_id TEXT NOT NULL REFERENCES users(discord_id) ON DELETE CASCADE,
+    lore_id TEXT NOT NULL REFERENCES lore_entries(id) ON DELETE CASCADE,
+    rendered_text TEXT NOT NULL,
+    discovered_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (discord_id, lore_id)
+  );
 `);
 
 const initialTitles: Title[] = [
@@ -92,6 +122,30 @@ for (const title of initialTitles) {
   `).run(title.id, title.name, title.description, title.rarity, title.isSecret ? 1 : 0);
 }
 
+const initialLore: LoreEntry[] = [
+  { id: "unnamed-eclipse", entryNumber: 1842, rarity: "Common", bodyTemplate: "{{username}} was first recorded beneath an unnamed eclipse. The record contains no warning, only a careful pause.", isSecret: false },
+  { id: "quiet-threshold", entryNumber: 1843, rarity: "Common", bodyTemplate: "The threshold recognized {{username}} before the Court did. It opened without sound.", isSecret: false },
+  { id: "patient-ink", entryNumber: 1844, rarity: "Common", bodyTemplate: "A line of patient ink follows {{username}} through the archives. It has never needed correction.", isSecret: false },
+  { id: "night-appointment", entryNumber: 1845, rarity: "Common", bodyTemplate: "{{username}} appears in the ledgers at an hour when most names have gone quiet.", isSecret: false },
+  { id: "second-name", entryNumber: 1846, rarity: "Uncommon", bodyTemplate: "The Court has noted a second name for {{username}}: {{title}}. The first has been carefully withheld.", isSecret: false },
+  { id: "violet-thread", entryNumber: 1847, rarity: "Uncommon", bodyTemplate: "A violet thread connects {{username}} to {{ownedTitles}} titles. It tightens with every new discovery.", isSecret: false },
+  { id: "sealed-margin", entryNumber: 1848, rarity: "Rare", bodyTemplate: "Someone left {{username}} a mark in the sealed margin. The archive refuses to identify the hand.", isSecret: false },
+  { id: "record-that-waits", entryNumber: 1849, rarity: "Rare", bodyTemplate: "The record of {{username}} does not end here. It waits for the next entry, and knows the difference.", isSecret: false },
+  { id: "unlit-star", entryNumber: 1850, rarity: "Legendary", bodyTemplate: "{{username}} has crossed {{discoveries}} archive thresholds. An unlit star now appears beside their name.", isSecret: false },
+  { id: "keeper-gaze", entryNumber: 1851, rarity: "Legendary", bodyTemplate: "The keeper's gaze rests on {{username}} for one breath longer than protocol allows. No explanation is attached.", isSecret: false },
+  { id: "classified-echo", entryNumber: 1901, rarity: "Secret", bodyTemplate: "CLASSIFIED", isSecret: true },
+  { id: "classified-origin", entryNumber: 1902, rarity: "Secret", bodyTemplate: "CLASSIFIED", isSecret: true },
+];
+
+for (const entry of initialLore) {
+  database.prepare(`
+    INSERT INTO lore_entries (id, entry_number, rarity, body_template, is_secret)
+    VALUES (?, ?, ?, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET entry_number = excluded.entry_number, rarity = excluded.rarity,
+      body_template = excluded.body_template, is_secret = excluded.is_secret
+  `).run(entry.id, entry.entryNumber, entry.rarity, entry.bodyTemplate, entry.isSecret ? 1 : 0);
+}
+
 function ensureProfile(userId: string, username: string, avatarUrl: string | null): void {
   database.prepare(`
     INSERT INTO users (discord_id, username, avatar_url)
@@ -119,6 +173,7 @@ export function getProfile(userId: string, username: string, avatarUrl: string |
     SELECT u.discord_id AS userId, u.username, u.avatar_url AS avatarUrl,
       p.bio, COALESCE(t.name, 'Unmarked Attendant') AS title,
       (SELECT COUNT(*) FROM user_titles ut_count WHERE ut_count.discord_id = u.discord_id) AS titlesOwned,
+      (SELECT COUNT(*) FROM user_lore ul_count WHERE ul_count.discord_id = u.discord_id) AS loreDiscovered,
       p.created_at AS createdAt, p.profile_number AS profileNumber,
       p.color, p.theme
     FROM users u JOIN profiles p ON p.discord_id = u.discord_id
@@ -202,4 +257,107 @@ export function equipTitle(
     throw error;
   }
   return { ok: true, title };
+}
+
+function stableIndex(value: string, length: number): number {
+  let hash = 0;
+  for (const character of value) hash = (hash * 31 + character.codePointAt(0)!) >>> 0;
+  return hash % length;
+}
+
+function renderLore(template: string, userId: string, profile: Profile, entryId: string): string {
+  const openings = [
+    "The archives note:",
+    "In a margin written after midnight:",
+    "The keeper's hand records:",
+  ];
+  const closings = [
+    "The remainder of the entry is quiet.",
+    "Some portions of this record have been sealed.",
+    "No further interpretation is attached.",
+  ];
+  const body = template
+    .replaceAll("{{username}}", profile.username)
+    .replaceAll("{{title}}", profile.title)
+    .replaceAll("{{ownedTitles}}", String(profile.titlesOwned))
+    .replaceAll("{{discoveries}}", String(profile.loreDiscovered + 1))
+    .replaceAll("{{profileNumber}}", String(profile.profileNumber))
+    .replaceAll("{{theme}}", profile.theme)
+    .replaceAll("{{bio}}", profile.bio || "an unentered name");
+  return `${openings[stableIndex(`${userId}:${entryId}:opening`, openings.length)]} ${body}\n\n${closings[stableIndex(`${userId}:${entryId}:closing`, closings.length)]}`;
+}
+
+function mapLore(row: Record<string, unknown>): LoreEntry {
+  return {
+    id: row["id"] as string,
+    entryNumber: row["entryNumber"] as number,
+    rarity: row["rarity"] as LoreRarity,
+    bodyTemplate: row["bodyTemplate"] as string,
+    isSecret: Boolean(row["isSecret"]),
+  };
+}
+
+export function getLoreCatalog(): LoreEntry[] {
+  return database.prepare(`
+    SELECT id, entry_number AS entryNumber, rarity, body_template AS bodyTemplate, is_secret AS isSecret
+    FROM lore_entries ORDER BY entry_number
+  `).all().map((row) => mapLore(row as Record<string, unknown>));
+}
+
+export function getLoreEntry(loreId: string): LoreEntry | undefined {
+  const row = database.prepare(`
+    SELECT id, entry_number AS entryNumber, rarity, body_template AS bodyTemplate, is_secret AS isSecret
+    FROM lore_entries WHERE id = ?
+  `).get(loreId) as Record<string, unknown> | undefined;
+  return row ? mapLore(row) : undefined;
+}
+
+export function getDiscoveredLore(userId: string, username: string, avatarUrl: string | null): DiscoveredLore[] {
+  ensureProfile(userId, username, avatarUrl);
+  return database.prepare(`
+    SELECT l.id, l.entry_number AS entryNumber, l.rarity, l.body_template AS bodyTemplate,
+      l.is_secret AS isSecret, ul.rendered_text AS text, ul.discovered_at AS discoveredAt
+    FROM user_lore ul JOIN lore_entries l ON l.id = ul.lore_id
+    WHERE ul.discord_id = ?
+    ORDER BY l.entry_number
+  `).all(userId).map((row) => {
+    const typed = row as Record<string, unknown>;
+    return { ...mapLore(typed), text: typed["text"] as string, discoveredAt: typed["discoveredAt"] as string };
+  });
+}
+
+export function discoverLore(
+  userId: string,
+  username: string,
+  avatarUrl: string | null,
+  cooldownSeconds: number,
+): { ok: true; lore: DiscoveredLore } | { ok: false; reason: "cooldown" | "complete"; retryAfter?: number } {
+  const profile = getProfile(userId, username, avatarUrl);
+  const latest = database.prepare(`
+    SELECT strftime('%s', discovered_at) AS discoveredAt FROM user_lore
+    WHERE discord_id = ? ORDER BY discovered_at DESC LIMIT 1
+  `).get(userId) as { discoveredAt: string } | undefined;
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  if (latest) {
+    const elapsed = nowSeconds - Number(latest.discoveredAt);
+    if (elapsed < cooldownSeconds) return { ok: false, reason: "cooldown", retryAfter: cooldownSeconds - elapsed };
+  }
+
+  const entry = database.prepare(`
+    SELECT l.id, l.entry_number AS entryNumber, l.rarity, l.body_template AS bodyTemplate, l.is_secret AS isSecret
+    FROM lore_entries l LEFT JOIN user_lore ul ON ul.lore_id = l.id AND ul.discord_id = ?
+    WHERE l.is_secret = 0 AND ul.lore_id IS NULL
+    ORDER BY l.entry_number
+    LIMIT 1
+  `).get(userId) as Record<string, unknown> | undefined;
+  if (!entry) return { ok: false, reason: "complete" };
+
+  const loreEntry = mapLore(entry);
+  const text = renderLore(loreEntry.bodyTemplate, userId, profile, loreEntry.id);
+  const discoveredAt = new Date().toISOString();
+  database.prepare(`
+    INSERT INTO user_lore (discord_id, lore_id, rendered_text, discovered_at)
+    VALUES (?, ?, ?, ?)
+  `).run(userId, loreEntry.id, text, discoveredAt);
+  return { ok: true, lore: { ...loreEntry, text, discoveredAt } };
 }

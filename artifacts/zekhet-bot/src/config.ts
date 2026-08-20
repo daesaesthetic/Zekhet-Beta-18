@@ -3,6 +3,7 @@ export const config = {
   clientId: process.env["DISCORD_CLIENT_ID"] ?? "",
   creator: process.env["ZEKHET_CREATOR"] ?? "The Zekhet Project",
   databasePath: process.env["ZEKHET_DATABASE_PATH"] ?? "./data/zekhet.sqlite",
+  loreCooldownSeconds: Number(process.env["ZEKHET_LORE_COOLDOWN_SECONDS"] ?? 60),
 } as const;
 
 export function assertDiscordConfig(): void {
