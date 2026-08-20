@@ -1133,19 +1133,9 @@ export async function handlePrefixCommand(message: Message): Promise<void> {
     return;
   }
 
-  if (interaction.commandName === "balance") {
-    const balance = getCurrencyBalance(interaction.user.id, interaction.user.username, interaction.user.displayAvatarURL());
-    await interaction.reply({
-      embeds: [
-        new EmbedBuilder()
-          .setColor(0xd6a84f)
-          .setAuthor({ name: "𓂀 THE TREASURY 𓂀" })
-          .setTitle("Deben Balance")
-          .setDescription("The ledger has counted the wealth recorded beneath your name.")
-          .addFields({ name: "Available Deben", value: `**${balance.toLocaleString("en-US")}**`, inline: true })
-          .setFooter({ text: "Deben is Zekhet's fictional in-world currency." }),
-      ],
-    });
+  if (command === "balance") {
+    const balance = getCurrencyBalance(message.author.id, username, avatarUrl);
+    await message.reply(`𓂀 **THE TREASURY** 𓂀\nYour Record holds **${balance.toLocaleString("en-US")} Deben**.`);
     return;
   }
   if (command === "credits") {
@@ -1206,6 +1196,22 @@ export async function handleCommand(interaction: ChatInputCommandInteraction): P
   if (interaction.commandName === "inventory") {
     getProfile(interaction.user.id, interaction.user.username, interaction.user.displayAvatarURL());
     await interaction.reply({ embeds: [inventoryEmbed(getInventory(interaction.user.id))] });
+    return;
+  }
+
+  if (interaction.commandName === "balance") {
+    const balance = getCurrencyBalance(interaction.user.id, interaction.user.username, interaction.user.displayAvatarURL());
+    await interaction.reply({
+      embeds: [
+        new EmbedBuilder()
+          .setColor(0xd6a84f)
+          .setAuthor({ name: "𓂀 THE TREASURY 𓂀" })
+          .setTitle("Deben Balance")
+          .setDescription("The ledger has counted the wealth recorded beneath your name.")
+          .addFields({ name: "Available Deben", value: `**${balance.toLocaleString("en-US")}**`, inline: true })
+          .setFooter({ text: "Deben is Zekhet's fictional in-world currency." }),
+      ],
+    });
     return;
   }
 

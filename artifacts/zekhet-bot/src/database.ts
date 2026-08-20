@@ -687,7 +687,7 @@ const initialItems: Item[] = [
     name: "Eye of Horus",
     description: "An ancient symbol said to watch over those who carry it.",
     icon: "𓂀",
-    category: "Relic" as ItemCategory,
+    category: "Collectible",
     rarity: "Rare",
     stackable: false,
     maxStack: 1,
@@ -729,7 +729,7 @@ const initialItems: Item[] = [
     name: "Pharaoh's Seal",
     description: "A royal seal bearing the mark of a forgotten dynasty.",
     icon: "𓋹",
-    category: "Relic" as ItemCategory,
+    category: "Collectible",
     rarity: "Epic",
     stackable: false,
     maxStack: 1,
@@ -743,7 +743,7 @@ const initialItems: Item[] = [
     name: "Nile's Heart",
     description: "A strange blue gemstone said to hold a fragment of the river's spirit.",
     icon: "✦",
-    category: "Relic" as ItemCategory,
+    category: "Collectible",
     rarity: "Epic",
     stackable: false,
     maxStack: 1,
@@ -944,6 +944,10 @@ export function getItemQuantity(userId: string, itemId: string): number {
 
 export function getCurrencyBalance(userId: string, username = "Unknown Record", avatarUrl: string | null = null): number {
   ensureProfile(userId, username, avatarUrl);
+  return readCurrencyBalance(userId);
+}
+
+function readCurrencyBalance(userId: string): number {
   const row = database.prepare("SELECT balance FROM currency_balances WHERE discord_id = ?")
     .get(userId) as { balance?: number } | undefined;
   return Number(row?.balance ?? 0);
@@ -982,7 +986,7 @@ export function addCurrency(
       database.exec("ROLLBACK");
       return { ok: false, reason: "duplicate-transaction" };
     }
-    const current = getCurrencyBalance(userId);
+    const current = readCurrencyBalance(userId);
     const next = current + amount;
     if (!Number.isSafeInteger(next)) {
       database.exec("ROLLBACK");
@@ -1013,7 +1017,7 @@ export function removeCurrency(
       database.exec("ROLLBACK");
       return { ok: false, reason: "duplicate-transaction" };
     }
-    const current = getCurrencyBalance(userId);
+    const current = readCurrencyBalance(userId);
     if (current < amount) {
       database.exec("ROLLBACK");
       return { ok: false, reason: "insufficient-funds" };
@@ -1048,7 +1052,7 @@ export function setCurrency(
       database.exec("ROLLBACK");
       return { ok: false, reason: "duplicate-transaction" };
     }
-    const current = getCurrencyBalance(userId);
+    const current = readCurrencyBalance(userId);
     database.prepare("UPDATE currency_balances SET balance = ?, updated_at = CURRENT_TIMESTAMP WHERE discord_id = ?").run(balance, userId);
     const transactionId = recordCurrencyTransaction(userId, "set", balance, balance, idempotencyKey);
     database.exec("COMMIT");
@@ -1863,6 +1867,9 @@ export function resetUserData(userId: string): void {
     database.prepare("DELETE FROM tutorial_actions WHERE discord_id = ?").run(userId);
     database.prepare("DELETE FROM tutorial_objectives WHERE discord_id = ?").run(userId);
     database.prepare("DELETE FROM tutorial_rewards WHERE discord_id = ?").run(userId);
+    database.prepare("DELETE FROM user_inventory WHERE discord_id = ?").run(userId);
+    database.prepare("DELETE FROM currency_transactions WHERE discord_id = ?").run(userId);
+    database.prepare("DELETE FROM currency_balances WHERE discord_id = ?").run(userId);
     database.prepare("DELETE FROM profiles WHERE discord_id = ?").run(userId);
     database.prepare("DELETE FROM users WHERE discord_id = ?").run(userId);
     database.exec("COMMIT");
