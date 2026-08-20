@@ -864,14 +864,43 @@ function achievementsEmbed(all: Achievement[], unlocked: UnlockedAchievement[], 
     `${unlockedIds.has(achievement.id) ? "✦" : achievement.isHidden ? "🔒" : "○"} ${achievementLabel(achievement, unlockedIds.has(achievement.id))}${getAchievementProgress(userId, achievement.id) && !unlockedIds.has(achievement.id)
       ? `\n  ${getAchievementProgress(userId, achievement.id)!.current}/${getAchievementProgress(userId, achievement.id)!.target} ${getAchievementProgress(userId, achievement.id)!.label}`
       : ""}`,
-  ).join("\n");
-  return new EmbedBuilder()
+  );
+  const fields: Array<{ name: string; value: string }> = [];
+  let fieldLines: string[] = [];
+  let fieldLength = 0;
+  for (const line of lines) {
+    const nextLength = fieldLength + (fieldLines.length > 0 ? 1 : 0) + line.length;
+    if (fieldLines.length > 0 && nextLength > 950) {
+      fields.push({
+        name: `Records ${fields.length + 1}`,
+        value: fieldLines.join("\n"),
+      });
+      fieldLines = [];
+      fieldLength = 0;
+    }
+    fieldLines.push(line);
+    fieldLength += (fieldLines.length > 1 ? 1 : 0) + line.length;
+  }
+  if (fieldLines.length > 0) {
+    fields.push({
+      name: `Records ${fields.length + 1}`,
+      value: fieldLines.join("\n"),
+    });
+  }
+
+  const embed = new EmbedBuilder()
     .setColor(0x7e4bb8)
     .setAuthor({ name: "🏺 THE ACHIEVEMENTS 🏺" })
     .setTitle("Personal Achievements")
     .setDescription("The Court rewards records that are lived, revisited, and remembered.")
-    .addFields({ name: `Unlocked · ${unlocked.length} / ${all.length}`, value: lines || "_No achievements are recorded._" })
     .setFooter({ text: "Hidden achievements reveal themselves only when the record is complete." });
+  if (fields.length > 0) {
+    fields[0].name = `Unlocked · ${unlocked.length} / ${all.length}`;
+    embed.addFields(fields);
+  } else {
+    embed.addFields({ name: `Unlocked · ${unlocked.length} / ${all.length}`, value: "_No achievements are recorded._" });
+  }
+  return embed;
 }
 
 function titleLabel(title: Title | OwnedTitle, owned = false): string {
