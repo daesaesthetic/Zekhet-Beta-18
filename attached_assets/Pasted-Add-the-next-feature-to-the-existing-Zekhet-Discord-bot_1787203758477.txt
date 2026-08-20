@@ -1,0 +1,101 @@
+Add the next feature to the existing ⛤ Zekhet ⛤ Discord bot.
+
+Do NOT rewrite or replace the existing Profile system. Keep all existing functionality working.
+
+FEATURE:
+👑 THE COURT — Titles
+
+Add these slash commands:
+
+- /title
+- /titles
+- /title equip
+- /title inspect
+
+Create a SQLite title system.
+
+Users can own multiple titles but can equip only ONE title at a time.
+
+Add these rarities:
+- Common
+- Uncommon
+- Rare
+- Epic
+- Legendary
+- Mythic
+- Secret
+
+Create approximately 15 initial titles:
+
+Wanderer
+Newcomer
+Archivist
+Nightwalker
+Outcast
+Void Walker
+Celestial
+The Forgotten
+Sovereign
+Eternal
+The First
+Starless
+Keeper of Records
+Oathbound
+Ascendant
+
+Give each title:
+- Unique ID
+- Name
+- Description
+- Rarity
+- Unlock status
+
+Allow several titles to be obtainable immediately for testing.
+
+Include a few locked/secret titles that display as:
+
+🔒 ???
+
+Do not build an achievement system yet. Do not add an economy.
+
+DATABASE:
+Add only the tables needed for titles:
+- titles
+- user_titles
+
+Use Discord user ID to associate titles with users.
+
+PROFILE INTEGRATION:
+Update /profile so the user's currently equipped title appears automatically.
+
+Example:
+
+⛤ ZEKHET'S RECORD ⛤
+
+Azurion
+"The Starless"
+
+Profile No. #00421
+
+Titles Owned: 7
+
+Make the title presentation match Zekhet's dark purple/magenta aesthetic.
+
+USER INSTALLATION:
+Keep titles as personal user data so the system remains compatible with USER_INSTALL where Discord supports it.
+
+Do not add server-wide statistics or message monitoring.
+
+Keep /help updated so THE COURT now shows its available commands.
+
+IMPORTANT:
+Only implement the Title system.
+
+Do not add Lore, Curses, Contracts, Achievements, Economy, or unrelated features.
+
+Test that:
+1. Titles persist after restart.
+2. Users cannot equip titles they do not own.
+3. Users can only have one equipped title.
+4. /profile correctly displays the equipped title.
+5. Existing Profile commands still work.
