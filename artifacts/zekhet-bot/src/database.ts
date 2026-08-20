@@ -970,6 +970,10 @@ function ensureProfile(userId: string, username: string, avatarUrl: string | nul
     INSERT OR IGNORE INTO user_progression (discord_id, xp, level, rank)
     VALUES (?, 0, 1, 'Initiate')
   `).run(userId);
+  database.prepare(`
+    INSERT OR IGNORE INTO passport_numbers (discord_id, passport_number)
+    SELECT ?, profile_number FROM profiles WHERE discord_id = ?
+  `).run(userId, userId);
 
   const starterTitles = ["wanderer", "newcomer", "archivist"];
   for (const titleId of starterTitles) {
@@ -994,14 +998,155 @@ export function getProfile(userId: string, username: string, avatarUrl: string |
       (SELECT COUNT(*) FROM user_achievements ua_count WHERE ua_count.discord_id = u.discord_id) AS achievementsUnlocked,
       COALESCE(up.xp, 0) AS xp, COALESCE(up.level, 1) AS level, COALESCE(up.rank, 'Initiate') AS rank,
       p.created_at AS createdAt, p.profile_number AS profileNumber,
-      p.color, p.theme
+      pn.passport_number AS passportNumber, p.color, p.theme
     FROM users u JOIN profiles p ON p.discord_id = u.discord_id
+    JOIN passport_numbers pn ON pn.discord_id = u.discord_id
     LEFT JOIN user_progression up ON up.discord_id = u.discord_id
     LEFT JOIN user_titles ut ON ut.discord_id = u.discord_id AND ut.equipped = 1
     LEFT JOIN titles t ON t.id = ut.title_id
     WHERE u.discord_id = ?
   `).get(userId) as Profile;
   return row;
+}
+
+function mapPassportStamp(row: Record<string, unknown>): PassportStamp {
+  return {
+    id: row["id"] as string,
+    name: row["name"] as string,
+    description: row["description"] as string,
+    rarity: row["rarity"] as PassportStampRarity,
+    secret: Boolean(row["secret"]),
+  };
+}
+
+export function getPassportStamps(userId: string, username = "Unknown Record", avatarUrl: string | null = null): UnlockedPassportStamp[] {
+  ensureProfile(userId, username, avatarUrl);
+  return database.prepare(`
+    SELECT ps.id, ps.name, ps.description, ps.rarity, ps.secret, ups.unlocked_at AS unlockedAt
+    FROM user_passport_stamps ups
+    JOIN passport_stamps ps ON ps.id = ups.stamp_id
+    WHERE ups.discord_id = ?
+    ORDER BY ups.unlocked_at, ps.id
+  `).all(userId).map((row) => ({
+    ...mapPassportStamp(row as Record<string, unknown>),
+    unlockedAt: (row as { unlockedAt: string }).unlockedAt,
+  }));
+}
+
+function passportRecords(userId: string): PassportRecords {
+  const count = (query: string, ...params: string[]) =>
+    Number((database.prepare(query).get(...params) as { count?: number } | undefined)?.count ?? 0);
+  const progression = getProgression(userId);
+  return {
+    titles: count("SELECT COUNT(*) AS count FROM user_titles WHERE discord_id = ?", userId),
+    totalTitles: count("SELECT COUNT(*) AS count FROM titles"),
+    lore: count("SELECT COUNT(*) AS count FROM user_lore WHERE discord_id = ?", userId),
+    totalLore: count("SELECT COUNT(*) AS count FROM lore_entries WHERE is_secret = 0"),
+    achievements: count("SELECT COUNT(*) AS count FROM user_achievements WHERE discord_id = ?", userId),
+    totalAchievements: count("SELECT COUNT(*) AS count FROM achievements"),
+    contracts: count("SELECT COUNT(*) AS count FROM contracts WHERE creator_id = ? OR recipient_id = ?", userId, userId),
+    completedContracts: count("SELECT COUNT(*) AS count FROM contracts WHERE status = 'Completed' AND (creator_id = ? OR recipient_id = ?)", userId, userId),
+    curses: count("SELECT COUNT(DISTINCT curse_id) AS count FROM curse_history WHERE target_id = ?", userId),
+    totalCurses: count("SELECT COUNT(*) AS count FROM curses"),
+    items: count("SELECT COUNT(*) AS count FROM user_inventory WHERE discord_id = ?", userId),
+    totalItems: count("SELECT COUNT(*) AS count FROM items"),
+    tutorialPages: count("SELECT COUNT(*) AS count FROM tutorial_rewards WHERE discord_id = ?", userId),
+    totalTutorialPages: count("SELECT COUNT(*) AS count FROM tutorial_rewards WHERE discord_id = ?", userId) < 6 ? 6 : count("SELECT COUNT(*) AS count FROM tutorial_rewards WHERE discord_id = ?", userId),
+    xp: progression.xp,
+    level: progression.level,
+    rank: progression.rank,
+  };
+}
+
+function passportStatus(records: PassportRecords): PassportStatus {
+  const score = records.titles + records.lore + records.achievements + records.completedContracts + records.curses + records.tutorialPages;
+  if (records.level >= 50 && records.achievements >= 10) return "Exalted";
+  if (records.level >= 30 || score >= 80) return "Keeper";
+  if (records.level >= 20 || score >= 50) return "Archivist";
+  if (records.titles >= 10 || records.lore >= 15 || records.achievements >= 8) return "Courtier";
+  if (score >= 20) return "Citizen";
+  if (score >= 8) return "Acquainted";
+  if (score > 0) return "Recognized";
+  return "Unrecorded";
+}
+
+function eligiblePassportStamps(userId: string): Set<string> {
+  const records = passportRecords(userId);
+  const secretLore = Number((database.prepare(`
+    SELECT COUNT(*) AS count FROM user_lore ul JOIN lore_entries le ON le.id = ul.lore_id
+    WHERE ul.discord_id = ? AND le.is_secret = 1
+  `).get(userId) as { count: number }).count);
+  const eligible = new Set<string>();
+  if (database.prepare("SELECT 1 FROM profiles WHERE discord_id = ?").get(userId)) eligible.add("first-record");
+  if (records.titles >= 4) eligible.add("first-title");
+  if (records.lore >= 1) eligible.add("first-discovery");
+  if (records.curses >= 1) eligible.add("marked");
+  if (records.completedContracts >= 1) eligible.add("oathbound");
+  if (records.achievements >= 1) eligible.add("recognized");
+  if (records.tutorialPages >= 6) eligible.add("student");
+  if (records.lore >= 25) eligible.add("archivist");
+  if (records.titles >= 10) eligible.add("courtier");
+  if (records.completedContracts >= 3) eligible.add("oathkeeper");
+  if (records.curses >= 5) eligible.add("many-marks");
+  if (records.titles >= 20) eligible.add("collector");
+  if (records.level >= 20) eligible.add("keeper");
+  if (records.lore >= 40) eligible.add("archive-heart");
+  if (secretLore > 0) eligible.add("forbidden");
+  if (records.tutorialPages >= 6 && secretLore > 0) eligible.add("zekhet-remembers");
+  if (records.level >= 50 && records.achievements >= 10) eligible.add("exalted");
+  return eligible;
+}
+
+export function unlockPassportStamps(
+  userId: string,
+  username = "Unknown Record",
+  avatarUrl: string | null = null,
+): UnlockedPassportStamp[] {
+  ensureProfile(userId, username, avatarUrl);
+  const eligible = eligiblePassportStamps(userId);
+  const unlocked: UnlockedPassportStamp[] = [];
+  for (const stampId of eligible) {
+    if (database.prepare("SELECT 1 FROM user_passport_stamps WHERE discord_id = ? AND stamp_id = ?").get(userId, stampId)) continue;
+    const stamp = database.prepare("SELECT id, name, description, rarity, secret FROM passport_stamps WHERE id = ?").get(stampId) as Record<string, unknown> | undefined;
+    if (!stamp) continue;
+    const unlockedAt = new Date().toISOString();
+    database.prepare("INSERT INTO user_passport_stamps (discord_id, stamp_id, unlocked_at) VALUES (?, ?, ?)").run(userId, stampId, unlockedAt);
+    unlocked.push({ ...mapPassportStamp(stamp), unlockedAt });
+  }
+  return unlocked;
+}
+
+export function getPassport(userId: string, username = "Unknown Record", avatarUrl: string | null = null): Passport {
+  const profile = getProfile(userId, username, avatarUrl);
+  unlockPassportStamps(userId, username, avatarUrl);
+  const records = passportRecords(userId);
+  return { number: profile.passportNumber, status: passportStatus(records), records, stamps: getPassportStamps(userId, username, avatarUrl) };
+}
+
+export function grantPassportStamp(userId: string, stampId: string, username = "Unknown Record", avatarUrl: string | null = null): UnlockedPassportStamp | undefined {
+  ensureProfile(userId, username, avatarUrl);
+  const stamp = database.prepare("SELECT id, name, description, rarity, secret FROM passport_stamps WHERE id = ?").get(stampId) as Record<string, unknown> | undefined;
+  if (!stamp) return undefined;
+  database.prepare("INSERT OR IGNORE INTO user_passport_stamps (discord_id, stamp_id) VALUES (?, ?)").run(userId, stampId);
+  const row = database.prepare(`
+    SELECT ps.id, ps.name, ps.description, ps.rarity, ps.secret, ups.unlocked_at AS unlockedAt
+    FROM user_passport_stamps ups JOIN passport_stamps ps ON ps.id = ups.stamp_id
+    WHERE ups.discord_id = ? AND ups.stamp_id = ?
+  `).get(userId, stampId) as Record<string, unknown>;
+  return { ...mapPassportStamp(row), unlockedAt: row["unlockedAt"] as string };
+}
+
+export function resetPassportStamps(userId: string): number {
+  return Number(database.prepare("DELETE FROM user_passport_stamps WHERE discord_id = ?").run(userId).changes);
+}
+
+export function unlockAllPassportStamps(userId: string, username = "Unknown Record", avatarUrl: string | null = null): number {
+  ensureProfile(userId, username, avatarUrl);
+  const result = database.prepare(`
+    INSERT OR IGNORE INTO user_passport_stamps (discord_id, stamp_id)
+    SELECT ?, id FROM passport_stamps
+  `).run(userId);
+  return Number(result.changes);
 }
 
 const rankForLevel = (level: number): string => {
@@ -1714,6 +1859,7 @@ export function processProgressionEvent(
   event: ProgressionEvent,
 ): ProgressionUpdate {
   ensureProfile(userId, username, avatarUrl);
+  unlockPassportStamps(userId, username, avatarUrl);
   const before = new Set(
     (database.prepare("SELECT title_id AS titleId FROM user_titles WHERE discord_id = ?").all(userId) as Array<{ titleId: string }>)
       .map((row) => row.titleId),

@@ -51,6 +51,13 @@ The current scope includes titles, lore, achievements, tutorials, contracts, cur
 - The SQLite database directory is created automatically from `ZEKHET_DATABASE_PATH`.
 - Node.js 24 is required because the bot uses the built-in `node:sqlite` module.
 
+## Beta 15 — The Passport
+
+- `/passport` and `z!passport` show a persistent accomplishment Passport; an optional user argument inspects another public Passport.
+- Passport numbers are assigned persistently and existing profile numbers are preserved during lazy migration.
+- Passport records and status are derived from the existing titles, lore, achievements, contracts, curses, items, tutorial, XP, and rank systems.
+- Passport stamps are stored separately and unlock idempotently through existing progression checks. Developer controls expose Passport inspection, stamp granting, unlock-all, and reset testing.
+
 ## Pointers
 
 - See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details

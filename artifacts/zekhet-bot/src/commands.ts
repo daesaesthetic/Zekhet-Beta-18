@@ -62,6 +62,12 @@ import {
   getItem,
   getItemQuantity,
   getCurrencyBalance,
+  getPassport,
+  unlockPassportStamps,
+  getPassportStamps,
+  grantPassportStamp,
+  resetPassportStamps,
+  unlockAllPassportStamps,
   type ActiveCurse,
   type Contract,
   type ContractTemplate,
@@ -75,6 +81,8 @@ import {
   type UnlockedAchievement,
   type Item,
   type InventoryEntry,
+  type Passport,
+  type UnlockedPassportStamp,
 } from "./database.js";
 import { achievementRewards, formatRewards, grantAchievementReward, grantRewards, progressionSummary, type Rewards } from "./rewards.js";
 
@@ -443,6 +451,11 @@ const balanceCommand = new SlashCommandBuilder()
   .setName("balance")
   .setDescription("View the Deben held by your Record.");
 
+const passportCommand = new SlashCommandBuilder()
+  .setName("passport")
+  .setDescription("View the official record of your accomplishments.")
+  .addUserOption((option) => option.setName("user").setDescription("The Passport to inspect."));
+
 export const commands = [
   new SlashCommandBuilder().setName("help").setDescription("Consult Zekhet's available records."),
   new SlashCommandBuilder().setName("credits").setDescription("See who keeps Zekhet's records."),
@@ -450,6 +463,7 @@ export const commands = [
   new SlashCommandBuilder().setName("inventory").setDescription("View the items owned by your Record."),
   balanceCommand,
   new SlashCommandBuilder().setName("progress").setDescription("View your XP, level, and rank progression."),
+  passportCommand,
   itemCommand,
   profileCommand,
   new SlashCommandBuilder().setName("titles").setDescription("View your owned titles and the Court."),
@@ -501,6 +515,12 @@ function developerPanel() {
         new ButtonBuilder().setCustomId("developer:tutorial-complete").setLabel("Complete Tutorial").setStyle(ButtonStyle.Primary),
         new ButtonBuilder().setCustomId("developer:tutorial-reset").setLabel("Reset Tutorial").setStyle(ButtonStyle.Danger),
         new ButtonBuilder().setCustomId("developer:progression-check").setLabel("Run Progression Check").setStyle(ButtonStyle.Primary),
+      ),
+      new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder().setCustomId("developer:passport-view").setLabel("View Passport Data").setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId("developer:passport-unlock-all").setLabel("Unlock All Stamps").setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId("developer:passport-grant").setLabel("Grant Stamp").setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId("developer:passport-reset").setLabel("Reset Stamps").setStyle(ButtonStyle.Danger),
       ),
     ],
   };
@@ -591,6 +611,36 @@ export async function handleDeveloperComponent(interaction: ButtonInteraction): 
       }) || "Progression checked. No new interconnected rewards are currently eligible.",
       ephemeral: true,
     });
+    return;
+  }
+  if (section === "passport-view") {
+    const passport = getPassport(interaction.user.id, interaction.user.username, interaction.user.displayAvatarURL());
+    await interaction.reply({
+      content: `Passport data (developer-only): #${String(passport.number).padStart(4, "0")} · status ${passport.status} · ${passport.stamps.length} stamp(s) · level ${passport.records.level}.`,
+      ephemeral: true,
+    });
+    return;
+  }
+  if (section === "passport-unlock-all") {
+    const count = unlockAllPassportStamps(interaction.user.id, interaction.user.username, interaction.user.displayAvatarURL());
+    await interaction.reply({ content: `Developer access granted: ${count} Passport stamp(s) added to your Record.`, ephemeral: true });
+    return;
+  }
+  if (section === "passport-reset") {
+    const count = resetPassportStamps(interaction.user.id);
+    await interaction.reply({ content: `Reset ${count} Passport stamp record(s). Your accomplishments remain intact.`, ephemeral: true });
+    return;
+  }
+  if (section === "passport-grant") {
+    const modal = new ModalBuilder().setCustomId("developer:passport-grant-modal").setTitle("Grant Passport Stamp");
+    const stampId = new TextInputBuilder()
+      .setCustomId("stamp-id")
+      .setLabel("Passport stamp ID")
+      .setStyle(TextInputStyle.Short)
+      .setRequired(true)
+      .setPlaceholder("for example: first-discovery");
+    modal.addComponents(new ActionRowBuilder<TextInputBuilder>().addComponents(stampId));
+    await interaction.showModal(modal);
     return;
   }
   if (section === "apply-curse") {
@@ -686,6 +736,19 @@ export async function handleDeveloperComponent(interaction: ButtonInteraction): 
 }
 
 export async function handleDeveloperModal(interaction: ModalSubmitInteraction): Promise<void> {
+  if (interaction.customId === "developer:passport-grant-modal") {
+    if (interaction.user.id !== config.developerId) {
+      await interaction.reply({ content: "You do not have access to that panel.", ephemeral: true });
+      return;
+    }
+    const stampId = interaction.fields.getTextInputValue("stamp-id").trim().toLowerCase();
+    const stamp = grantPassportStamp(interaction.user.id, stampId, interaction.user.username, interaction.user.displayAvatarURL());
+    await interaction.reply({
+      content: stamp ? `Passport stamp recorded: **${stamp.name}** · ${stamp.rarity}.` : "That Passport stamp ID is absent from the records.",
+      ephemeral: true,
+    });
+    return;
+  }
   if (interaction.customId === "developer:unlock-achievement-modal") {
     if (interaction.user.id !== config.developerId) {
       await interaction.reply({ content: "You do not have access to that panel.", ephemeral: true });
@@ -771,11 +834,110 @@ function profileEmbed(profile: Profile, user: User): EmbedBuilder {
       { name: "Objectives", value: `${progressBar(completedObjectives, totalObjectives)}\n${completedObjectives} / ${totalObjectives} completed`, inline: false },
       { name: "Progression", value: progressionSummary(progression), inline: false },
       { name: "Records", value: `Titles **${profile.titlesOwned}** · Lore **${profile.loreDiscovered}**`, inline: true },
+      { name: "Passport", value: `#${String(profile.passportNumber).padStart(4, "0")}`, inline: true },
       { name: "Achievements", value: `${progressBar(unlockedAchievements.length, allAchievements.length)}\n**${unlockedAchievements.length} / ${allAchievements.length}** unlocked`, inline: true },
       { name: "Ledger", value: `Contracts created **${profile.contractsCreated}** · completed **${profile.contractsCompleted}** · active curses **${profile.activeCurses}**`, inline: false },
       { name: "Inventory", value: inventoryCount > 0 ? `${inventoryCount} item${inventoryCount === 1 ? "" : "s"} held` : "No items recorded", inline: true },
     )
     .setFooter({ text: `Recorded ${new Date(profile.createdAt).toLocaleDateString("en-US")} · Use /inventory for item details` });
+}
+
+const passportRarityColors: Record<UnlockedPassportStamp["rarity"], number> = {
+  Common: 0xaaa7b8,
+  Uncommon: 0x65d18b,
+  Rare: 0x5e9cff,
+  Epic: 0xa873ff,
+  Legendary: 0xffc857,
+  Mythic: 0xff6bb5,
+  Secret: 0x6e4b8e,
+};
+
+function passportButtons(): ActionRowBuilder<ButtonBuilder> {
+  return new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder().setCustomId("passport:records").setLabel("Records").setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId("passport:stamps").setLabel("Stamps").setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId("passport:progress").setLabel("Progress").setStyle(ButtonStyle.Secondary),
+  );
+}
+
+function passportEmbed(passport: Passport, user: User): EmbedBuilder {
+  const { records } = passport;
+  const stampText = passport.stamps.length
+    ? passport.stamps.slice(0, 5).map((stamp) => `${stamp.secret ? "🌑" : "⛤"} ${stamp.name}`).join("\n")
+    : "_No stamps have been collected._";
+  return new EmbedBuilder()
+    .setColor(0x8d4ca8)
+    .setAuthor({ name: "⛤ THE ZEKHET PASSPORT ⛤", iconURL: user.displayAvatarURL({ size: 128 }) })
+    .setTitle(`Passport No. #${String(passport.number).padStart(4, "0")}`)
+    .setDescription(`**${user.username.toUpperCase()}**\n\n_"The Archives recognize this individual."_`)
+    .addFields(
+      { name: "STATUS", value: passport.status, inline: true },
+      { name: "RANK", value: records.rank, inline: true },
+      { name: "LEVEL", value: String(records.level), inline: true },
+      { name: "RECORD", value: `👑 Titles · **${records.titles}**\n📜 Lore · **${records.lore}**\n🏆 Achievements · **${records.achievements}**\n⚖️ Completed contracts · **${records.completedContracts}**\n🧿 Curses · **${records.curses}**\n🎒 Items · **${records.items}**`, inline: false },
+      { name: `PASSPORT STAMPS · ${passport.stamps.length}`, value: stampText, inline: false },
+    )
+    .setFooter({ text: "Issued by ⛤ Zekhet · Use the buttons to inspect the record." });
+}
+
+function passportRecordsEmbed(passport: Passport, user: User): EmbedBuilder {
+  const { records } = passport;
+  return new EmbedBuilder()
+    .setColor(0x7e4bb8)
+    .setAuthor({ name: "⛤ PASSPORT RECORDS ⛤", iconURL: user.displayAvatarURL({ size: 128 }) })
+    .setTitle(`#${String(passport.number).padStart(4, "0")} · ${passport.status}`)
+    .addFields(
+      { name: "Titles", value: `${records.titles} / ${records.totalTitles}`, inline: true },
+      { name: "Lore", value: `${records.lore} / ${records.totalLore}`, inline: true },
+      { name: "Achievements", value: `${records.achievements} / ${records.totalAchievements}`, inline: true },
+      { name: "Contracts", value: `${records.completedContracts} completed · ${records.contracts} connected`, inline: true },
+      { name: "Curses", value: `${records.curses} / ${records.totalCurses}`, inline: true },
+      { name: "Items", value: `${records.items} / ${records.totalItems}`, inline: true },
+      { name: "Tutorial", value: `${records.tutorialPages} / ${records.totalTutorialPages} chapters`, inline: true },
+    )
+    .setFooter({ text: "Totals update automatically as the Zekhet catalog grows." });
+}
+
+function passportStampsEmbed(passport: Passport, user: User): EmbedBuilder {
+  const unlockedIds = new Set(passport.stamps.map((stamp) => stamp.id));
+  const unlockedText = passport.stamps.length
+    ? passport.stamps.map((stamp) => `${stamp.secret ? "🌑" : "⛤"} **${stamp.name}** · ${stamp.rarity}\n_${stamp.description}_`).join("\n\n")
+    : "_The Passport bears no stamps yet._";
+  const lockedNormal = getPassportStamps(user.id, user.username, user.displayAvatarURL());
+  const lockedText = "Further stamps await recognition. Secret stamps remain sealed until discovered.";
+  return new EmbedBuilder()
+    .setColor(0x7e4bb8)
+    .setAuthor({ name: "🎟️ PASSPORT STAMPS 🎟️", iconURL: user.displayAvatarURL({ size: 128 }) })
+    .setTitle(`Collected · ${passport.stamps.length}`)
+    .setDescription(`${unlockedText}\n\n**LOCKED**\n${lockedNormal.length === 0 || unlockedIds.size < 0 ? lockedText : lockedText}`)
+    .setFooter({ text: "A stamp is a permanent mark of something Zekhet remembers." });
+}
+
+function passportProgressEmbed(passport: Passport, user: User): EmbedBuilder {
+  const { records } = passport;
+  return new EmbedBuilder()
+    .setColor(0x7e4bb8)
+    .setAuthor({ name: "📊 PASSPORT PROGRESS 📊", iconURL: user.displayAvatarURL({ size: 128 }) })
+    .setTitle(`${user.username}'s advancement`)
+    .addFields(
+      { name: "Level", value: String(records.level), inline: true },
+      { name: "XP", value: records.xp.toLocaleString("en-US"), inline: true },
+      { name: "Rank", value: records.rank, inline: true },
+      { name: "Status", value: passport.status, inline: true },
+      { name: "Deben", value: `${getCurrencyBalance(user.id, user.username, user.displayAvatarURL()).toLocaleString("en-US")}`, inline: true },
+      { name: "Collections", value: `Titles ${records.titles}/${records.totalTitles} · Lore ${records.lore}/${records.totalLore}\nAchievements ${records.achievements}/${records.totalAchievements} · Items ${records.items}/${records.totalItems}`, inline: false },
+    )
+    .setFooter({ text: "The Passport summarizes your path; use the existing commands for detail." });
+}
+
+export async function handlePassportComponent(interaction: ButtonInteraction): Promise<void> {
+  if (!interaction.customId.startsWith("passport:")) return;
+  const passport = getPassport(interaction.user.id, interaction.user.username, interaction.user.displayAvatarURL());
+  const page = interaction.customId.split(":")[1];
+  const embed = page === "records" ? passportRecordsEmbed(passport, interaction.user)
+    : page === "stamps" ? passportStampsEmbed(passport, interaction.user)
+      : passportProgressEmbed(passport, interaction.user);
+  await interaction.update({ embeds: [embed], components: [passportButtons()] });
 }
 
 function progressEmbed(user: User): EmbedBuilder {
@@ -1216,7 +1378,7 @@ export async function handlePrefixCommand(message: Message): Promise<void> {
     : "";
 
   if (command === "help") {
-    await message.reply("⛤ Zekhet commands ⛤\n`z!profile` · `z!titles` · `z!lore` · `z!curse` · `z!contracts` · `z!achievements` · `z!tuto`\nSlash commands remain the primary interface.");
+    await message.reply("⛤ Zekhet commands ⛤\n`z!profile` · `z!passport` · `z!titles` · `z!lore` · `z!curse` · `z!contracts` · `z!achievements` · `z!tuto`\nSlash commands remain the primary interface.");
     return;
   }
 
@@ -1227,6 +1389,12 @@ export async function handlePrefixCommand(message: Message): Promise<void> {
   }
   if (command === "progress") {
     await message.reply({ embeds: [progressEmbed(message.author)] });
+    return;
+  }
+  if (command === "passport") {
+    const target = message.mentions.users.first() ?? message.author;
+    const passport = getPassport(target.id, target.username, target.displayAvatarURL());
+    await message.reply({ embeds: [passportEmbed(passport, target)], components: [passportButtons()] });
     return;
   }
   if (command === "credits") {
@@ -1292,6 +1460,13 @@ export async function handleCommand(interaction: ChatInputCommandInteraction): P
 
   if (interaction.commandName === "progress") {
     await interaction.reply({ embeds: [progressEmbed(interaction.user)] });
+    return;
+  }
+
+  if (interaction.commandName === "passport") {
+    const target = interaction.options.getUser("user") ?? interaction.user;
+    const passport = getPassport(target.id, target.username, target.displayAvatarURL());
+    await interaction.reply({ embeds: [passportEmbed(passport, target)], components: [passportButtons()] });
     return;
   }
 
@@ -1415,7 +1590,8 @@ export async function handleCommand(interaction: ChatInputCommandInteraction): P
         .setTitle("Your personal attendant & keeper of records.")
         .setDescription("The archives are quiet. These records are presently open to you.")
         .addFields(
-          { name: "⛤ THE RECORD", value: "`/profile` — View or amend your personal Record." },
+           { name: "⛤ THE RECORD", value: "`/profile` — View or amend your personal Record." },
+           { name: "⛤ THE PASSPORT", value: "`/passport` — View the official record of your accomplishments." },
           { name: "👑 THE COURT", value: "`/titles` — View titles.\n`/title equip` — Equip an owned title.\n`/title inspect` — Inspect a title." },
           { name: "📜 THE ARCHIVES", value: "`/lore discover` — Discover an archive entry.\n`/lore archive` — Review discoveries.\n`/lore inspect` — Inspect an entry." },
           { name: "🧿 THE RITUALS", value: "`/curse user` — Mark another Record with a harmless fictional curse.\n`/curse active` — View active curses.\n`/curse list` — Browse the curse catalog.\n`/curse inspect` — Inspect a curse." },

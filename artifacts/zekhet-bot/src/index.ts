@@ -1,6 +1,6 @@
 import { Client, Events, GatewayIntentBits, REST, Routes } from "discord.js";
 import { assertDiscordConfig, config } from "./config.js";
-import { commands, handleCommand, handleDeveloperComponent, handleDeveloperModal, handlePrefixCommand, handleTutorialComponent } from "./commands.js";
+import { commands, handleCommand, handleDeveloperComponent, handleDeveloperModal, handlePassportComponent, handlePrefixCommand, handleTutorialComponent } from "./commands.js";
 
 assertDiscordConfig();
 
@@ -18,6 +18,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
   if (interaction.isButton()) {
     try {
       if (interaction.customId.startsWith("tutorial:")) await handleTutorialComponent(interaction);
+      else if (interaction.customId.startsWith("passport:")) await handlePassportComponent(interaction);
       else await handleDeveloperComponent(interaction);
     } catch (error) {
       console.error("Developer panel handling failed", error);
