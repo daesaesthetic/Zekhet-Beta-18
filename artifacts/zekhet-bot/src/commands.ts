@@ -726,7 +726,18 @@ function colorFromProfile(profile: Profile): number {
   return Number.parseInt(profile.color.slice(1), 16);
 }
 
+function progressBar(current: number, total: number, width = 10): string {
+  if (total <= 0) return "░".repeat(width);
+  const filled = Math.min(width, Math.round((current / total) * width));
+  return `${"█".repeat(filled)}${"░".repeat(width - filled)}`;
+}
+
 function profileEmbed(profile: Profile, user: User): EmbedBuilder {
+  const completedPages = getTutorialRewards(profile.userId).length;
+  const completedObjectives = getTutorialObjectives(profile.userId).length;
+  const totalObjectives = tutorialPages.reduce((total, page) => total + page.objectives.length, 0);
+  const currentPage = completedPages >= tutorialPages.length ? tutorialPages.length : completedPages + 1;
+  const inventoryCount = getInventory(profile.userId).reduce((total, entry) => total + entry.quantity, 0);
   return new EmbedBuilder()
     .setColor(colorFromProfile(profile))
     .setAuthor({ name: "⛤ THE RECORD ⛤", iconURL: user.displayAvatarURL({ size: 128 }) })
@@ -735,16 +746,15 @@ function profileEmbed(profile: Profile, user: User): EmbedBuilder {
     .setDescription(`${pick(dialogue.profileView)}${rareAside()}\n\n${profile.bio || "_No biography has been entered._"}\n\n_${profileContext(profile)}_`)
     .addFields(
       { name: "Equipped title", value: profile.title, inline: true },
-      { name: "Titles owned", value: String(profile.titlesOwned), inline: true },
-      { name: "Lore discovered", value: String(profile.loreDiscovered), inline: true },
-      { name: "Achievements", value: String(profile.achievementsUnlocked), inline: true },
-      { name: "Active curses", value: String(profile.activeCurses), inline: true },
-      { name: "Contracts created", value: String(profile.contractsCreated), inline: true },
-      { name: "Contracts completed", value: String(profile.contractsCompleted), inline: true },
-      { name: "Theme", value: profile.theme, inline: true },
       { name: "Record number", value: `#${String(profile.profileNumber).padStart(4, "0")}`, inline: true },
+      { name: "Theme", value: profile.theme, inline: true },
+      { name: "Tuto", value: `${progressBar(completedPages, tutorialPages.length)}\n${completedPages} / ${tutorialPages.length} pages · currently Chapter ${currentPage}`, inline: false },
+      { name: "Objectives", value: `${progressBar(completedObjectives, totalObjectives)}\n${completedObjectives} / ${totalObjectives} completed`, inline: false },
+      { name: "Records", value: `Titles **${profile.titlesOwned}** · Lore **${profile.loreDiscovered}** · Achievements **${profile.achievementsUnlocked}**`, inline: false },
+      { name: "Ledger", value: `Contracts created **${profile.contractsCreated}** · completed **${profile.contractsCompleted}** · active curses **${profile.activeCurses}**`, inline: false },
+      { name: "Inventory", value: inventoryCount > 0 ? `${inventoryCount} item${inventoryCount === 1 ? "" : "s"} held` : "No items recorded", inline: true },
     )
-    .setFooter({ text: `Recorded ${new Date(profile.createdAt).toLocaleDateString("en-US")}` });
+    .setFooter({ text: `Recorded ${new Date(profile.createdAt).toLocaleDateString("en-US")} · Use /inventory for item details` });
 }
 
 function achievementLabel(achievement: Achievement, unlocked: boolean): string {
@@ -1179,6 +1189,13 @@ export async function handleCommand(interaction: ChatInputCommandInteraction): P
     return;
   }
 
+  if (interaction.commandName === "profile" && (interaction.options.getSubcommand(false) || "view") === "view") {
+    const target = interaction.options.getUser("user") ?? interaction.user;
+    const profile = getProfile(target.id, target.username, target.displayAvatarURL());
+    await interaction.reply({ embeds: [profileEmbed(profile, target)] });
+    return;
+  }
+
   const newlyUnlocked = recordInteraction(
     interaction.user.id,
     interaction.user.username,
@@ -1606,7 +1623,6 @@ export async function handleCommand(interaction: ChatInputCommandInteraction): P
   }
 
   if (subcommand === "view") {
-    recordTutorialAction(target.id, target.username, target.displayAvatarURL(), "profile-view");
     const profile = getProfile(target.id, target.username, target.displayAvatarURL());
     await interaction.reply({ content: achievementNotice || undefined, embeds: [profileEmbed(profile, target)] });
     return;
