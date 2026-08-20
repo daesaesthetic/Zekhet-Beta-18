@@ -1,6 +1,6 @@
 import { Client, Events, GatewayIntentBits, REST, Routes } from "discord.js";
 import { assertDiscordConfig, config } from "./config.js";
-import { commands, handleCommand } from "./commands.js";
+import { commands, handleCommand, handleDeveloperComponent } from "./commands.js";
 
 assertDiscordConfig();
 
@@ -15,6 +15,14 @@ client.once(Events.ClientReady, (readyClient) => {
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {
+  if (interaction.isButton()) {
+    try {
+      await handleDeveloperComponent(interaction);
+    } catch (error) {
+      console.error("Developer panel handling failed", error);
+    }
+    return;
+  }
   if (!interaction.isChatInputCommand()) return;
   try {
     await handleCommand(interaction);

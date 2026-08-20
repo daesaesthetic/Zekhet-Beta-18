@@ -1,4 +1,8 @@
 import {
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonInteraction,
+  ButtonStyle,
   ChatInputCommandInteraction,
   EmbedBuilder,
   SlashCommandBuilder,
@@ -130,6 +134,7 @@ const contractCommand = new SlashCommandBuilder()
 export const commands = [
   new SlashCommandBuilder().setName("help").setDescription("Consult Zekhet's available records."),
   new SlashCommandBuilder().setName("credits").setDescription("See who keeps Zekhet's records."),
+  new SlashCommandBuilder().setName("developer").setDescription("Open the restricted developer control panel."),
   profileCommand,
   new SlashCommandBuilder().setName("titles").setDescription("View your owned titles and the Court."),
   titleCommand,
@@ -138,6 +143,52 @@ export const commands = [
   contractCommand,
   new SlashCommandBuilder().setName("contracts").setDescription("Review contracts connected to your Record."),
 ].map((command) => command.toJSON());
+
+function developerPanel() {
+  return {
+    embeds: [new EmbedBuilder()
+      .setColor(0xa873ff)
+      .setAuthor({ name: "⛤ DEVELOPER ARCHIVE ⛤" })
+      .setTitle("Content review panel")
+      .setDescription("This private panel exposes the current catalog for controlled testing. It does not alter ordinary user permissions or Discord server state.")],
+    components: [new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder().setCustomId("developer:titles").setLabel("View All Titles").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId("developer:lore").setLabel("View All Lore").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId("developer:curses").setLabel("View All Curses").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId("developer:contracts").setLabel("View Contracts").setStyle(ButtonStyle.Secondary),
+    )],
+  };
+}
+
+export async function handleDeveloperComponent(interaction: ButtonInteraction): Promise<void> {
+  if (!interaction.customId.startsWith("developer:")) return;
+  if (interaction.user.id !== config.developerId) {
+    await interaction.reply({ content: "You do not have access to that panel.", ephemeral: true });
+    return;
+  }
+
+  const section = interaction.customId.split(":")[1];
+  const descriptions: Record<string, string> = {
+    titles: getTitles().map((title) => `\`${title.id}\` · ${title.name} · ${title.rarity}${title.isSecret ? " · 🔒 secret" : ""}`).join("\n") || "No titles are recorded.",
+    lore: getLoreCatalog().map((entry) => `\`${entry.id}\` · #${entry.entryNumber} · ${entry.rarity}${entry.isSecret ? " · 🔒 classified" : ""}`).join("\n") || "No lore is recorded.",
+    curses: getCurses().map((curse) => `\`${curse.id}\` · ${curse.name} · ${curse.durationMinutes}m`).join("\n") || "No curses are recorded.",
+    contracts: getContractsForUser(interaction.user.id).map((contract) => `#${contract.id} · ${contract.status} · ${contract.description}`).join("\n") || "No contracts are attached to your Record.",
+  };
+  const titles: Record<string, string> = {
+    titles: "All titles",
+    lore: "All lore entries",
+    curses: "All curses",
+    contracts: "Your contracts",
+  };
+  await interaction.update({
+    ...developerPanel(),
+    embeds: [new EmbedBuilder()
+      .setColor(0xa873ff)
+      .setAuthor({ name: "⛤ DEVELOPER ARCHIVE ⛤" })
+      .setTitle(titles[section] ?? "Content review")
+      .setDescription(descriptions[section] ?? "Choose a section from the panel.")],
+  });
+}
 
 function colorFromProfile(profile: Profile): number {
   return Number.parseInt(profile.color.slice(1), 16);
@@ -354,6 +405,15 @@ function contractsEmbed(user: User, contracts: Contract[]): EmbedBuilder {
 }
 
 export async function handleCommand(interaction: ChatInputCommandInteraction): Promise<void> {
+  if (interaction.commandName === "developer") {
+    if (!config.developerId || interaction.user.id !== config.developerId) {
+      await interaction.reply({ content: "You do not have permission to use that command.", ephemeral: true });
+      return;
+    }
+    await interaction.reply({ ...developerPanel(), ephemeral: true });
+    return;
+  }
+
   if (interaction.commandName === "help") {
     await interaction.reply({
       embeds: [new EmbedBuilder()
