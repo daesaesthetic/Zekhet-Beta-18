@@ -1,0 +1,783 @@
+You are continuing development of the existing ⛤ Zekhet ⛤ Discord bot.
+
+CURRENT VERSION:
+Beta-15
+
+Beta-15 has already implemented the Zekhet Passport system.
+
+Create:
+
+BETA-15.1 — THE PASSPORT EXPANSION
+
+IMPORTANT:
+The Passport system already works.
+
+DO NOT rebuild the Passport.
+
+DO NOT replace its database architecture.
+
+DO NOT redesign existing systems.
+
+This update should primarily add CONTENT, DISCOVERIES, and POLISH to the existing Passport.
+
+==================================================
+1. PASSPORT STAMP EXPANSION
+==================================================
+
+Expand the existing Passport Stamp collection.
+
+Add approximately 25–35 additional stamps.
+
+Do not remove or replace existing stamps.
+
+Use the existing Passport Stamp architecture.
+
+Stamps should be divided across:
+
+- Common
+- Uncommon
+- Rare
+- Epic
+- Legendary
+- Mythic
+- Secret
+
+Not every stamp needs a rarity.
+
+Avoid making the collection feel like simple achievement spam.
+
+Each stamp should represent something interesting, memorable, unusual, or prestigious.
+
+==================================================
+2. STAMP CATEGORIES
+==================================================
+
+Create stamps across several categories.
+
+EXPLORATION
+
+Examples:
+
+First Record
+First Discovery
+Archive Explorer
+Deep Archivist
+Beyond the Index
+
+TITLES
+
+Examples:
+
+First Title
+Collector
+Courtier
+The Distinguished
+The Crowned
+
+LORE
+
+Examples:
+
+First Discovery
+Archivist
+Keeper of Records
+Forbidden Scholar
+The Unwritten
+
+CURSES
+
+Examples:
+
+Marked
+Cursed Twice
+Collector of Curses
+The Unfortunate
+The Damned
+
+CONTRACTS
+
+Examples:
+
+First Oath
+Oathbound
+Contractor
+Ledger Keeper
+The Deal Maker
+
+ACHIEVEMENTS
+
+Examples:
+
+Recognized
+Decorated
+Accomplished
+Distinguished
+
+TUTORIAL
+
+Examples:
+
+First Lesson
+Student
+Scholar
+Archivist
+
+PROGRESSION
+
+Examples:
+
+First Level
+Rising
+Established
+Veteran
+Exalted
+
+INVENTORY
+
+Examples:
+
+First Item
+Collector
+Hoarder
+Curator
+
+CURRENCY
+
+Examples:
+
+First Deben
+Prosperous
+Wealthy
+Treasurer
+
+SECRET
+
+Create several stamps with completely hidden names and requirements.
+
+==================================================
+3. SECRET STAMPS
+==================================================
+
+Add approximately 8–12 secret Passport Stamps.
+
+Secret stamps should NOT reveal:
+
+- Their name
+- Their description
+- Their requirement
+- Their rarity
+
+before unlocking.
+
+In the Passport they should appear as:
+
+🔒 UNKNOWN RECORD
+
+or an equivalent Zekhet-themed placeholder.
+
+After unlocking, reveal:
+
+- Name
+- Description
+- Rarity
+- Unlock date
+
+Examples of possible concepts:
+
+THE UNRECORDED
+
+ZEKHET REMEMBERS
+
+THE FORBIDDEN PAGE
+
+BEYOND THE ARCHIVE
+
+THE LAST RECORD
+
+THE NAME THAT WAS MISSING
+
+THE CROWN BENEATH THE ASHES
+
+THE OBSERVER
+
+Do not use these exact requirements unless they fit the existing systems.
+
+==================================================
+4. SECRET REQUIREMENTS
+==================================================
+
+Secret stamps should rely on interesting combinations of existing systems.
+
+Examples:
+
+Own a particular title AND discover a particular lore entry.
+
+Complete a contract after obtaining a particular title.
+
+Discover several rare lore entries.
+
+Receive multiple different curses.
+
+Complete the tutorial and reach a certain progression level.
+
+Own titles from multiple rarity levels.
+
+Unlock several achievements across different categories.
+
+Obtain a rare item and a specific achievement.
+
+Reach a progression milestone without owning a particular category.
+
+Perform an unusual but reasonable sequence of existing actions.
+
+Do NOT create requirements that are impossible to discover.
+
+Do NOT require arbitrary command spam.
+
+Do NOT require thousands of repetitions.
+
+The goal is:
+
+"How did you get that?"
+
+not:
+
+"I guess I need to grind this for 40 hours."
+
+==================================================
+5. SECRET DISCOVERY PRESENTATION
+==================================================
+
+Secret stamp unlocks should feel substantially more dramatic than normal rewards.
+
+Example:
+
+⛤ THE ARCHIVES HAVE CHANGED ⛤
+
+For a moment, Zekhet stops recording.
+
+A page that should not exist has appeared.
+
+🔒 THE UNRECORDED
+
+The Passport has acknowledged something
+that was never meant to be recorded.
+
+Rarity:
+MYTHIC
+
+Then add the stamp to the Passport.
+
+Do not use this dramatic presentation for normal stamps.
+
+==================================================
+6. STAMP UNLOCK NOTIFICATIONS
+==================================================
+
+Improve normal Passport Stamp unlock notifications.
+
+Example:
+
+⛤ PASSPORT UPDATED ⛤
+
+A new record has been added.
+
+📜 ARCHIVIST
+
+"You have begun to understand the Archives."
+
+RARITY:
+RARE
+
+Keep notifications concise.
+
+Use different wording for different categories where appropriate.
+
+Examples:
+
+"Zekhet has added another mark to your record."
+
+"The Archives recognize your progress."
+
+"The Court has acknowledged your standing."
+
+"The Ledger records your accomplishment."
+
+==================================================
+7. STAMP PROGRESS
+==================================================
+
+Where practical, allow normal non-secret stamps to show progress.
+
+Example:
+
+📜 ARCHIVIST
+
+Discover 25 lore entries.
+
+Progress:
+18 / 25
+
+Do not reveal progress for secret stamps.
+
+For simple one-time stamps, show:
+
+○ Locked
+
+or
+
+✓ Unlocked
+
+==================================================
+8. PASSPORT COLLECTION VIEW
+==================================================
+
+Improve the existing Passport Stamp page.
+
+Show:
+
+⛤ PASSPORT STAMPS ⛤
+
+Collected:
+18 / 52
+
+COMMON
+✓ First Record
+✓ First Title
+✓ First Discovery
+
+RARE
+✓ Archivist
+○ Oathkeeper
+
+SECRET
+🔒 Unknown Record
+🔒 Unknown Record
+✓ Zekhet Remembers
+
+Use pagination if necessary.
+
+Do not create an enormous Discord embed.
+
+==================================================
+9. STAMP INSPECTION
+==================================================
+
+Add:
+
+/passport stamp <stamp>
+
+or the equivalent command if the existing Passport implementation already uses another structure.
+
+For unlocked stamps, display:
+
+Name
+Description
+Rarity
+Date unlocked
+Category
+
+For locked normal stamps:
+
+Name
+Vague description
+Rarity if appropriate
+
+For secret stamps:
+
+Only show:
+
+🔒 UNKNOWN RECORD
+
+until unlocked.
+
+After unlocking, full information becomes visible.
+
+==================================================
+10. STAMP REWARDS
+==================================================
+
+Use the existing unified reward system.
+
+Only a minority of stamps should provide rewards.
+
+Possible rewards:
+
+- Existing title
+- Existing lore
+- XP
+- Deben
+- Existing item
+- Achievement
+
+Do NOT create a new reward system.
+
+Do NOT create a Passport currency.
+
+Do NOT give every stamp a reward.
+
+Some stamps should exist purely for prestige.
+
+==================================================
+11. TITLE INTEGRATION
+==================================================
+
+Add a few titles that are specifically associated with Passport achievements.
+
+Examples:
+
+Archivist
+Oathkeeper
+Curator
+Keeper of Records
+The Distinguished
+The Unrecorded
+
+Before adding a new title:
+
+CHECK whether an equivalent title already exists.
+
+Do not create duplicates.
+
+If an appropriate existing title exists, use it instead.
+
+==================================================
+12. LORE INTEGRATION
+==================================================
+
+Add a small number of lore entries specifically related to the Passport.
+
+Examples:
+
+- The origin of the Passport
+- Why Zekhet records individuals
+- The meaning of Passport Numbers
+- The first recorded citizen
+- A mysterious missing Passport
+- A forbidden Passport entry
+
+Add approximately 3–5 lore entries.
+
+Some can be unlocked through Passport progression.
+
+Do not make all Passport lore immediately available.
+
+==================================================
+13. ZEKHET PASSPORT LORE
+==================================================
+
+The Passport itself should now have a small mythology.
+
+The user should eventually begin wondering:
+
+"Why does Zekhet keep these records?"
+
+Possible themes:
+
+- The Passport predates the current Archive.
+- Zekhet records people for an unknown reason.
+- Some Passport numbers are missing.
+- Some records have been sealed.
+- Certain individuals have no recorded origin.
+- Some Passport entries appear before the person receives them.
+
+Do NOT fully explain everything.
+
+Leave room for future lore.
+
+==================================================
+14. PASSPORT STATUS POLISH
+==================================================
+
+Review the existing Passport Status system.
+
+Make sure statuses feel meaningful.
+
+Examples:
+
+UNRECORDED
+
+RECOGNIZED
+
+CITIZEN
+
+COURTIER
+
+ARCHIVIST
+
+KEEPER
+
+EXALTED
+
+???
+
+Use existing progression.
+
+Do not add a separate XP system.
+
+Do not make status advancement excessively grindy.
+
+==================================================
+15. STATUS TRANSITIONS
+==================================================
+
+When a user's Passport Status changes, notify them.
+
+Example:
+
+⛤ YOUR RECORD HAS CHANGED ⛤
+
+Your standing within the Archives has increased.
+
+Previous:
+Recognized
+
+Current:
+Citizen
+
+"The Court has begun to recognize your name."
+
+Do not repeatedly notify users about the same status.
+
+==================================================
+16. PASSPORT COMPLETION
+==================================================
+
+Add a collection statistic.
+
+Example:
+
+PASSPORT COMPLETION
+
+34 / 52 Stamps
+65%
+
+Do not make secret stamps required for normal completion percentage if that would reveal how many secret stamps exist.
+
+Consider displaying:
+
+Known Records:
+34 / 42
+
+Secret Records:
+???
+
+Or another appropriate format.
+
+==================================================
+17. EXISTING USER SUPPORT
+==================================================
+
+Existing users must automatically qualify for newly added stamps.
+
+Example:
+
+If a user already has:
+
+25 lore entries
+
+when Beta-15.1 is installed,
+
+they should immediately qualify for:
+
+📜 ARCHIVIST
+
+Do not force users to repeat old actions.
+
+Run checks safely during Passport access or through existing progression events.
+
+Do not spam users with dozens of notifications at once.
+
+If many stamps are unlocked during migration:
+
+Use a concise summary.
+
+Example:
+
+⛤ PASSPORT RECORD UPDATED ⛤
+
+Your previous accomplishments have been recognized.
+
+New stamps:
++5
+
+New titles:
++1
+
+View your updated Passport with:
+
+/passport
+
+==================================================
+18. DEVELOPER INTEGRATION
+==================================================
+
+Update the existing /developer Passport tools.
+
+Developer should be able to:
+
+- List all stamps
+- View secret stamps
+- Unlock a stamp
+- Lock a stamp
+- Unlock all stamps
+- Reset all stamps
+- Test stamp notification
+- Test secret discovery
+- Test Passport status
+- Recalculate Passport progression
+
+Do not expose these commands to normal users.
+
+==================================================
+19. DATABASE SAFETY
+==================================================
+
+Use the existing Beta-15 Passport database.
+
+Do NOT create duplicate Passport systems.
+
+Only add fields/tables if genuinely required.
+
+Do not modify unrelated tables unnecessarily.
+
+Preserve all existing user data.
+
+==================================================
+20. PERFORMANCE
+==================================================
+
+Do not check every stamp after every command.
+
+Use the existing progression event system.
+
+Examples:
+
+TITLE_OBTAINED
+→ title-related stamp checks
+
+LORE_DISCOVERED
+→ lore-related stamp checks
+
+CURSE_RECEIVED
+→ curse-related stamp checks
+
+CONTRACT_COMPLETED
+→ contract-related stamp checks
+
+ACHIEVEMENT_UNLOCKED
+→ achievement-related stamp checks
+
+TUTORIAL_COMPLETED
+→ tutorial-related stamp checks
+
+LEVEL_CHANGED
+→ progression-related stamp checks
+
+ITEM_ACQUIRED
+→ inventory-related stamp checks
+
+Do not run a full Passport scan unnecessarily.
+
+==================================================
+21. DESIGN
+==================================================
+
+Maintain Zekhet's existing aesthetic.
+
+Dark
+Purple
+Magenta
+Ancient
+Mystical
+Elegant
+
+The Passport should feel like an ancient official document.
+
+Use symbols sparingly:
+
+⛤
+📜
+👑
+🧿
+⚖️
+🔒
+🏺
+
+Avoid making every embed excessively decorated.
+
+==================================================
+22. CONTENT QUALITY
+==================================================
+
+Do not create generic achievements such as:
+
+"Use the bot 10 times."
+
+"Run 50 commands."
+
+"Click 100 buttons."
+
+Instead prefer accomplishments that reinforce Zekhet's world.
+
+Good:
+
+"Discover the sealed archive."
+
+"Complete your first oath."
+
+"Become recognized by the Court."
+
+"Carry the mark of three different curses."
+
+"Collect titles from every major rarity."
+
+"Complete the Archives."
+
+The Passport should reward exploration, not command spam.
+
+==================================================
+23. FINAL VALIDATION
+==================================================
+
+Before finishing:
+
+1. Verify all existing Passport functionality still works.
+2. Verify new stamps unlock correctly.
+3. Verify secret stamps remain hidden.
+4. Verify secret requirements are not exposed.
+5. Verify progress displays correctly.
+6. Verify stamp inspection works.
+7. Verify rewards cannot duplicate.
+8. Verify existing users receive appropriate new stamps.
+9. Verify Passport completion statistics work.
+10. Verify Passport Status transitions work.
+11. Verify developer controls work.
+12. Verify all existing commands remain functional.
+13. Verify database persistence after restart.
+14. Verify no duplicate titles/lore/achievements/items are created.
+15. Verify no unrelated systems were modified.
+
+==================================================
+BETA-15.1 GOAL
+==================================================
+
+The goal of this update is NOT to add another major system.
+
+The goal is to make the Passport feel like a living historical record.
+
+Users should gradually look at their Passport and think:
+
+"I wonder what I'm missing."
+
+Then discover something they didn't know existed.
+
+Make the system rewarding for:
+
+- Exploration
+- Collection
+- Experimentation
+- Long-term progression
+- Discovering secrets
+
+Do not turn it into a grind.
