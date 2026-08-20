@@ -42,7 +42,7 @@ Beta 10 adds a persistent Deben balance with transaction history and idempotency
 
 ## User preferences
 
-The current scope includes titles, lore, achievements, tutorials, contracts, curses, the item/inventory foundation, and the Deben economy foundation. Shops, trading, marketplaces, XP, and levels remain intentionally unimplemented.
+The current scope includes titles, lore, achievements, tutorials, contracts, curses, the item/inventory foundation, Deben, XP, levels, Venture, and temporary relic effects. Shops, trading, marketplaces, and crafting remain intentionally unimplemented.
 
 ## Gotchas
 
@@ -72,6 +72,15 @@ The current scope includes titles, lore, achievements, tutorials, contracts, cur
 - Venture cooldowns and completed encounter statistics persist in SQLite; the default cooldown is 15 minutes.
 - Venture rewards reuse the existing XP and Deben systems only.
 - Developer controls can force Common, Rare, Epic, Legendary, or Mythic encounters and reset the Venture cooldown.
+
+## Beta 18 — The Relic & Effect System
+
+- `/use item:<id>` and the configured prefix equivalent (`z!use <item>`) consume owned usable relics and activate timestamp-based temporary effects.
+- `/effects` and `z!effects` show active effects, their source items, bonuses, and remaining time.
+- Effects persist in SQLite, expire lazily when consulted, and conservatively extend an existing same-type effect instead of increasing its magnitude.
+- Venture reads active effects for luck, encounter rarity, item discovery, Deben, XP, and cooldown calculations without permanently changing base values.
+- The developer panel includes private controls to view, force, and clear active effects.
+- Node.js 24 is required for the bot's built-in `node:sqlite` persistence.
 
 ## Pointers
 

@@ -1952,15 +1952,17 @@ function upsertEffect(userId: string, item: Item, username: string, avatarUrl: s
       ORDER BY expires_at DESC LIMIT 1
     `).get(userId, definition.type, now) as Record<string, unknown> | undefined;
     if (consume) {
-      const removed = database.prepare(`
-        UPDATE user_inventory SET quantity = quantity - 1, updated_at = CURRENT_TIMESTAMP
-        WHERE discord_id = ? AND item_id = ? AND quantity > 0
-      `).run(userId, item.id);
+      const currentQuantity = getItemQuantity(userId, item.id);
+      const removed = currentQuantity === 1
+        ? database.prepare("DELETE FROM user_inventory WHERE discord_id = ? AND item_id = ? AND quantity = 1").run(userId, item.id)
+        : database.prepare(`
+          UPDATE user_inventory SET quantity = quantity - 1, updated_at = CURRENT_TIMESTAMP
+          WHERE discord_id = ? AND item_id = ? AND quantity > 1
+        `).run(userId, item.id);
       if (Number(removed.changes) !== 1) {
         database.exec("ROLLBACK");
         return { reason: "not-owned" };
       }
-      database.prepare("DELETE FROM user_inventory WHERE discord_id = ? AND item_id = ? AND quantity <= 0").run(userId, item.id);
     }
     let effectId: number;
     let expiresAt: number;
