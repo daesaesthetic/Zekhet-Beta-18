@@ -29,5 +29,9 @@ The bot registers global slash commands on startup. It uses only the `Guilds` in
 - `/profile bio text:...`
 - `/profile color hex:#...`
 - `/profile theme name:...`
+- `/titles`
+- `/title`
+- `/title equip title:<id>`
+- `/title inspect title:<id>`
 
-Profiles are stored in SQLite and remain available after restarts.
+Profiles and title ownership are stored in SQLite and remain available after restarts. New users receive `wanderer`, `newcomer`, and `archivist` for immediate testing; sealed titles remain locked.
