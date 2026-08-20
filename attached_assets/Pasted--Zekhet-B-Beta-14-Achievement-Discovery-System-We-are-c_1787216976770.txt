@@ -1,0 +1,805 @@
+# Zekhet-B Beta 14 — Achievement & Discovery System
+
+We are continuing development of Zekhet-B.
+
+The current codebase is at Beta 13 and all existing systems are functioning correctly.
+
+The following systems are confirmed to exist:
+
+* Tuto system
+* Tuto objectives
+* Tuto page progression/unlocks
+* Persistent user data
+* Item definitions
+* Persistent inventories
+* Egyptian-themed item collection
+* Currency/economy
+* XP
+* Levels
+* Ranks
+* Unified reward system
+* `/profile`
+
+This beta introduces the **Achievement & Discovery System**.
+
+IMPORTANT:
+
+Do NOT rebuild or replace any existing systems.
+
+Achievements should use existing systems and the Unified Reward System rather than creating duplicate progression, XP, currency, item, or unlock logic.
+
+---
+
+# 1. CORE OBJECTIVE
+
+Create a persistent achievement system that gives users optional long-term goals, milestones, and secrets to discover.
+
+Achievements should complement the existing Tuto system rather than duplicate it.
+
+The distinction should be:
+
+**Tuto**
+
+> Guided progression and learning.
+
+**Achievements**
+
+> Optional accomplishments, milestones, challenges, and discoveries.
+
+A player should be able to complete the Tuto progression without needing every achievement.
+
+Likewise, achievement hunters should have reasons to explore beyond the Tuto system.
+
+---
+
+# 2. ACHIEVEMENT DATA STRUCTURE
+
+Create a centralized achievement definition system.
+
+Each achievement should support:
+
+* Unique ID
+* Name
+* Description
+* Category
+* Requirement/condition
+* Reward
+* Hidden/visible status
+* Completion state
+* Optional progress tracking
+* Optional completion timestamp
+
+Achievement definitions should be separate from individual user completion data.
+
+Adding a new achievement should ideally require adding a definition rather than modifying the core achievement engine.
+
+---
+
+# 3. ACHIEVEMENT CATEGORIES
+
+Create a flexible category system.
+
+Initial categories can include:
+
+### Progression
+
+Achievements related to:
+
+* Levels
+* Ranks
+* Tuto progression
+* Major milestones
+
+### Economy
+
+Achievements related to:
+
+* Earning currency
+* Spending currency
+* Reaching wealth milestones
+
+### Collection
+
+Achievements related to:
+
+* Obtaining items
+* Collecting unique items
+* Obtaining rare items
+* Obtaining legendary/mythic items
+
+### Activity
+
+Achievements related to:
+
+* Using commands
+* Completing actions
+* Returning to the bot
+* Completing repeated activities
+
+### Discovery
+
+Achievements related to:
+
+* Finding hidden mechanics
+* Triggering unusual interactions
+* Discovering secrets
+* Finding rare content
+
+### Special
+
+Achievements that do not fit the other categories.
+
+The category architecture should remain extensible.
+
+---
+
+# 4. INITIAL ACHIEVEMENT COLLECTION
+
+Create an initial collection of approximately **20–30 achievements**.
+
+Do not make every achievement extremely difficult.
+
+Create a mixture of:
+
+* Easy achievements
+* Progression achievements
+* Collection achievements
+* Economy achievements
+* Rare achievements
+* Hidden achievements
+
+Use Zekhet-B's ancient Egyptian/mystical identity when naming them.
+
+Examples:
+
+### First Steps
+
+**First Footstep**
+
+Description:
+
+> Begin your journey through Zekhet-B.
+
+Trigger:
+
+> Perform the appropriate first-time activity already supported by the codebase.
+
+---
+
+### Tuto
+
+**The First Lesson**
+
+Description:
+
+> Complete your first Tuto objective.
+
+---
+
+**Keeper of Knowledge**
+
+Description:
+
+> Complete an entire Tuto page.
+
+---
+
+**The Initiated**
+
+Description:
+
+> Complete a significant portion of the Tuto journey.
+
+---
+
+### Progression
+
+**Awakening**
+
+Description:
+
+> Reach Level 5.
+
+---
+
+**The Ascension**
+
+Description:
+
+> Reach Level 10.
+
+---
+
+**Scribe of the Sands**
+
+Description:
+
+> Reach the appropriate Scribe rank.
+
+---
+
+### Economy
+
+**First Offering**
+
+Description:
+
+> Earn your first amount of Zekhet-B currency.
+
+---
+
+**Treasury**
+
+Description:
+
+> Accumulate a significant amount of currency.
+
+---
+
+**Golden Dynasty**
+
+Description:
+
+> Reach a major wealth milestone.
+
+---
+
+### Collection
+
+**First Relic**
+
+Description:
+
+> Obtain your first item.
+
+---
+
+**Collector**
+
+Description:
+
+> Obtain a significant number of unique items.
+
+---
+
+**Relic Keeper**
+
+Description:
+
+> Obtain a rare or higher-rarity relic.
+
+---
+
+**Treasures of the Nile**
+
+Description:
+
+> Collect a specified group of Egyptian-themed items.
+
+---
+
+### Rare
+
+**The Chosen**
+
+Description:
+
+> Obtain a Mythic item.
+
+---
+
+**Royal Treasure**
+
+Description:
+
+> Obtain a legendary relic.
+
+---
+
+These are examples.
+
+Inspect the actual item registry, rank system, Tuto structure, and available commands before finalizing requirements.
+
+Do not create achievements whose requirements cannot actually be detected.
+
+---
+
+# 5. HIDDEN ACHIEVEMENTS
+
+Hidden achievements should be a major feature of this system.
+
+Some achievements should intentionally hide:
+
+* Their name
+* Their description
+* Their requirement
+* Their reward
+
+Until the user discovers them.
+
+Before discovery, present them mysteriously.
+
+Example:
+
+> 𓂀 **???**
+>
+> *Something beneath the sands has noticed you.*
+
+After discovery:
+
+> 𓂀 **THE WATCHER**
+>
+> *Discover something that was never meant to be found.*
+
+The system must distinguish between:
+
+* Hidden and undiscovered
+* Hidden but discovered
+* Visible and incomplete
+* Completed
+
+Do not reveal hidden requirements through `/achievements`.
+
+---
+
+# 6. DISCOVERY ACHIEVEMENTS
+
+Create several achievements specifically designed around exploration.
+
+Examples could involve:
+
+* Using an unusual command
+* Performing an unexpected sequence of actions
+* Interacting with a specific item
+* Finding a secret feature
+* Triggering an unusual response
+* Discovering something outside normal Tuto progression
+
+Do not implement arbitrary or confusing requirements simply for the sake of secrecy.
+
+Every hidden achievement should have a deliberate trigger.
+
+Avoid making hidden achievements dependent on impossible or unknowable conditions.
+
+---
+
+# 7. AUTOMATIC ACHIEVEMENT DETECTION
+
+Achievements should be checked automatically when relevant events occur.
+
+For example:
+
+User reaches Level 10.
+
+The system detects:
+
+> Achievement requirement satisfied.
+
+It then automatically unlocks the achievement.
+
+Users should NOT have to manually run `/achievements` to discover that they qualified.
+
+Potential event sources include:
+
+* XP gained
+* Level reached
+* Rank reached
+* Currency gained
+* Currency spent
+* Item obtained
+* Item used
+* Tuto objective completed
+* Tuto page completed
+* Command executed
+* Future gameplay events
+
+Only connect to events that actually exist in the current codebase.
+
+---
+
+# 8. CENTRAL ACHIEVEMENT SERVICE
+
+Create a reusable achievement service.
+
+Conceptually it should support functionality such as:
+
+* `checkAchievements(user, event)`
+* `unlockAchievement(user, achievement)`
+* `getAchievements(user)`
+* `getAchievementProgress(user, achievement)`
+* `hasAchievement(user, achievement)`
+
+Use naming consistent with the existing codebase.
+
+The achievement engine should not contain its own copies of XP, currency, inventory, or Tuto logic.
+
+It should query or listen to the existing systems.
+
+---
+
+# 9. REWARD INTEGRATION
+
+Achievements must use the existing Unified Reward System.
+
+Do NOT create separate achievement reward logic.
+
+An achievement may reward:
+
+* XP
+* Currency
+* Items
+* Existing unlocks
+* Future compatible reward types
+
+Example:
+
+> 🏆 **ACHIEVEMENT UNLOCKED**
+>
+> **Relic Keeper**
+>
+> Obtain your first rare relic.
+>
+> **Rewards**
+> ✦ +500 XP
+> 𓏺 +250 Deben
+> 𓆣 Nile Pearl ×1
+
+The actual reward should come from the achievement definition.
+
+---
+
+# 10. ONE-TIME COMPLETION
+
+Achievements must only be completed once per user.
+
+The system must prevent:
+
+* Duplicate completion
+* Duplicate rewards
+* Duplicate notifications
+
+The backend must enforce this.
+
+Do not rely solely on the UI.
+
+---
+
+# 11. PROGRESS-BASED ACHIEVEMENTS
+
+Support achievements that require cumulative progress.
+
+Examples:
+
+> Earn 100,000 total currency.
+
+> Collect 25 unique items.
+
+> Complete 50 objectives.
+
+> Use the bot 500 times.
+
+The system should track progress where necessary.
+
+Example:
+
+> **Treasury**
+>
+> `72,450 / 100,000 Deben`
+>
+> ███████░░░
+
+If an achievement has no meaningful partial progress, do not force a progress bar onto it.
+
+---
+
+# 12. `/achievements` COMMAND
+
+Create:
+
+`/achievements`
+
+Use the existing Zekhet-B UI conventions.
+
+The command should allow users to browse their achievements.
+
+Display:
+
+* Completed achievements
+* Incomplete visible achievements
+* Hidden achievements
+* Progress where applicable
+
+For hidden undiscovered achievements, show something like:
+
+> 𓂀 **???**
+>
+> *An unknown secret waits beyond the veil.*
+
+Do not reveal the requirement.
+
+---
+
+# 13. ACHIEVEMENT NAVIGATION
+
+If the existing UI architecture supports buttons/pages, use them.
+
+Potential navigation:
+
+**Overview**
+
+* Completion count
+* Completion percentage
+
+**Progression**
+
+* Level/rank achievements
+
+**Collection**
+
+* Item achievements
+
+**Economy**
+
+* Currency achievements
+
+**Discovery**
+
+* Hidden achievements
+
+**Completed**
+
+* Unlocked achievements
+
+Do not overcomplicate the interface if the number of achievements does not require pagination.
+
+---
+
+# 14. `/profile` INTEGRATION
+
+Integrate achievements into the existing `/profile`.
+
+Do not redesign the entire profile.
+
+Add a concise achievement summary such as:
+
+> 🏆 **ACHIEVEMENTS**
+>
+> `8 / 27 Unlocked`
+>
+> ██████░░░░
+
+If the profile already has navigation, allow the achievement section to be accessed from it.
+
+The profile should continue functioning if no achievements have been completed.
+
+---
+
+# 15. ACHIEVEMENT NOTIFICATIONS
+
+When an achievement is unlocked, provide a distinct Zekhet-B-themed notification.
+
+Example:
+
+> 𓂀 **ACHIEVEMENT UNLOCKED**
+>
+> **Relic Keeper**
+>
+> The sands have revealed their first secret to you.
+>
+> **Rewards**
+> ✦ +500 XP
+> 𓏺 +250 Deben
+
+For hidden achievements, make the discovery feel more mysterious.
+
+Example:
+
+> 𓂀 **A SECRET HAS BEEN REVEALED**
+>
+> **THE WATCHER**
+>
+> *You have found something that was never meant to be found.*
+>
+> **Rewards**
+> ✦ +1,000 XP
+> 𓆣 Unknown Relic ×1
+
+Use the existing embed and notification conventions.
+
+---
+
+# 16. EVENT-BASED ARCHITECTURE
+
+Where possible, achievement detection should be connected to existing system events rather than manually inserted into every command.
+
+For example:
+
+**Item obtained**
+↓
+Achievement system checks relevant collection achievements.
+
+**XP gained**
+↓
+Achievement system checks level/progression achievements.
+
+**Tuto objective completed**
+↓
+Achievement system checks Tuto achievements.
+
+This will make future systems easier to integrate.
+
+Do not introduce a complicated event architecture if the current project does not need one.
+
+Use the simplest architecture that remains extensible.
+
+---
+
+# 17. DATA SAFETY
+
+Do not reset existing users.
+
+Do not alter:
+
+* XP
+* Levels
+* Ranks
+* Currency
+* Inventory
+* Tuto progress
+* Existing unlocks
+
+Achievement data should be additive.
+
+Existing users should automatically be eligible for achievements based on their existing state where practical.
+
+For example:
+
+If a user already reached Level 10 before the achievement system was implemented, they should be able to receive the Level 10 achievement when the system evaluates their existing state.
+
+Do not require users to repeat previously completed actions unnecessarily.
+
+---
+
+# 18. INITIAL ACHIEVEMENT BALANCE
+
+The initial achievement collection should have a healthy progression curve.
+
+Aim for approximately:
+
+* 30% easy/early
+* 30% medium
+* 20% difficult
+* 20% hidden/secret
+
+Do not make every achievement a grind.
+
+Achievements should encourage players to explore different parts of Zekhet-B.
+
+---
+
+# 19. TESTING
+
+Thoroughly test:
+
+### Basic Achievements
+
+1. Unlock an easy achievement.
+2. Confirm completion persists.
+3. Confirm reward is granted.
+4. Confirm notification appears.
+5. Attempt to unlock it again.
+6. Confirm duplicate reward is impossible.
+
+### Progression
+
+7. Reach an achievement level threshold.
+8. Confirm achievement unlocks.
+9. Reach a rank threshold.
+10. Confirm achievement unlocks.
+
+### Tuto
+
+11. Complete an objective.
+12. Confirm relevant achievement unlocks.
+13. Complete a Tuto page.
+14. Confirm relevant achievement unlocks.
+
+### Collection
+
+15. Obtain an item.
+16. Confirm collection achievement detection.
+17. Obtain a rare item.
+18. Confirm rarity achievement detection.
+
+### Economy
+
+19. Reach a currency milestone.
+20. Confirm achievement unlocks.
+
+### Hidden
+
+21. Trigger a hidden achievement.
+22. Confirm it becomes revealed.
+23. Confirm the correct name/description appears.
+24. Confirm its reward is granted.
+25. Confirm it cannot be triggered twice.
+
+### Progress
+
+26. Confirm cumulative achievement progress updates correctly.
+
+### Profile
+
+27. Confirm `/profile` shows achievement count.
+28. Confirm profile remains functional with zero achievements.
+
+### Persistence
+
+29. Restart/redeploy the bot.
+30. Confirm achievement completion remains saved.
+
+---
+
+# 20. IMPORTANT DEVELOPMENT RULES
+
+Do NOT:
+
+* Rebuild XP.
+* Rebuild levels.
+* Rebuild ranks.
+* Rebuild currency.
+* Rebuild inventory.
+* Rebuild Tuto.
+* Create a second reward system.
+* Create duplicate achievement data.
+* Reset existing user progression.
+* Add quests yet.
+* Add a shop yet.
+* Add trading yet.
+
+Achievements should sit **on top of the existing Zekhet-B architecture**.
+
+---
+
+# 21. FINAL ARCHITECTURE
+
+After this beta, the core progression architecture should look like:
+
+**PLAYER ACTION**
+↓
+**Existing Game System**
+↓
+**Event / State Change**
+↓
+┌──────────────────────────────┐
+│ Unified Reward System        │
+│ Achievement System           │
+└──────────────────────────────┘
+↓
+**XP / Currency / Items / Unlocks**
+↓
+**Level / Rank / Tuto / Achievements**
+↓
+**Profile / Inventory / UI**
+
+The Achievement System should be an additional progression layer, not a replacement for Tuto.
+
+The intended player experience is:
+
+**Tuto tells the player what they can do.**
+
+**Progression shows them how far they've come.**
+
+**Achievements reward them for going beyond the expected path.**
+
+At the end, provide a concise summary of:
+
+1. What was implemented.
+2. The initial achievement categories.
+3. The number of achievements created.
+4. Which achievements are hidden.
+5. How achievement detection works.
+6. How rewards integrate with the Unified Reward System.
+7. How `/profile` was updated.
+8. Any database changes.
+9. Anything intentionally left for future betas.
