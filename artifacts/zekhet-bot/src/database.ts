@@ -915,6 +915,80 @@ export function getProfile(userId: string, username: string, avatarUrl: string |
   return row;
 }
 
+const rankForLevel = (level: number): string => {
+  if (level >= 50) return "Keeper of Eternity";
+  if (level >= 30) return "High Archivist";
+  if (level >= 20) return "Keeper";
+  if (level >= 10) return "Acolyte";
+  if (level >= 5) return "Scribe";
+  return "Initiate";
+};
+
+export function xpRequiredForLevel(level: number): number {
+  const safeLevel = Math.max(1, Math.floor(level));
+  return safeLevel <= 1 ? 0 : ((safeLevel - 1) * safeLevel * 100) / 2;
+}
+
+function progressionFromRow(row: { xp?: number; level?: number; rank?: string }): Progression {
+  const xp = Number(row.xp ?? 0);
+  const level = Number(row.level ?? 1);
+  return {
+    xp,
+    level,
+    rank: row.rank ?? rankForLevel(level),
+    currentLevelXp: xp - xpRequiredForLevel(level),
+    nextLevelXp: xpRequiredForLevel(level + 1) - xpRequiredForLevel(level),
+  };
+}
+
+export function getProgression(userId: string, username = "Unknown Record", avatarUrl: string | null = null): Progression {
+  ensureProfile(userId, username, avatarUrl);
+  const row = database.prepare("SELECT xp, level, rank FROM user_progression WHERE discord_id = ?")
+    .get(userId) as { xp?: number; level?: number; rank?: string } | undefined;
+  return progressionFromRow(row ?? {});
+}
+
+export function grantExperience(
+  userId: string,
+  amount: number,
+  username = "Unknown Record",
+  avatarUrl: string | null = null,
+): ExperienceResult {
+  if (!Number.isSafeInteger(amount) || amount <= 0) return { ok: false, reason: "invalid-amount" };
+  ensureProfile(userId, username, avatarUrl);
+  const before = getProgression(userId);
+  const nextXp = before.xp + amount;
+  if (!Number.isSafeInteger(nextXp)) return { ok: false, reason: "invalid-xp" };
+  let nextLevel = before.level;
+  while (xpRequiredForLevel(nextLevel + 1) <= nextXp) nextLevel += 1;
+  const nextRank = rankForLevel(nextLevel);
+  database.prepare(`
+    UPDATE user_progression SET xp = ?, level = ?, rank = ?, updated_at = CURRENT_TIMESTAMP
+    WHERE discord_id = ?
+  `).run(nextXp, nextLevel, nextRank, userId);
+  const after = getProgression(userId);
+  return {
+    ok: true,
+    before,
+    after,
+    xpGranted: amount,
+    levelsGained: Math.max(0, after.level - before.level),
+    rankChanged: after.rank !== before.rank,
+  };
+}
+
+export function claimReward(claimKey: string, userId: string, source: string): boolean {
+  const result = database.prepare(`
+    INSERT OR IGNORE INTO reward_claims (claim_key, discord_id, source)
+    VALUES (?, ?, ?)
+  `).run(claimKey, userId, source);
+  return Number(result.changes) > 0;
+}
+
+export function releaseRewardClaim(claimKey: string): void {
+  database.prepare("DELETE FROM reward_claims WHERE claim_key = ?").run(claimKey);
+}
+
 function parseJson(value: unknown): Record<string, unknown> | null {
   if (typeof value !== "string" || value.length === 0) return null;
   try {
@@ -1911,6 +1985,8 @@ export function resetUserData(userId: string): void {
     database.prepare("DELETE FROM user_inventory WHERE discord_id = ?").run(userId);
     database.prepare("DELETE FROM currency_transactions WHERE discord_id = ?").run(userId);
     database.prepare("DELETE FROM currency_balances WHERE discord_id = ?").run(userId);
+    database.prepare("DELETE FROM reward_claims WHERE discord_id = ?").run(userId);
+    database.prepare("DELETE FROM user_progression WHERE discord_id = ?").run(userId);
     database.prepare("DELETE FROM profiles WHERE discord_id = ?").run(userId);
     database.prepare("DELETE FROM users WHERE discord_id = ?").run(userId);
     database.exec("COMMIT");

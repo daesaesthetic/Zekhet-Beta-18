@@ -56,7 +56,7 @@ import {
   getTutorialRewards,
   claimTutorialReward,
   resetTutorialProgress,
-  grantTitle,
+  getProgression,
   getInventory,
   getItem,
   getItemQuantity,
@@ -75,6 +75,7 @@ import {
   type Item,
   type InventoryEntry,
 } from "./database.js";
+import { formatRewards, grantRewards, progressionSummary, type Rewards } from "./rewards.js";
 
 const themes = ["Nightshade", "Celestial", "Eclipse", "Ancient", "Royal", "Void"] as const;
 const dialogue = {
@@ -304,9 +305,10 @@ function syncTutorial(userId: string, username: string, avatarUrl: string | null
   for (const page of tutorialPages) {
     const complete = page.objectives.every((objective) => objectivesByPage[page.number].includes(objective.id));
     if (!complete || claimed.has(page.number)) continue;
-    if (claimTutorialReward(userId, page.number)) {
+    const reward: Rewards = page.rewardTitleId ? { unlocks: [{ type: "title", id: page.rewardTitleId }] } : {};
+    if (grantRewards(userId, reward, { type: "tuto_objective", id: `page:${page.number}` }, { username, avatarUrl }).ok
+      && claimTutorialReward(userId, page.number)) {
       completedPages.push(page.number);
-      if (page.rewardTitleId) grantTitle(userId, page.rewardTitleId, username, avatarUrl);
       if (page.number === 1) developerUnlockAchievement(userId, "first-lesson", username, avatarUrl);
       if (page.number === 3) developerUnlockAchievement(userId, "student-of-the-archives", username, avatarUrl);
       if (page.number === tutorialPages.length) developerUnlockAchievement(userId, "tutorial-archivist", username, avatarUrl);
@@ -319,8 +321,10 @@ function forceTutorialPage(userId: string, username: string, avatarUrl: string |
   const page = tutorialPages[pageNumber - 1];
   if (!page) return;
   for (const objective of page.objectives) completeTutorialObjective(userId, page.number, objective.id);
-  if (claimTutorialReward(userId, page.number)) {
-    if (page.rewardTitleId) grantTitle(userId, page.rewardTitleId, username, avatarUrl);
+  const reward: Rewards = page.rewardTitleId ? { unlocks: [{ type: "title", id: page.rewardTitleId }] } : {};
+  if (!getTutorialRewards(userId).includes(page.number)
+    && grantRewards(userId, reward, { type: "tuto_objective", id: `page:${page.number}` }, { username, avatarUrl }).ok
+    && claimTutorialReward(userId, page.number)) {
     if (page.number === 1) developerUnlockAchievement(userId, "first-lesson", username, avatarUrl);
     if (page.number === 3) developerUnlockAchievement(userId, "student-of-the-archives", username, avatarUrl);
     if (page.number === tutorialPages.length) developerUnlockAchievement(userId, "tutorial-archivist", username, avatarUrl);
@@ -444,6 +448,7 @@ export const commands = [
   new SlashCommandBuilder().setName("developer").setDescription("Open the restricted developer control panel."),
   new SlashCommandBuilder().setName("inventory").setDescription("View the items owned by your Record."),
   balanceCommand,
+  new SlashCommandBuilder().setName("progress").setDescription("View your XP, level, and rank progression."),
   itemCommand,
   profileCommand,
   new SlashCommandBuilder().setName("titles").setDescription("View your owned titles and the Court."),
@@ -744,6 +749,7 @@ function profileEmbed(profile: Profile, user: User): EmbedBuilder {
   const totalObjectives = tutorialPages.reduce((total, page) => total + page.objectives.length, 0);
   const currentPage = completedPages >= tutorialPages.length ? tutorialPages.length : completedPages + 1;
   const inventoryCount = getInventory(profile.userId).reduce((total, entry) => total + entry.quantity, 0);
+  const progression = getProgression(profile.userId, profile.username, profile.avatarUrl);
   return new EmbedBuilder()
     .setColor(colorFromProfile(profile))
     .setAuthor({ name: "⛤ THE RECORD ⛤", iconURL: user.displayAvatarURL({ size: 128 }) })
@@ -756,11 +762,28 @@ function profileEmbed(profile: Profile, user: User): EmbedBuilder {
       { name: "Theme", value: profile.theme, inline: true },
       { name: "Tuto", value: `${progressBar(completedPages, tutorialPages.length)}\n${completedPages} / ${tutorialPages.length} pages · currently Chapter ${currentPage}`, inline: false },
       { name: "Objectives", value: `${progressBar(completedObjectives, totalObjectives)}\n${completedObjectives} / ${totalObjectives} completed`, inline: false },
+      { name: "Progression", value: progressionSummary(progression), inline: false },
       { name: "Records", value: `Titles **${profile.titlesOwned}** · Lore **${profile.loreDiscovered}** · Achievements **${profile.achievementsUnlocked}**`, inline: false },
       { name: "Ledger", value: `Contracts created **${profile.contractsCreated}** · completed **${profile.contractsCompleted}** · active curses **${profile.activeCurses}**`, inline: false },
       { name: "Inventory", value: inventoryCount > 0 ? `${inventoryCount} item${inventoryCount === 1 ? "" : "s"} held` : "No items recorded", inline: true },
     )
     .setFooter({ text: `Recorded ${new Date(profile.createdAt).toLocaleDateString("en-US")} · Use /inventory for item details` });
+}
+
+function progressEmbed(user: User): EmbedBuilder {
+  const progression = getProgression(user.id, user.username, user.displayAvatarURL());
+  return new EmbedBuilder()
+    .setColor(0xa873ff)
+    .setAuthor({ name: "✦ THE PATH OF ASCENSION ✦", iconURL: user.displayAvatarURL({ size: 128 }) })
+    .setTitle(`${user.username}'s Progression`)
+    .setDescription("The Archives measure advancement by experience gathered through future records and rewards.")
+    .addFields(
+      { name: "Rank", value: `**${progression.rank}**`, inline: true },
+      { name: "Level", value: `**${progression.level}**`, inline: true },
+      { name: "Total XP", value: progression.xp.toLocaleString("en-US"), inline: true },
+      { name: "Next level", value: progressionSummary(progression), inline: false },
+    )
+    .setFooter({ text: "XP, currency, items, and unlocks are processed by the Unified Reward System." });
 }
 
 function achievementLabel(achievement: Achievement, unlocked: boolean): string {
@@ -1076,12 +1099,13 @@ function tutorialPageEmbed(user: User, pageNumber: number): EmbedBuilder {
     .map((objective) => objective.objectiveId));
   const pageUnlocked = page.number === 1 || getTutorialRewards(user.id).includes(page.number - 1);
   const progress = page.objectives.filter((objective) => completed.has(objective.id)).length;
+  const reward: Rewards = page.rewardTitleId ? { unlocks: [{ type: "title", id: page.rewardTitleId }] } : {};
   return new EmbedBuilder()
     .setColor(0x7e4bb8)
     .setAuthor({ name: "📜 THE TUTORIAL 📜", iconURL: user.displayAvatarURL({ size: 128 }) })
     .setTitle(`⛤ ${page.number}/${tutorialPages.length} — ${page.title} ⛤`)
     .setDescription(pageUnlocked
-      ? `${page.introduction}\n\n**OBJECTIVES**\n${page.objectives.map((objective) => `${completed.has(objective.id) ? "✓" : "○"} ${objective.label}`).join("\n")}\n\n**REWARD**\n${page.reward}\n\n**Progress:** ${progress}/${page.objectives.length}`
+      ? `${page.introduction}\n\n**OBJECTIVES**\n${page.objectives.map((objective) => `${completed.has(objective.id) ? "✓" : "○"} ${objective.label}`).join("\n")}\n\n**REWARD**\n${page.reward}\n${formatRewards(reward)}\n\n**Progress:** ${progress}/${page.objectives.length}`
       : "⛤ The Archives remain sealed ⛤\n\nComplete the previous chapter before proceeding.")
     .addFields(
       { name: "Overall progress", value: `${getTutorialRewards(user.id).length}/${tutorialPages.length} chapters complete`, inline: true },
@@ -1136,6 +1160,10 @@ export async function handlePrefixCommand(message: Message): Promise<void> {
   if (command === "balance") {
     const balance = getCurrencyBalance(message.author.id, username, avatarUrl);
     await message.reply(`𓂀 **THE TREASURY** 𓂀\nYour Record holds **${balance.toLocaleString("en-US")} Deben**.`);
+    return;
+  }
+  if (command === "progress") {
+    await message.reply({ embeds: [progressEmbed(message.author)] });
     return;
   }
   if (command === "credits") {
@@ -1196,6 +1224,11 @@ export async function handleCommand(interaction: ChatInputCommandInteraction): P
   if (interaction.commandName === "inventory") {
     getProfile(interaction.user.id, interaction.user.username, interaction.user.displayAvatarURL());
     await interaction.reply({ embeds: [inventoryEmbed(getInventory(interaction.user.id))] });
+    return;
+  }
+
+  if (interaction.commandName === "progress") {
+    await interaction.reply({ embeds: [progressEmbed(interaction.user)] });
     return;
   }
 
@@ -1322,7 +1355,8 @@ export async function handleCommand(interaction: ChatInputCommandInteraction): P
           { name: "📜 THE ARCHIVES", value: "`/lore discover` — Discover an archive entry.\n`/lore archive` — Review discoveries.\n`/lore inspect` — Inspect an entry." },
           { name: "🧿 THE RITUALS", value: "`/curse user` — Mark another Record with a harmless fictional curse.\n`/curse active` — View active curses.\n`/curse list` — Browse the curse catalog.\n`/curse inspect` — Inspect a curse." },
           { name: "⚖️ THE LEDGER", value: "`/contract create` — Offer a social agreement.\n`/contract accept` — Accept an agreement.\n`/contract reject` — Reject an agreement.\n`/contract inspect` — Inspect a contract.\n`/contract complete` — Complete an accepted agreement.\n`/contract cancel` — Cancel an agreement.\n`/contracts` — Review your contracts." },
-          { name: "🏺 THE ACHIEVEMENTS", value: "`/achievements` — View your progress.\n`/achievement inspect` — Inspect a record." },
+           { name: "✦ THE PATH", value: "`/progress` — View XP, level, and rank progression.\nRewards can combine XP, Deben, items, and unlocks." },
+           { name: "🏺 THE ACHIEVEMENTS", value: "`/achievements` — View your progress.\n`/achievement inspect` — Inspect a record." },
         )],
     });
     return;
