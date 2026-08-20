@@ -1,0 +1,413 @@
+# Zekhet-B Beta 10 — Egyptian Item Content & Economy Foundation
+
+We are continuing development of Zekhet-B.
+
+The current codebase is at Beta 9 and the existing systems are functioning correctly.
+
+The following systems are currently confirmed to exist:
+
+* Tuto system
+* Tuto objectives
+* Tuto progression/unlocks
+* Item definitions
+* User inventories
+* Item persistence
+* Existing reward functionality
+
+Important: **Do not assume that XP, levels, ranks, or currency/economy systems currently exist.** They were discussed in previous development planning, but they are not currently implemented in the codebase.
+
+This update should establish the foundation for Zekhet-B's economy while also populating the existing inventory with initial items that fit the game's mystical/ancient Egyptian identity.
+
+Do NOT rebuild existing systems.
+
+---
+
+## PART 1 — Currency System
+
+Create a persistent Zekhet-B currency system.
+
+The currency should have a unique name that fits the game's ancient Egyptian/mystical theme rather than simply being called "coins" or "currency."
+
+Use an appropriate name such as **Khepri**, **Deben**, **Gold**, or another fitting term if the existing project already has a better naming convention.
+
+If a currency name is already defined elsewhere in the project, use that instead of creating a second currency.
+
+### Currency Requirements
+
+Create a centralized currency service capable of:
+
+* Getting a user's balance
+* Adding currency
+* Removing currency
+* Checking whether a user has enough currency
+* Setting a balance when necessary
+* Preventing negative balances
+* Persisting balances
+* Safely handling invalid transactions
+
+Use the project's existing database/user-data architecture.
+
+Do NOT create a separate database solely for currency if the existing architecture can support it.
+
+### Data Integrity
+
+The currency system must:
+
+* Persist through bot restarts
+* Never generate negative balances
+* Never silently lose currency
+* Avoid duplicate transactions
+* Validate transaction amounts
+* Fail safely if a transaction cannot be completed
+
+Create reusable internal functions/services so future commands can interact with currency without duplicating logic.
+
+---
+
+# PART 2 — Initial Egyptian Item Collection
+
+Populate the existing item system with an initial collection of Zekhet-B-themed items.
+
+The items should feel like mysterious artifacts, relics, materials, and treasures discovered throughout an ancient mystical world.
+
+Do NOT make every item a direct copy of a real Egyptian artifact.
+
+The goal is to create an original Zekhet-B identity inspired by ancient Egyptian mythology, symbolism, temples, deserts, gods, scribes, tombs, and the Nile.
+
+## Initial Item Pool
+
+Create approximately 10–15 initial items.
+
+Use the following as inspiration and adapt them to the project's existing item schema.
+
+### Common
+
+**Papyrus Fragment**
+
+> A weathered fragment covered in faded hieroglyphs.
+
+Category:
+Material
+
+---
+
+**Scribe's Ink**
+
+> Dark ink once used to record names that were never meant to be forgotten.
+
+Category:
+Material
+
+---
+
+**Desert Glass**
+
+> A translucent shard formed beneath the ancient desert sands.
+
+Category:
+Material
+
+---
+
+### Uncommon
+
+**Nile Pearl**
+
+> A pale pearl said to have been recovered beneath the moonlit Nile.
+
+Category:
+Material / Collectible
+
+---
+
+**Scarab of Rebirth**
+
+> A small scarab charm bearing a symbol of renewal.
+
+Category:
+Relic / Collectible
+
+---
+
+**Moonlit Papyrus**
+
+> Papyrus that glows faintly beneath a night sky.
+
+Category:
+Material / Special
+
+---
+
+### Rare
+
+**Eye of Horus**
+
+> An ancient symbol said to watch over those who carry it.
+
+Category:
+Relic
+
+---
+
+**Golden Scarab**
+
+> A golden scarab untouched by centuries beneath the sand.
+
+Category:
+Collectible / Relic
+
+---
+
+**Tombkeeper's Key**
+
+> An ornate key whose lock has long since vanished.
+
+Category:
+Special / Quest
+
+---
+
+### Epic
+
+**Pharaoh's Seal**
+
+> A royal seal bearing the mark of a forgotten dynasty.
+
+Category:
+Relic / Collectible
+
+---
+
+**Nile's Heart**
+
+> A strange blue gemstone said to hold a fragment of the river's spirit.
+
+Category:
+Relic
+
+---
+
+### Legendary
+
+**Ankh of Eternity**
+
+> An ancient ankh said to represent life beyond the mortal world.
+
+Category:
+Relic / Special
+
+---
+
+**Crown of the Forgotten Pharaoh**
+
+> A crown belonging to a ruler whose name has been deliberately erased from history.
+
+Category:
+Relic / Collectible
+
+---
+
+### Mythic
+
+**Feather of Ma'at**
+
+> A feather said to weigh the truth of every soul placed before it.
+
+Category:
+Mythic / Special
+
+---
+
+**Star of Khepri**
+
+> A fragment of something that fell from the heavens long before the first dynasty.
+
+Category:
+Mythic / Relic
+
+---
+
+## Important Item Design Rules
+
+Do not give every item a gameplay effect yet.
+
+Some items should exist primarily as:
+
+* Collectibles
+* Materials
+* Relics
+* Quest objects
+* Rare discoveries
+
+This gives us room to later build:
+
+* Item effects
+* Crafting
+* Quests
+* Collections
+* Shops
+* Loot tables
+* Events
+* Trading
+* Achievement requirements
+
+Do not implement those systems yet unless they already exist.
+
+---
+
+# PART 3 — Item Values
+
+Where the current item architecture supports it, add a standardized value/economic metadata field to items.
+
+This should allow future systems to determine an item's economic value without hardcoding individual item prices.
+
+Do NOT automatically create a shop.
+
+Do NOT make every item purchasable.
+
+Some rare items should intentionally have no current economic use.
+
+---
+
+# PART 4 — Currency + Item Rewards
+
+Integrate the new currency system with the existing reward infrastructure where appropriate.
+
+Existing systems should be able to award:
+
+* Currency
+* Items
+* Both simultaneously
+
+For example, an existing objective could eventually reward:
+
+> ✦ Objective Complete
+>
+> `+250` Deben
+> `+1 Papyrus Fragment`
+
+However, do not rewrite the entire reward system into the future unified reward architecture yet.
+
+The goal of this beta is simply to establish reliable currency and item reward compatibility.
+
+---
+
+# PART 5 — Inventory Presentation
+
+Improve `/inventory` if necessary so the new items are presented consistently with Zekhet-B's aesthetic.
+
+Use:
+
+* Egyptian/mystical terminology
+* Existing embed conventions
+* Item rarity
+* Item descriptions
+* Appropriate Egyptian-inspired symbols/emojis where supported
+
+Do not make the UI overly cluttered.
+
+A user's inventory should feel like a collection of artifacts rather than a generic game inventory.
+
+Example:
+
+> 𓂀 **AZURION'S RELICS**
+>
+> **Common**
+> 𓏏 Papyrus Fragment × 7
+> 𓂋 Scribe's Ink × 3
+>
+> **Rare**
+> 𓂀 Eye of Horus × 1
+>
+> **Legendary**
+> 𓋹 Ankh of Eternity × 1
+
+Use whatever symbols/UI conventions are already established in Zekhet-B instead of forcing these exact symbols.
+
+---
+
+# PART 6 — Economy Commands
+
+Implement only the minimum commands necessary to test the new economy system.
+
+A balance command may be added if one does not already exist, such as:
+
+`/balance`
+
+It should display the user's current currency balance using the chosen Zekhet-B terminology.
+
+Do NOT create a shop yet.
+
+Do NOT create trading yet.
+
+Do NOT create a marketplace yet.
+
+Those will be built later on top of this foundation.
+
+---
+
+# PART 7 — Integration With Existing Systems
+
+Before modifying anything, inspect the current codebase and determine how the following systems are currently structured:
+
+* User data
+* Database/persistence
+* Tuto objectives
+* Tuto rewards
+* Item definitions
+* Inventory
+* Existing reward handling
+
+Integrate with those systems rather than creating parallel versions.
+
+If a requested feature already partially exists, extend it rather than duplicating it.
+
+If something does not exist, implement only what is necessary for this beta.
+
+---
+
+# Testing
+
+Thoroughly test:
+
+1. New user receives a valid default currency balance.
+2. Currency persists after restart.
+3. Currency can be added.
+4. Currency can be removed.
+5. Negative balances are impossible.
+6. Invalid transactions fail safely.
+7. `/balance` displays the correct balance.
+8. All initial items exist in the item registry.
+9. Items can be added to inventories.
+10. Items stack correctly.
+11. Items persist after restart.
+12. Item rarity and metadata display correctly.
+13. Existing Tuto objectives still work.
+14. Existing Tuto rewards still work.
+15. Existing inventory functionality still works.
+16. Existing commands remain functional.
+17. No duplicate currency or item records are created.
+
+---
+
+# Important Development Rules
+
+* Do NOT assume XP exists.
+* Do NOT implement XP in this beta.
+* Do NOT implement ranks/levels in this beta.
+* Do NOT rebuild the Tuto system.
+* Do NOT rebuild the inventory system.
+* Do NOT create a second currency system.
+* Do NOT create a second item system.
+* Do NOT create a shop yet.
+* Do NOT create trading yet.
+* Do NOT reset existing user data.
+
+Prioritize **stable infrastructure and thematic item content** over adding a large number of commands.
+
+At the end, provide a concise summary of:
+
+1. What was implemented.
+2. What existing systems were modified.
+3. What new database/data fields were introduced.
+4. What remains intentionally unimplemented for future betas.
