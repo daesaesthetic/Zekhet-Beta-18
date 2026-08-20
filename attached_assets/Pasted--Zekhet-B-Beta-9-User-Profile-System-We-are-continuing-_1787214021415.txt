@@ -1,0 +1,126 @@
+# Zekhet-B Beta 9 — User Profile System
+
+We are continuing development of Zekhet-B. Beta 7 is fully functional, and the centralized reward system has now been implemented.
+
+Do NOT rebuild existing progression, Tuto, economy, or reward systems.
+
+## Objective
+
+Create a `/profile` command that acts as the user's central Zekhet-B identity and progression screen.
+
+The profile should pull live information from the existing systems rather than maintaining duplicate data.
+
+## Profile Information
+
+Display relevant information that already exists in Zekhet-B, such as:
+
+* Discord username/avatar
+* Zekhet-B title, if the user has one
+* Current rank/level
+* Current XP and XP required for the next level
+* Currency balance
+* Tuto progress
+* Completed objectives
+* Unlocked Tuto pages
+* Achievements, once the achievement system exists
+* Other relevant progression information already implemented
+
+Do not display information that does not exist yet simply to fill space.
+
+## Progression Display
+
+Create a visually appealing progression section.
+
+Example structure:
+
+> 𓂀 **AZURION**
+> *The Initiated*
+>
+> **Rank**
+> Acolyte II
+>
+> **XP**
+> ███████░░░  720 / 1,000
+>
+> **Wealth**
+> 12,450
+>
+> **Tuto**
+> 4 / 6 Pages
+>
+> **Objectives**
+> 37 Completed
+
+The exact layout should match the existing Zekhet-B embed/UI style.
+
+## Tuto Integration
+
+The profile should use the existing Tuto system.
+
+Show meaningful progress such as:
+
+* Current Tuto page
+* Pages completed
+* Objectives completed
+* Overall completion percentage if already supported
+
+Do not create a second tutorial/progression tracker.
+
+## Reward Integration
+
+Use the centralized reward/progression data created in the previous update.
+
+Titles, unlocks, XP, currency, and other rewards should automatically appear where appropriate.
+
+## Future Compatibility
+
+Design the profile so future systems can be added without rebuilding the entire command.
+
+For example, future sections could include:
+
+* Achievements
+* Collection
+* Inventory
+* Statistics
+* Titles
+* Streaks
+* Special discoveries
+
+Do not implement those systems yet unless they already exist.
+
+## UX
+
+The profile should feel like a player's personal Zekhet-B identity rather than a database dump.
+
+Prioritize:
+
+* Clean hierarchy
+* Readability
+* The existing Egyptian/mystical Zekhet-B aesthetic
+* Useful information
+* Minimal clutter
+
+If the existing bot uses buttons/pages for navigation, use them where appropriate.
+
+## Requirements
+
+* Pull data from existing systems.
+* Never duplicate progression data.
+* Never modify user progression merely by viewing the profile.
+* Handle new users gracefully.
+* Handle users with incomplete progression gracefully.
+* Ensure the profile remains functional as future systems are added.
+
+## Testing
+
+Test profiles for:
+
+1. Brand-new users.
+2. Existing users with progression.
+3. Users with completed Tuto objectives.
+4. Users with different ranks/levels.
+5. Users with different currency balances.
+6. Users after receiving rewards.
+7. Persistence after a bot restart.
+
+At the end, summarize the implementation and confirm that existing systems remain unaffected.
