@@ -41,6 +41,7 @@ import {
   unlockAllTitles,
   getAchievements,
   getAchievement,
+  getAchievementProgress,
   getUnlockedAchievements,
   developerUnlockAchievement,
   recordInteraction,
@@ -75,7 +76,7 @@ import {
   type Item,
   type InventoryEntry,
 } from "./database.js";
-import { formatRewards, grantRewards, progressionSummary, type Rewards } from "./rewards.js";
+import { achievementRewards, formatRewards, grantAchievementReward, grantRewards, progressionSummary, type Rewards } from "./rewards.js";
 
 const themes = ["Nightshade", "Celestial", "Eclipse", "Ancient", "Royal", "Void"] as const;
 const dialogue = {
@@ -309,9 +310,9 @@ function syncTutorial(userId: string, username: string, avatarUrl: string | null
     if (grantRewards(userId, reward, { type: "tuto_objective", id: `page:${page.number}` }, { username, avatarUrl }).ok
       && claimTutorialReward(userId, page.number)) {
       completedPages.push(page.number);
-      if (page.number === 1) developerUnlockAchievement(userId, "first-lesson", username, avatarUrl);
-      if (page.number === 3) developerUnlockAchievement(userId, "student-of-the-archives", username, avatarUrl);
-      if (page.number === tutorialPages.length) developerUnlockAchievement(userId, "tutorial-archivist", username, avatarUrl);
+      if (page.number === 1) unlockAchievementForUser(userId, "first-lesson", username, avatarUrl);
+      if (page.number === 3) unlockAchievementForUser(userId, "student-of-the-archives", username, avatarUrl);
+      if (page.number === tutorialPages.length) unlockAchievementForUser(userId, "tutorial-archivist", username, avatarUrl);
     }
   }
   return { completedPages, finalComplete: getTutorialRewards(userId).length === tutorialPages.length };
@@ -325,9 +326,9 @@ function forceTutorialPage(userId: string, username: string, avatarUrl: string |
   if (!getTutorialRewards(userId).includes(page.number)
     && grantRewards(userId, reward, { type: "tuto_objective", id: `page:${page.number}` }, { username, avatarUrl }).ok
     && claimTutorialReward(userId, page.number)) {
-    if (page.number === 1) developerUnlockAchievement(userId, "first-lesson", username, avatarUrl);
-    if (page.number === 3) developerUnlockAchievement(userId, "student-of-the-archives", username, avatarUrl);
-    if (page.number === tutorialPages.length) developerUnlockAchievement(userId, "tutorial-archivist", username, avatarUrl);
+    if (page.number === 1) unlockAchievementForUser(userId, "first-lesson", username, avatarUrl);
+    if (page.number === 3) unlockAchievementForUser(userId, "student-of-the-archives", username, avatarUrl);
+    if (page.number === tutorialPages.length) unlockAchievementForUser(userId, "tutorial-archivist", username, avatarUrl);
   }
 }
 const profileCommand = new SlashCommandBuilder()
@@ -537,7 +538,7 @@ export async function handleDeveloperComponent(interaction: ButtonInteraction): 
   }
   if (section === "test-achievement") {
     const achievement = getAchievements()[0];
-    const unlocked = achievement && developerUnlockAchievement(
+    const unlocked = achievement && unlockAchievementForUser(
       interaction.user.id,
       achievement.id,
       interaction.user.username,
@@ -583,7 +584,11 @@ export async function handleDeveloperComponent(interaction: ButtonInteraction): 
       "ACHIEVEMENT_UNLOCKED",
     );
     await interaction.reply({
-      content: progressionNotice(progression) || "Progression checked. No new interconnected rewards are currently eligible.",
+      content: progressionNotice(progression, {
+        id: interaction.user.id,
+        username: interaction.user.username,
+        avatarUrl: interaction.user.displayAvatarURL(),
+      }) || "Progression checked. No new interconnected rewards are currently eligible.",
       ephemeral: true,
     });
     return;
@@ -687,7 +692,7 @@ export async function handleDeveloperModal(interaction: ModalSubmitInteraction):
       return;
     }
     const achievementId = interaction.fields.getTextInputValue("achievement-id").trim().toLowerCase();
-    const unlocked = developerUnlockAchievement(
+    const unlocked = unlockAchievementForUser(
       interaction.user.id,
       achievementId,
       interaction.user.username,
@@ -750,6 +755,8 @@ function profileEmbed(profile: Profile, user: User): EmbedBuilder {
   const currentPage = completedPages >= tutorialPages.length ? tutorialPages.length : completedPages + 1;
   const inventoryCount = getInventory(profile.userId).reduce((total, entry) => total + entry.quantity, 0);
   const progression = getProgression(profile.userId, profile.username, profile.avatarUrl);
+  const allAchievements = getAchievements();
+  const unlockedAchievements = getUnlockedAchievements(profile.userId, profile.username, profile.avatarUrl);
   return new EmbedBuilder()
     .setColor(colorFromProfile(profile))
     .setAuthor({ name: "⛤ THE RECORD ⛤", iconURL: user.displayAvatarURL({ size: 128 }) })
@@ -763,7 +770,8 @@ function profileEmbed(profile: Profile, user: User): EmbedBuilder {
       { name: "Tuto", value: `${progressBar(completedPages, tutorialPages.length)}\n${completedPages} / ${tutorialPages.length} pages · currently Chapter ${currentPage}`, inline: false },
       { name: "Objectives", value: `${progressBar(completedObjectives, totalObjectives)}\n${completedObjectives} / ${totalObjectives} completed`, inline: false },
       { name: "Progression", value: progressionSummary(progression), inline: false },
-      { name: "Records", value: `Titles **${profile.titlesOwned}** · Lore **${profile.loreDiscovered}** · Achievements **${profile.achievementsUnlocked}**`, inline: false },
+      { name: "Records", value: `Titles **${profile.titlesOwned}** · Lore **${profile.loreDiscovered}**`, inline: true },
+      { name: "Achievements", value: `${progressBar(unlockedAchievements.length, allAchievements.length)}\n**${unlockedAchievements.length} / ${allAchievements.length}** unlocked`, inline: true },
       { name: "Ledger", value: `Contracts created **${profile.contractsCreated}** · completed **${profile.contractsCompleted}** · active curses **${profile.activeCurses}**`, inline: false },
       { name: "Inventory", value: inventoryCount > 0 ? `${inventoryCount} item${inventoryCount === 1 ? "" : "s"} held` : "No items recorded", inline: true },
     )
@@ -790,16 +798,39 @@ function achievementLabel(achievement: Achievement, unlocked: boolean): string {
   return achievement.isHidden && !unlocked ? "🔒 ???" : `**${achievement.name}** · ${achievement.rarity}`;
 }
 
+function awardAchievements(
+  achievements: Achievement[],
+  userId: string,
+  username: string,
+  avatarUrl: string | null,
+): void {
+  for (const achievement of achievements) {
+    grantAchievementReward(userId, achievement, { username, avatarUrl });
+  }
+}
+
+function unlockAchievementForUser(
+  userId: string,
+  achievementId: string,
+  username: string,
+  avatarUrl: string | null,
+): UnlockedAchievement | undefined {
+  const unlocked = developerUnlockAchievement(userId, achievementId, username, avatarUrl);
+  if (unlocked) awardAchievements([unlocked], userId, username, avatarUrl);
+  return unlocked;
+}
+
 function achievementNotification(achievement: Achievement | UnlockedAchievement): string {
   const dramatic = achievement.rarity === "Secret" || achievement.rarity === "Legendary";
-  return `⛤ ACHIEVEMENT UNLOCKED ⛤\n\n${dramatic ? "🌑" : "🏺"} ${achievement.name}\n\n_${achievement.description}_\n\nRarity: ${achievement.rarity}${achievement.rewardTitleId ? `\nTitle granted: **${getTitle(achievement.rewardTitleId)?.name ?? achievement.rewardTitleId}**` : ""}`;
+  return `⛤ ACHIEVEMENT UNLOCKED ⛤\n\n${dramatic ? "🌑" : "🏺"} ${achievement.name}\n\n_${achievement.description}_\n\nRarity: ${achievement.rarity}\n\n**Rewards**\n${formatRewards(achievementRewards(achievement))}`;
 }
 
 function progressionNotice(update: {
   achievements: UnlockedAchievement[];
   titleIds: string[];
   loreIds?: string[];
-}): string {
+}, user?: { id: string; username: string; avatarUrl: string | null }): string {
+  if (user) awardAchievements(update.achievements, user.id, user.username, user.avatarUrl);
   const achievementTitleIds = new Set(update.achievements.map((achievement) => achievement.rewardTitleId).filter(Boolean));
   const titleNotices = update.titleIds
     .filter((titleId) => !achievementTitleIds.has(titleId))
@@ -827,10 +858,12 @@ function achievementEmbed(achievement: Achievement, unlocked: boolean): EmbedBui
     );
 }
 
-function achievementsEmbed(all: Achievement[], unlocked: UnlockedAchievement[]): EmbedBuilder {
+function achievementsEmbed(all: Achievement[], unlocked: UnlockedAchievement[], userId: string): EmbedBuilder {
   const unlockedIds = new Set(unlocked.map((entry) => entry.id));
   const lines = all.map((achievement) =>
-    `${unlockedIds.has(achievement.id) ? "✦" : achievement.isHidden ? "🔒" : "○"} ${achievementLabel(achievement, unlockedIds.has(achievement.id))}`,
+    `${unlockedIds.has(achievement.id) ? "✦" : achievement.isHidden ? "🔒" : "○"} ${achievementLabel(achievement, unlockedIds.has(achievement.id))}${getAchievementProgress(userId, achievement.id) && !unlockedIds.has(achievement.id)
+      ? `\n  ${getAchievementProgress(userId, achievement.id)!.current}/${getAchievementProgress(userId, achievement.id)!.target} ${getAchievementProgress(userId, achievement.id)!.label}`
+      : ""}`,
   ).join("\n");
   return new EmbedBuilder()
     .setColor(0x7e4bb8)
@@ -1145,7 +1178,8 @@ export async function handlePrefixCommand(message: Message): Promise<void> {
   const command = rawCommand.toLowerCase();
   const username = message.author.username;
   const avatarUrl = message.author.displayAvatarURL();
-  recordInteraction(message.author.id, username, avatarUrl);
+  const newlyUnlocked = recordInteraction(message.author.id, username, avatarUrl);
+  awardAchievements(newlyUnlocked, message.author.id, username, avatarUrl);
   recordTutorialAction(message.author.id, username, avatarUrl, "system-interaction");
   const tutorialStatus = syncTutorial(message.author.id, username, avatarUrl);
   const tutorialNotice = tutorialStatus.completedPages.length
@@ -1193,7 +1227,7 @@ export async function handlePrefixCommand(message: Message): Promise<void> {
     return;
   }
   if (command === "achievements") {
-    await message.reply({ content: tutorialNotice || undefined, embeds: [achievementsEmbed(getAchievements(), getUnlockedAchievements(message.author.id, username, avatarUrl))] });
+     await message.reply({ content: tutorialNotice || undefined, embeds: [achievementsEmbed(getAchievements(), getUnlockedAchievements(message.author.id, username, avatarUrl), message.author.id)] });
     return;
   }
   if (command === "tuto") {
@@ -1271,6 +1305,7 @@ export async function handleCommand(interaction: ChatInputCommandInteraction): P
     interaction.user.username,
     interaction.user.displayAvatarURL(),
   );
+  awardAchievements(newlyUnlocked, interaction.user.id, interaction.user.username, interaction.user.displayAvatarURL());
   recordTutorialAction(interaction.user.id, interaction.user.username, interaction.user.displayAvatarURL(), "system-interaction");
   const tutorialStatus = syncTutorial(interaction.user.id, interaction.user.username, interaction.user.displayAvatarURL());
   const achievementNotice = newlyUnlocked.map(achievementNotification).join("\n\n");
@@ -1323,6 +1358,7 @@ export async function handleCommand(interaction: ChatInputCommandInteraction): P
       embeds: [achievementsEmbed(
         getAchievements(),
         getUnlockedAchievements(interaction.user.id, interaction.user.username, interaction.user.displayAvatarURL()),
+        interaction.user.id,
       )],
     });
     return;
@@ -1425,7 +1461,11 @@ export async function handleCommand(interaction: ChatInputCommandInteraction): P
         interaction.user.displayAvatarURL(),
         "TITLE_EQUIPPED",
       );
-      const notice = progressionNotice(progression);
+      const notice = progressionNotice(progression, {
+        id: interaction.user.id,
+        username: interaction.user.username,
+        avatarUrl: interaction.user.displayAvatarURL(),
+      });
       await interaction.reply({
         content: `${pick(dialogue.titleEquip)}\n\nThe title **${result.title.name}** is now equipped upon your Record.${notice ? `\n\n${notice}` : ""}`,
       });
@@ -1479,7 +1519,11 @@ export async function handleCommand(interaction: ChatInputCommandInteraction): P
       );
       const notice = [
         ...newlyUnlocked.map(achievementNotification),
-        progressionNotice(progression),
+        progressionNotice(progression, {
+          id: interaction.user.id,
+          username: interaction.user.username,
+          avatarUrl: interaction.user.displayAvatarURL(),
+        }),
       ].filter(Boolean).join("\n\n");
       await interaction.reply({ content: notice || undefined, embeds: [loreEmbed(result.lore, updatedProfile)] });
       return;
@@ -1568,7 +1612,11 @@ export async function handleCommand(interaction: ChatInputCommandInteraction): P
       target.displayAvatarURL(),
       "CURSE_RECEIVED",
     );
-    const notice = progressionNotice(progression);
+    const notice = progressionNotice(progression, {
+      id: interaction.user.id,
+      username: interaction.user.username,
+      avatarUrl: interaction.user.displayAvatarURL(),
+    });
     await interaction.reply({
       content: `${pick(dialogue.curseApplied)} <@${target.id}> has been marked.${target.id === interaction.user.id && (achievementNotice || notice) ? `\n\n${[achievementNotice, notice].filter(Boolean).join("\n\n")}` : ""}`,
       embeds: [activeCurseEmbed(result.curse)],
@@ -1619,7 +1667,11 @@ export async function handleCommand(interaction: ChatInputCommandInteraction): P
         interaction.user.displayAvatarURL(),
         "CONTRACT_CREATED",
       );
-      const contractNotice = progressionNotice(progression);
+      const contractNotice = progressionNotice(progression, {
+        id: interaction.user.id,
+        username: interaction.user.username,
+        avatarUrl: interaction.user.displayAvatarURL(),
+      });
       await interaction.reply({
         content: `${pick(dialogue.contractCreated)}\n\nContract **#${result.contract.id}** has been offered to <@${target.id}>.${[achievementNotice, contractNotice].filter(Boolean).length ? `\n\n${[achievementNotice, contractNotice].filter(Boolean).join("\n\n")}` : ""}`,
         embeds: [contractEmbed(result.contract)],
@@ -1674,7 +1726,11 @@ export async function handleCommand(interaction: ChatInputCommandInteraction): P
     );
     const notice = [
       ...newlyUnlocked.map(achievementNotification),
-      progressionNotice(progression),
+      progressionNotice(progression, {
+        id: interaction.user.id,
+        username: interaction.user.username,
+        avatarUrl: interaction.user.displayAvatarURL(),
+      }),
     ].filter(Boolean).join("\n\n");
     await interaction.reply({
       content: `${pick(dialogue.contractChanged)} Contract **#${result.contract.id}** is now **${contractStatusLabel(result.contract.status)}**.${notice ? `\n\n${notice}` : ""}`,
@@ -1723,6 +1779,10 @@ export async function handleCommand(interaction: ChatInputCommandInteraction): P
     interaction.user.displayAvatarURL(),
     subcommand === "bio" ? "BIOGRAPHY_SET" : "PROFILE_CREATED",
   );
-  const notice = progressionNotice(progression);
+  const notice = progressionNotice(progression, {
+    id: interaction.user.id,
+    username: interaction.user.username,
+    avatarUrl: interaction.user.displayAvatarURL(),
+  });
   await interaction.reply({ content: `${pick(dialogue.profileEdit)}${rareAside()}${notice ? `\n\n${notice}` : ""}`, embeds: [profileEmbed(profile, target)] });
 }

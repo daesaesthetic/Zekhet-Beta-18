@@ -9,6 +9,7 @@ import {
   grantExperience,
   grantTitle,
   releaseRewardClaim,
+  type Achievement,
   type ExperienceResult,
   type InventoryEntry,
   type Progression,
@@ -30,6 +31,15 @@ export type Rewards = {
   unlocks?: RewardUnlock[];
 };
 
+const achievementRewardAmounts: Record<Achievement["rarity"], { xp: number; currency: number }> = {
+  Common: { xp: 100, currency: 25 },
+  Uncommon: { xp: 250, currency: 75 },
+  Rare: { xp: 500, currency: 200 },
+  Epic: { xp: 800, currency: 400 },
+  Legendary: { xp: 1_500, currency: 800 },
+  Secret: { xp: 1_200, currency: 600 },
+};
+
 export type RewardSource = string | { type: string; id?: string };
 
 export type RewardResult =
@@ -46,6 +56,26 @@ export type RewardResult =
       ok: false;
       reason: "already-claimed" | "invalid-reward" | "invalid-item" | "invalid-quantity" | "invalid-currency" | "invalid-xp" | "database-failure";
     };
+
+export function achievementRewards(achievement: Achievement): Rewards {
+  const amounts = achievementRewardAmounts[achievement.rarity];
+  return {
+    xp: amounts.xp,
+    currency: amounts.currency,
+    unlocks: achievement.rewardTitleId ? [{ type: "title", id: achievement.rewardTitleId }] : [],
+  };
+}
+
+export function grantAchievementReward(
+  userId: string,
+  achievement: Achievement,
+  options: { username?: string; avatarUrl?: string | null } = {},
+): RewardResult {
+  return grantRewards(userId, achievementRewards(achievement), { type: "achievement", id: achievement.id }, {
+    ...options,
+    oneTimeKey: `achievement:${achievement.id}`,
+  });
+}
 
 function sourceLabel(source: RewardSource): string {
   return typeof source === "string" ? source : `${source.type}${source.id ? `:${source.id}` : ""}`;

@@ -100,6 +100,11 @@ export type Achievement = {
   rewardTitleId: string | null;
 };
 export type UnlockedAchievement = Achievement & { unlockedAt: string };
+export type AchievementProgress = {
+  current: number;
+  target: number;
+  label: string;
+};
 
 export type ItemCategory = "Consumable" | "Material" | "Collectible" | "Currency" | "Quest" | "Special" | "Cosmetic";
 export type ItemRarity = "Common" | "Uncommon" | "Rare" | "Epic" | "Legendary" | "Mythic";
@@ -1469,6 +1474,46 @@ export function getAchievement(id: string): Achievement | undefined {
   return row ? mapAchievement(row) : undefined;
 }
 
+export function getAchievementProgress(userId: string, achievementId: string): AchievementProgress | null {
+  const count = (query: string, ...params: string[]) =>
+    Number((database.prepare(query).get(...params) as { count?: number } | undefined)?.count ?? 0);
+  const activity = count("SELECT interaction_count AS count FROM user_activity WHERE discord_id = ?", userId);
+  const titles = count("SELECT COUNT(*) AS count FROM user_titles WHERE discord_id = ?", userId);
+  const lore = count("SELECT COUNT(*) AS count FROM user_lore WHERE discord_id = ?", userId);
+  const secretLore = count(`
+    SELECT COUNT(*) AS count FROM user_lore ul JOIN lore_entries le ON le.id = ul.lore_id
+    WHERE ul.discord_id = ? AND le.is_secret = 1
+  `, userId);
+  const curses = count("SELECT COUNT(DISTINCT curse_id) AS count FROM curse_history WHERE target_id = ?", userId);
+  const contractsCreated = count("SELECT COUNT(*) AS count FROM contracts WHERE creator_id = ? OR recipient_id = ?", userId, userId);
+  const completedContracts = count("SELECT COUNT(*) AS count FROM contracts WHERE status = 'Completed' AND (creator_id = ? OR recipient_id = ?)", userId, userId);
+  const targets: Record<string, { current: number; target: number; label: string }> = {
+    "first-record": { current: database.prepare("SELECT 1 FROM profiles WHERE discord_id = ?").get(userId) ? 1 : 0, target: 1, label: "profile created" },
+    "familiar-face": { current: activity, target: 3, label: "interactions" },
+    devoted: { current: activity, target: 10, label: "interactions" },
+    "the-devoted-record": { current: activity, target: 25, label: "interactions" },
+    courtier: { current: titles, target: 10, label: "titles" },
+    collector: { current: titles, target: 20, label: "titles" },
+    archivist: { current: lore, target: 25, label: "lore entries" },
+    "archive-heart": { current: lore, target: 40, label: "lore entries" },
+    "marked": { current: curses, target: 1, label: "different curses" },
+    cursed: { current: curses, target: 3, label: "different curses" },
+    "many-marks": { current: curses, target: 5, label: "different curses" },
+    oathbound: { current: completedContracts, target: 1, label: "completed contracts" },
+    contractor: { current: completedContracts, target: 3, label: "completed contracts" },
+    "unbroken-ledger": { current: completedContracts, target: 5, label: "completed contracts" },
+    "ten-contracts": { current: completedContracts, target: 10, label: "completed contracts" },
+    "first-title": { current: titles, target: 4, label: "titles" },
+    "first-lore": { current: lore, target: 1, label: "lore entries" },
+    "first-curse": { current: curses, target: 1, label: "different curses" },
+    "first-contract": { current: contractsCreated, target: 1, label: "contracts created" },
+    "secret-page": { current: secretLore, target: 1, label: "secret lore entries" },
+  };
+  const progress = targets[achievementId];
+  if (!progress) return null;
+  return { ...progress, current: Math.min(progress.current, progress.target) };
+}
+
 export function getUnlockedAchievements(userId: string, username: string, avatarUrl: string | null): UnlockedAchievement[] {
   ensureProfile(userId, username, avatarUrl);
   return database.prepare(`
@@ -1566,10 +1611,6 @@ export function unlockEligibleAchievements(userId: string): UnlockedAchievement[
     const unlockedAt = new Date().toISOString();
     database.prepare("INSERT INTO user_achievements (discord_id, achievement_id, unlocked_at) VALUES (?, ?, ?)")
       .run(userId, achievement.id, unlockedAt);
-    if (achievement.rewardTitleId) {
-      database.prepare("INSERT OR IGNORE INTO user_titles (discord_id, title_id) VALUES (?, ?)")
-        .run(userId, achievement.rewardTitleId);
-    }
     unlocked.push({ ...achievement, unlockedAt });
   }
   return unlocked;
@@ -1611,7 +1652,6 @@ export function developerUnlockAchievement(userId: string, achievementId: string
   if (existing) return getUnlockedAchievements(userId, username, avatarUrl).find((entry) => entry.id === achievementId);
   const unlockedAt = new Date().toISOString();
   database.prepare("INSERT INTO user_achievements (discord_id, achievement_id, unlocked_at) VALUES (?, ?, ?)").run(userId, achievementId, unlockedAt);
-  if (achievement.rewardTitleId) database.prepare("INSERT OR IGNORE INTO user_titles (discord_id, title_id) VALUES (?, ?)").run(userId, achievement.rewardTitleId);
   return { ...achievement, unlockedAt };
 }
 
