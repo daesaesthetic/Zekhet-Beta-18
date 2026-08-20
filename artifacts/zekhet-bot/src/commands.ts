@@ -61,6 +61,8 @@ import {
   getInventory,
   getItem,
   getItemQuantity,
+  setItemQuantity,
+  clearInventory,
   getCurrencyBalance,
   beginVenture,
   completeVenture,
@@ -192,6 +194,7 @@ const dialogue = {
 } as const;
 
 const developerVentureForces = new Map<string, VentureRarity>();
+const developerItemForces = new Map<string, string>();
 
 function pick<T>(items: readonly T[]): T {
   return items[Math.floor(Math.random() * items.length)];
@@ -515,6 +518,15 @@ function developerPanel() {
         new ButtonBuilder().setCustomId("developer:venture-epic").setLabel("Force Epic Venture").setStyle(ButtonStyle.Primary),
       ),
       new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder().setCustomId("developer:grant-item").setLabel("Grant Item").setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId("developer:set-item").setLabel("Set Item Quantity").setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId("developer:remove-item").setLabel("Remove Item").setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId("developer:clear-inventory").setLabel("Clear Inventory").setStyle(ButtonStyle.Danger),
+      ),
+      new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder().setCustomId("developer:force-item").setLabel("Force Item Venture").setStyle(ButtonStyle.Primary),
+      ),
+      new ActionRowBuilder<ButtonBuilder>().addComponents(
         new ButtonBuilder().setCustomId("developer:venture-legendary").setLabel("Force Legendary").setStyle(ButtonStyle.Primary),
         new ButtonBuilder().setCustomId("developer:venture-mythic").setLabel("Force Mythic").setStyle(ButtonStyle.Primary),
         new ButtonBuilder().setCustomId("developer:venture-reset").setLabel("Reset Venture Cooldown").setStyle(ButtonStyle.Danger),
@@ -597,6 +609,34 @@ export async function handleDeveloperComponent(interaction: ButtonInteraction): 
       .setPlaceholder("for example: first-record");
     modal.addComponents(new ActionRowBuilder<TextInputBuilder>().addComponents(achievementId));
     await interaction.showModal(modal);
+    return;
+  }
+  if (section === "grant-item" || section === "set-item" || section === "remove-item" || section === "force-item") {
+    const modal = new ModalBuilder()
+      .setCustomId(`developer:${section}-modal`)
+      .setTitle(section === "force-item" ? "Force Venture Item" : section === "grant-item" ? "Grant Item" : section === "set-item" ? "Set Item Quantity" : "Remove Item");
+    const itemId = new TextInputBuilder()
+      .setCustomId("item-id")
+      .setLabel("Item ID")
+      .setStyle(TextInputStyle.Short)
+      .setRequired(true)
+      .setPlaceholder("for example: archive-shard");
+    modal.addComponents(new ActionRowBuilder<TextInputBuilder>().addComponents(itemId));
+    if (section !== "force-item") {
+      const quantity = new TextInputBuilder()
+        .setCustomId("quantity")
+        .setLabel("Quantity")
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true)
+        .setPlaceholder("1");
+      modal.addComponents(new ActionRowBuilder<TextInputBuilder>().addComponents(quantity));
+    }
+    await interaction.showModal(modal);
+    return;
+  }
+  if (section === "clear-inventory") {
+    const count = clearInventory(interaction.user.id);
+    await interaction.reply({ content: `Developer access: cleared ${count} item record(s) from your inventory.`, ephemeral: true });
     return;
   }
   if (section === "test-achievement") {
@@ -804,6 +844,52 @@ export async function handleDeveloperComponent(interaction: ButtonInteraction): 
 }
 
 export async function handleDeveloperModal(interaction: ModalSubmitInteraction): Promise<void> {
+  if (interaction.customId === "developer:force-item-modal") {
+    if (interaction.user.id !== config.developerId) {
+      await interaction.reply({ content: "You do not have access to that panel.", ephemeral: true });
+      return;
+    }
+    const itemId = interaction.fields.getTextInputValue("item-id").trim().toLowerCase();
+    const item = getItem(itemId);
+    if (!item) {
+      await interaction.reply({ content: "No item exists with that ID.", ephemeral: true });
+      return;
+    }
+    developerItemForces.set(interaction.user.id, item.id);
+    await interaction.reply({ content: `Developer access: your next Venture will award **${item.name}**.`, ephemeral: true });
+    return;
+  }
+  if (interaction.customId === "developer:grant-item-modal"
+    || interaction.customId === "developer:set-item-modal"
+    || interaction.customId === "developer:remove-item-modal") {
+    if (interaction.user.id !== config.developerId) {
+      await interaction.reply({ content: "You do not have access to that panel.", ephemeral: true });
+      return;
+    }
+    const itemId = interaction.fields.getTextInputValue("item-id").trim().toLowerCase();
+    const quantity = Number(interaction.fields.getTextInputValue("quantity").trim());
+    const item = getItem(itemId);
+    if (!item || !Number.isSafeInteger(quantity) || quantity <= 0) {
+      await interaction.reply({ content: "Provide a valid item ID and a positive whole-number quantity.", ephemeral: true });
+      return;
+    }
+    const current = getItemQuantity(interaction.user.id, itemId);
+    const next = interaction.customId === "developer:grant-item-modal" ? current + quantity
+      : interaction.customId === "developer:remove-item-modal" ? current - quantity
+        : quantity;
+    if (next < 0 || !setItemQuantity(
+      interaction.user.id,
+      itemId,
+      next,
+      interaction.user.username,
+      interaction.user.displayAvatarURL(),
+    )) {
+      await interaction.reply({ content: `That quantity exceeds **${item.name}**'s stacking limit or the item is not owned.`, ephemeral: true });
+      return;
+    }
+    await interaction.reply({ content: `Developer access: **${item.name}** quantity is now ${next}.`, ephemeral: true });
+    return;
+  }
   if (interaction.customId === "developer:passport-status-modal") {
     if (interaction.user.id !== config.developerId) {
       await interaction.reply({ content: "You do not have access to that panel.", ephemeral: true });
@@ -1182,16 +1268,21 @@ function ventureReply(
 
   const forcedRarity = developerVentureForces.get(user.id);
   developerVentureForces.delete(user.id);
+  const forcedItemId = developerItemForces.get(user.id);
+  developerItemForces.delete(user.id);
   const encounter = chooseVentureEncounter(forcedRarity);
   const startedProgression = processProgressionEvent(user.id, user.username, user.avatarUrl, "VENTURE_STARTED");
   let rewardNotice = "No material reward was recorded.";
-  if (encounter.reward) {
-    const reward = grantRewards(user.id, encounter.reward, { type: "venture", id: String(started.runId) }, {
+  const rewards: Rewards | undefined = forcedItemId
+    ? { ...(encounter.reward ?? {}), items: [{ id: forcedItemId, quantity: 1 }, ...(encounter.reward?.items ?? [])] }
+    : encounter.reward;
+  if (rewards) {
+    const reward = grantRewards(user.id, rewards, { type: "venture", id: String(started.runId) }, {
       username: user.username,
       avatarUrl: user.avatarUrl,
       oneTimeKey: `venture:${started.runId}`,
     });
-    rewardNotice = reward.ok ? formatRewards(encounter.reward) : "The Archives recorded the result, but no reward could be issued.";
+    rewardNotice = reward.ok ? formatRewards(rewards) : "The Archives recorded the result, but no reward could be issued.";
   }
   completeVenture(started.runId, encounter.id, encounter.rarity, encounter.successful);
   const completedProgression = processProgressionEvent(

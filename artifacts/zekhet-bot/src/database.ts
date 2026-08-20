@@ -1697,6 +1697,35 @@ export function removeItem(userId: string, itemId: string, quantity: number): bo
   return true;
 }
 
+export function setItemQuantity(
+  userId: string,
+  itemId: string,
+  quantity: number,
+  username = "Unknown Record",
+  avatarUrl: string | null = null,
+): boolean {
+  const item = getItem(itemId);
+  if (!item || !Number.isInteger(quantity) || quantity < 0 || quantity > item.maxStack || (!item.stackable && quantity > 1)) {
+    return false;
+  }
+  ensureProfile(userId, username, avatarUrl);
+  if (quantity === 0) {
+    database.prepare("DELETE FROM user_inventory WHERE discord_id = ? AND item_id = ?").run(userId, itemId);
+    return true;
+  }
+  database.prepare(`
+    INSERT INTO user_inventory (discord_id, item_id, quantity)
+    VALUES (?, ?, ?)
+    ON CONFLICT(discord_id, item_id) DO UPDATE SET quantity = excluded.quantity,
+      updated_at = CURRENT_TIMESTAMP
+  `).run(userId, itemId, quantity);
+  return true;
+}
+
+export function clearInventory(userId: string): number {
+  return Number(database.prepare("DELETE FROM user_inventory WHERE discord_id = ?").run(userId).changes);
+}
+
 export function useItem(userId: string, itemId: string, effect?: (item: Item) => void): { ok: boolean; reason?: string; item?: Item } {
   const item = getItem(itemId);
   if (!item) return { ok: false, reason: "invalid-item" };
