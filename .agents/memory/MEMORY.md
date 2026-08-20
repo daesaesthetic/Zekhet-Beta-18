@@ -1,0 +1,1 @@
+- [Zekhet runtime](node-runtime.md) — use Node 24 for the bot because its SQLite persistence relies on the built-in node:sqlite module.
