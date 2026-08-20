@@ -70,6 +70,11 @@ const dialogue = {
     "Your name now carries another distinction.",
     "The archives have amended your Record.",
   ],
+  titleInspect: [
+    "The Court presents the designation for inspection.",
+    "Zekhet turns the title toward the light.",
+    "The requested distinction has been retrieved.",
+  ],
   loreDiscover: [
     "⛤ Another page has revealed itself.",
     "The Archives have surrendered another record.",
@@ -86,6 +91,31 @@ const dialogue = {
     "...You were not supposed to find this.",
     "The archive has no explanation for your access.",
     "Zekhet closes the ledger rather quickly.",
+  ],
+  cooldown: [
+    "⛤ The archives require a moment before another request.",
+    "Zekhet closes the ledger. Try again shortly.",
+    "Even Zekhet permits the records to rest.",
+  ],
+  curseCooldown: [
+    "The ritual has not yet recovered.",
+    "The ritual circle is still cooling.",
+    "The mark must wait before it can be invoked again.",
+  ],
+  curseApplied: [
+    "The ritual is complete.",
+    "The mark has been entered into the Record.",
+    "The Court has witnessed the harmless invocation.",
+  ],
+  contractCreated: [
+    "The Ledger has accepted the proposed agreement.",
+    "The agreement has been written and offered for consideration.",
+    "Zekhet records the offer without taking sides.",
+  ],
+  contractChanged: [
+    "The Ledger has been amended.",
+    "Zekhet has recorded the new standing of the agreement.",
+    "The contract now bears its latest judgment.",
   ],
   titleMissing: [
     "That name is absent from the Court.",
@@ -464,7 +494,7 @@ function titleEmbed(title: Title, owned: boolean, equipped = false): EmbedBuilde
     .setColor(rarityColors[title.rarity])
     .setAuthor({ name: "👑 THE COURT 👑" })
     .setTitle(titleLabel(title, owned))
-    .setDescription(`${owned ? pick(dialogue.titleEquip) : title.isSecret ? "This title remains sealed." : "The Court permits you to inspect this designation."}\n\n${owned ? title.description : (title.isSecret ? "This title remains sealed." : title.description)}`)
+    .setDescription(`${owned ? (equipped ? pick(dialogue.titleEquip) : pick(dialogue.titleInspect)) : title.isSecret ? "This title remains sealed." : pick(dialogue.titleInspect)}\n\n${owned ? title.description : (title.isSecret ? "This title remains sealed." : title.description)}`)
     .addFields(
       { name: "Title ID", value: `\`${title.id}\``, inline: true },
       { name: "Rarity", value: title.rarity, inline: true },
@@ -704,12 +734,12 @@ export async function handleCommand(interaction: ChatInputCommandInteraction): P
 
     if (subcommand === "inspect") {
       if (!titleId) {
-        await interaction.reply({ content: "Name the title ID you wish to inspect.", ephemeral: true });
+        await interaction.reply({ content: "Name the title ID you wish to inspect; the Court cannot search an unnamed page.", ephemeral: true });
         return;
       }
       const title = getTitle(titleId);
       if (!title) {
-        await interaction.reply({ content: "That title is not recorded in the Court.", ephemeral: true });
+        await interaction.reply({ content: pick(dialogue.titleMissing), ephemeral: true });
         return;
       }
       const owned = getOwnedTitles(interaction.user.id, interaction.user.username, interaction.user.displayAvatarURL())
@@ -720,20 +750,20 @@ export async function handleCommand(interaction: ChatInputCommandInteraction): P
 
     if (subcommand === "equip") {
       if (!titleId) {
-        await interaction.reply({ content: "Name the title ID you wish to equip.", ephemeral: true });
+        await interaction.reply({ content: "Name the title ID you wish to equip; the Court cannot place an unnamed designation.", ephemeral: true });
         return;
       }
       const result = equipTitle(interaction.user.id, interaction.user.username, interaction.user.displayAvatarURL(), titleId);
       if (!result.ok) {
         await interaction.reply({
           content: result.reason === "missing"
-            ? "That title is not recorded in the Court."
-            : "You do not own that title. Locked titles cannot be equipped.",
+            ? pick(dialogue.titleMissing)
+            : pick(dialogue.titleLocked),
           ephemeral: true,
         });
         return;
       }
-      await interaction.reply({ content: `The title **${result.title.name}** is now equipped upon your Record.` });
+      await interaction.reply({ content: `${pick(dialogue.titleEquip)}\n\nThe title **${result.title.name}** is now equipped upon your Record.` });
       return;
     }
 
@@ -763,8 +793,8 @@ export async function handleCommand(interaction: ChatInputCommandInteraction): P
       if (!result.ok) {
         await interaction.reply({
           content: result.reason === "cooldown"
-            ? `The Archives are still settling. Try again in ${result.retryAfter} seconds.`
-            : "No unsealed archive entries remain. The deeper records are classified.",
+            ? `${pick(dialogue.cooldown)} Try again in ${result.retryAfter} seconds.`
+            : "The Archives have no unsealed pages left. The deeper records remain classified.",
           ephemeral: true,
         });
         return;
@@ -782,7 +812,7 @@ export async function handleCommand(interaction: ChatInputCommandInteraction): P
       }
       const entry = getLoreEntry(loreId);
       if (!entry) {
-        await interaction.reply({ content: "That archive entry is not recorded.", ephemeral: true });
+        await interaction.reply({ content: "That entry is absent from the Archives.", ephemeral: true });
         return;
       }
       const found = discovered.find((discoveredEntry) => discoveredEntry.id === entry.id);
@@ -791,7 +821,7 @@ export async function handleCommand(interaction: ChatInputCommandInteraction): P
       } else if (entry.isSecret) {
         await interaction.reply({ embeds: [classifiedLoreEmbed(entry)] });
       } else {
-        await interaction.reply({ content: "That entry has not yet been discovered. Use `/lore discover`.", ephemeral: true });
+        await interaction.reply({ content: "That page has not yet been revealed. Use `/lore discover`.", ephemeral: true });
       }
       return;
     }
@@ -811,7 +841,7 @@ export async function handleCommand(interaction: ChatInputCommandInteraction): P
       const curseId = interaction.options.getString("curse")?.trim().toLowerCase();
       const curse = curseId ? getCurse(curseId) : undefined;
       if (!curse) {
-        await interaction.reply({ content: "That ritual is not recorded in the Catalog of Curses.", ephemeral: true });
+        await interaction.reply({ content: "Zekhet finds no such ritual in the Catalog of Curses.", ephemeral: true });
         return;
       }
       await interaction.reply({ embeds: [curseEmbed(curse)] });
@@ -839,15 +869,15 @@ export async function handleCommand(interaction: ChatInputCommandInteraction): P
     );
     if (!result.ok) {
       const message = result.reason === "self"
-        ? "A ritual cannot be turned upon your own Record."
+        ? "A ritual cannot be turned upon your own Record. Even the Court has boundaries."
         : result.reason === "cooldown"
-          ? `The ritual circle is still cooling. Try again in ${result.retryAfter} seconds.`
+          ? `${pick(dialogue.curseCooldown)} Try again in ${result.retryAfter} seconds.`
           : "That Record already bears every available mark. Wait for one to fade.";
       await interaction.reply({ content: message, ephemeral: true });
       return;
     }
     await interaction.reply({
-      content: `The ritual is complete. <@${target.id}> has been marked.`,
+      content: `${pick(dialogue.curseApplied)} <@${target.id}> has been marked.`,
       embeds: [activeCurseEmbed(result.curse)],
     });
     return;
@@ -889,7 +919,7 @@ export async function handleCommand(interaction: ChatInputCommandInteraction): P
         return;
       }
       await interaction.reply({
-        content: `Contract **#${result.contract.id}** has been offered to <@${target.id}>.`,
+      content: `${pick(dialogue.contractCreated)}\n\nContract **#${result.contract.id}** has been offered to <@${target.id}>.`,
         embeds: [contractEmbed(result.contract)],
       });
       return;
@@ -898,13 +928,13 @@ export async function handleCommand(interaction: ChatInputCommandInteraction): P
     const contractId = interaction.options.getString("id")?.trim() ?? "";
     const contract = getContract(contractId);
     if (!contract) {
-      await interaction.reply({ content: "That contract is not recorded in the Ledger.", ephemeral: true });
+        await interaction.reply({ content: pick(dialogue.contractMissing), ephemeral: true });
       return;
     }
 
     if (subcommand === "inspect") {
       if (interaction.user.id !== contract.creatorId && interaction.user.id !== contract.recipientId) {
-        await interaction.reply({ content: "Only the named parties may inspect this contract.", ephemeral: true });
+        await interaction.reply({ content: pick(dialogue.permissionDenied), ephemeral: true });
         return;
       }
       await interaction.reply({ embeds: [contractEmbed(contract)] });
@@ -920,15 +950,15 @@ export async function handleCommand(interaction: ChatInputCommandInteraction): P
       const message = result.reason === "unauthorized"
         ? subcommand === "accept" || subcommand === "reject"
           ? "Only the contract recipient may accept or reject this agreement."
-          : "Only a named party may change this agreement."
+          : pick(dialogue.permissionDenied)
         : result.reason === "invalid-status"
           ? `This contract is already ${contractStatusLabel(contract.status).toLowerCase()} and cannot be changed that way.`
-          : "That contract is not recorded in the Ledger.";
+        : pick(dialogue.contractMissing);
       await interaction.reply({ content: message, ephemeral: true });
       return;
     }
     await interaction.reply({
-      content: `Contract **#${result.contract.id}** is now **${contractStatusLabel(result.contract.status)}**.`,
+      content: `${pick(dialogue.contractChanged)} Contract **#${result.contract.id}** is now **${contractStatusLabel(result.contract.status)}**.`,
       embeds: [contractEmbed(result.contract)],
     });
     return;
@@ -966,5 +996,5 @@ export async function handleCommand(interaction: ChatInputCommandInteraction): P
   }
 
   const profile = updateProfile(target.id, target.username, target.displayAvatarURL(), updates);
-  await interaction.reply({ content: "The Record has been amended.", embeds: [profileEmbed(profile, target)] });
+    await interaction.reply({ content: `${pick(dialogue.profileEdit)}${rareAside()}`, embeds: [profileEmbed(profile, target)] });
 }
