@@ -19,6 +19,9 @@ export type Profile = {
   contractsCreated: number;
   contractsCompleted: number;
   achievementsUnlocked: number;
+  xp: number;
+  level: number;
+  rank: string;
 };
 
 export type TitleRarity = "Common" | "Uncommon" | "Rare" | "Epic" | "Legendary" | "Mythic" | "Secret";
@@ -119,6 +122,25 @@ export type CurrencyTransactionKind = "credit" | "debit" | "set";
 export type CurrencyResult =
   | { ok: true; balance: number; transactionId: string }
   | { ok: false; reason: "invalid-amount" | "insufficient-funds" | "duplicate-transaction" | "invalid-balance" };
+
+export type Progression = {
+  xp: number;
+  level: number;
+  rank: string;
+  currentLevelXp: number;
+  nextLevelXp: number;
+};
+
+export type ExperienceResult =
+  | {
+      ok: true;
+      before: Progression;
+      after: Progression;
+      xpGranted: number;
+      levelsGained: number;
+      rankChanged: boolean;
+    }
+  | { ok: false; reason: "invalid-amount" | "invalid-xp" };
 
 export type ProgressionEvent =
   | "PROFILE_CREATED"
@@ -306,6 +328,19 @@ database.exec(`
   );
   CREATE INDEX IF NOT EXISTS currency_transactions_user_created
     ON currency_transactions(discord_id, created_at);
+  CREATE TABLE IF NOT EXISTS user_progression (
+    discord_id TEXT PRIMARY KEY REFERENCES users(discord_id) ON DELETE CASCADE,
+    xp INTEGER NOT NULL DEFAULT 0 CHECK (xp >= 0),
+    level INTEGER NOT NULL DEFAULT 1 CHECK (level >= 1),
+    rank TEXT NOT NULL DEFAULT 'Initiate',
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+  CREATE TABLE IF NOT EXISTS reward_claims (
+    claim_key TEXT PRIMARY KEY,
+    discord_id TEXT NOT NULL REFERENCES users(discord_id) ON DELETE CASCADE,
+    source TEXT NOT NULL,
+    claimed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
 `);
 
 const contractTable = database.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'contracts'").get() as { sql?: string } | undefined;
@@ -842,6 +877,10 @@ function ensureProfile(userId: string, username: string, avatarUrl: string | nul
     INSERT OR IGNORE INTO currency_balances (discord_id, balance)
     VALUES (?, 100)
   `).run(userId);
+  database.prepare(`
+    INSERT OR IGNORE INTO user_progression (discord_id, xp, level, rank)
+    VALUES (?, 0, 1, 'Initiate')
+  `).run(userId);
 
   const starterTitles = ["wanderer", "newcomer", "archivist"];
   for (const titleId of starterTitles) {
@@ -864,9 +903,11 @@ export function getProfile(userId: string, username: string, avatarUrl: string |
         WHERE c_completed.status = 'Completed'
           AND (c_completed.creator_id = u.discord_id OR c_completed.recipient_id = u.discord_id)) AS contractsCompleted,
       (SELECT COUNT(*) FROM user_achievements ua_count WHERE ua_count.discord_id = u.discord_id) AS achievementsUnlocked,
+      COALESCE(up.xp, 0) AS xp, COALESCE(up.level, 1) AS level, COALESCE(up.rank, 'Initiate') AS rank,
       p.created_at AS createdAt, p.profile_number AS profileNumber,
       p.color, p.theme
     FROM users u JOIN profiles p ON p.discord_id = u.discord_id
+    LEFT JOIN user_progression up ON up.discord_id = u.discord_id
     LEFT JOIN user_titles ut ON ut.discord_id = u.discord_id AND ut.equipped = 1
     LEFT JOIN titles t ON t.id = ut.title_id
     WHERE u.discord_id = ?
