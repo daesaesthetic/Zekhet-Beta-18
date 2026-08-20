@@ -37,6 +37,13 @@ import {
   resetUserData,
   unlockAllLore,
   unlockAllTitles,
+  getAchievements,
+  getAchievement,
+  getUnlockedAchievements,
+  developerUnlockAchievement,
+  recordInteraction,
+  unlockEligibleAchievements,
+  resetAchievementProgress,
   type ActiveCurse,
   type Contract,
   type ContractTemplate,
@@ -46,6 +53,8 @@ import {
   type LoreEntry,
   type Profile,
   type Title,
+  type Achievement,
+  type UnlockedAchievement,
 } from "./database.js";
 
 const themes = ["Nightshade", "Celestial", "Eclipse", "Ancient", "Royal", "Void"] as const;

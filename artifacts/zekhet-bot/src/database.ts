@@ -18,6 +18,7 @@ export type Profile = {
   activeCurses: number;
   contractsCreated: number;
   contractsCompleted: number;
+  achievementsUnlocked: number;
 };
 
 export type TitleRarity = "Common" | "Uncommon" | "Rare" | "Epic" | "Legendary" | "Mythic" | "Secret";
@@ -83,6 +84,19 @@ export type Contract = {
   expiresAt: number | null;
   status: ContractStatus;
 };
+
+export type AchievementCategory = "Exploration" | "Archives" | "Prestige" | "Rituals" | "Contracts" | "Secret";
+export type AchievementRarity = "Common" | "Uncommon" | "Rare" | "Epic" | "Legendary" | "Secret";
+export type Achievement = {
+  id: string;
+  name: string;
+  description: string;
+  category: AchievementCategory;
+  rarity: AchievementRarity;
+  isHidden: boolean;
+  rewardTitleId: string | null;
+};
+export type UnlockedAchievement = Achievement & { unlockedAt: string };
 
 mkdirSync(dirname(config.databasePath), { recursive: true });
 const database = new DatabaseSync(config.databasePath);
@@ -167,6 +181,32 @@ database.exec(`
   );
   CREATE INDEX IF NOT EXISTS contracts_creator_status ON contracts(creator_id, status);
   CREATE INDEX IF NOT EXISTS contracts_recipient_status ON contracts(recipient_id, status);
+  CREATE TABLE IF NOT EXISTS achievements (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE,
+    description TEXT NOT NULL,
+    category TEXT NOT NULL CHECK (category IN ('Exploration', 'Archives', 'Prestige', 'Rituals', 'Contracts', 'Secret')),
+    rarity TEXT NOT NULL CHECK (rarity IN ('Common', 'Uncommon', 'Rare', 'Epic', 'Legendary', 'Secret')),
+    is_hidden INTEGER NOT NULL DEFAULT 0 CHECK (is_hidden IN (0, 1)),
+    reward_title_id TEXT REFERENCES titles(id) ON DELETE SET NULL
+  );
+  CREATE TABLE IF NOT EXISTS user_achievements (
+    discord_id TEXT NOT NULL REFERENCES users(discord_id) ON DELETE CASCADE,
+    achievement_id TEXT NOT NULL REFERENCES achievements(id) ON DELETE CASCADE,
+    unlocked_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (discord_id, achievement_id)
+  );
+  CREATE TABLE IF NOT EXISTS user_activity (
+    discord_id TEXT PRIMARY KEY REFERENCES users(discord_id) ON DELETE CASCADE,
+    interaction_count INTEGER NOT NULL DEFAULT 0,
+    last_interacted_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+  CREATE TABLE IF NOT EXISTS curse_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    target_id TEXT NOT NULL REFERENCES users(discord_id) ON DELETE CASCADE,
+    curse_id TEXT NOT NULL REFERENCES curses(id) ON DELETE CASCADE,
+    applied_at INTEGER NOT NULL
+  );
 `);
 
 const contractTable = database.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'contracts'").get() as { sql?: string } | undefined;
@@ -219,6 +259,7 @@ const initialTitles: Title[] = [
   { id: "wanderer", name: "Wanderer", description: "One who has begun the road between worlds.", rarity: "Common", isSecret: false },
   { id: "newcomer", name: "Newcomer", description: "A newly entered name in the keeper's record.", rarity: "Common", isSecret: false },
   { id: "archivist", name: "Archivist", description: "A patient hand trusted with quiet knowledge.", rarity: "Uncommon", isSecret: false },
+  { id: "courtier", name: "Courtier", description: "A familiar presence among the Court's many designations.", rarity: "Rare", isSecret: false },
   { id: "nightwalker", name: "Nightwalker", description: "At home where the last light gives way.", rarity: "Uncommon", isSecret: false },
   { id: "outcast", name: "Outcast", description: "Cast beyond the borders, yet still standing.", rarity: "Rare", isSecret: false },
   { id: "void-walker", name: "Void Walker", description: "A traveler who has crossed the soundless dark.", rarity: "Epic", isSecret: false },
@@ -338,6 +379,44 @@ for (const curse of initialCurses) {
   `).run(curse.id, curse.name, curse.description, curse.rarity, curse.durationMinutes, curse.cooldownSeconds);
 }
 
+const initialAchievements: Achievement[] = [
+  { id: "first-record", name: "FIRST RECORD", description: "Create your Zekhet profile.", category: "Exploration", rarity: "Common", isHidden: false, rewardTitleId: null },
+  { id: "familiar-face", name: "FAMILIAR FACE", description: "Interact with Zekhet on multiple occasions.", category: "Exploration", rarity: "Common", isHidden: false, rewardTitleId: null },
+  { id: "devoted", name: "THE DEVOTED", description: "Interact with Zekhet repeatedly over time.", category: "Exploration", rarity: "Uncommon", isHidden: false, rewardTitleId: null },
+  { id: "courtier", name: "COURTIER", description: "Collect 10 titles.", category: "Prestige", rarity: "Rare", isHidden: false, rewardTitleId: "courtier" },
+  { id: "collector", name: "THE COLLECTOR", description: "Collect 20 titles.", category: "Prestige", rarity: "Epic", isHidden: false, rewardTitleId: null },
+  { id: "archivist", name: "ARCHIVIST", description: "Discover 25 lore entries.", category: "Archives", rarity: "Rare", isHidden: false, rewardTitleId: "archivist" },
+  { id: "forbidden-page", name: "THE FORBIDDEN PAGE", description: "Discover an extremely rare archive entry.", category: "Archives", rarity: "Legendary", isHidden: false, rewardTitleId: null },
+  { id: "marked", name: "MARKED", description: "Receive your first curse.", category: "Rituals", rarity: "Common", isHidden: false, rewardTitleId: null },
+  { id: "cursed", name: "CURSED", description: "Receive several different curses.", category: "Rituals", rarity: "Rare", isHidden: false, rewardTitleId: null },
+  { id: "oathbound", name: "OATHBOUND", description: "Complete your first contract.", category: "Contracts", rarity: "Uncommon", isHidden: false, rewardTitleId: "oathbound" },
+  { id: "contractor", name: "CONTRACTOR", description: "Complete several contracts.", category: "Contracts", rarity: "Rare", isHidden: false, rewardTitleId: null },
+  { id: "the-unknown", name: "THE UNKNOWN", description: "Discover a secret lore entry.", category: "Secret", rarity: "Secret", isHidden: true, rewardTitleId: null },
+  { id: "the-unrecorded", name: "THE UNRECORDED", description: "Unlock a secret title.", category: "Secret", rarity: "Secret", isHidden: true, rewardTitleId: "the-unrecorded" },
+  { id: "sealed-name", name: "THE SEALED NAME", description: "Own five secret titles.", category: "Secret", rarity: "Epic", isHidden: true, rewardTitleId: null },
+  { id: "quiet-court", name: "THE QUIET COURT", description: "Equip a title after discovering 10 lore entries.", category: "Prestige", rarity: "Epic", isHidden: false, rewardTitleId: null },
+  { id: "keeper-of-records", name: "KEEPER OF RECORDS", description: "Collect 30 titles and discover 25 lore entries.", category: "Prestige", rarity: "Legendary", isHidden: false, rewardTitleId: "keeper-of-records" },
+  { id: "first-oath", name: "FIRST OATH", description: "Create and complete a contract.", category: "Contracts", rarity: "Uncommon", isHidden: false, rewardTitleId: null },
+  { id: "many-marks", name: "MANY MARKS", description: "Receive five different curses.", category: "Rituals", rarity: "Epic", isHidden: false, rewardTitleId: null },
+  { id: "patient-visitor", name: "PATIENT VISITOR", description: "Return to Zekhet on five different days.", category: "Exploration", rarity: "Rare", isHidden: false, rewardTitleId: null },
+  { id: "archive-heart", name: "ARCHIVE HEART", description: "Discover 40 lore entries.", category: "Archives", rarity: "Legendary", isHidden: false, rewardTitleId: null },
+  { id: "the-last-page", name: "THE LAST PAGE", description: "Discover every visible lore entry.", category: "Archives", rarity: "Legendary", isHidden: true, rewardTitleId: null },
+  { id: "unbroken-ledger", name: "UNBROKEN LEDGER", description: "Complete five contracts without rejecting one.", category: "Contracts", rarity: "Epic", isHidden: false, rewardTitleId: null },
+  { id: "night-visitor", name: "NIGHT VISITOR", description: "Interact with Zekhet after midnight.", category: "Secret", rarity: "Secret", isHidden: true, rewardTitleId: null },
+  { id: "the-devoted-record", name: "THE DEVOTED RECORD", description: "Interact with Zekhet 25 times.", category: "Exploration", rarity: "Epic", isHidden: false, rewardTitleId: null },
+  { id: "beyond-the-record", name: "BEYOND THE RECORD", description: "Unlock a secret title and discover a secret lore entry.", category: "Secret", rarity: "Legendary", isHidden: true, rewardTitleId: null },
+];
+for (const achievement of initialAchievements) {
+  database.prepare(`
+    INSERT INTO achievements (id, name, description, category, rarity, is_hidden, reward_title_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET name = excluded.name, description = excluded.description,
+      category = excluded.category, rarity = excluded.rarity, is_hidden = excluded.is_hidden,
+      reward_title_id = excluded.reward_title_id
+  `).run(achievement.id, achievement.name, achievement.description, achievement.category,
+    achievement.rarity, achievement.isHidden ? 1 : 0, achievement.rewardTitleId);
+}
+
 function ensureProfile(userId: string, username: string, avatarUrl: string | null): void {
   database.prepare(`
     INSERT INTO users (discord_id, username, avatar_url)
@@ -371,6 +450,7 @@ export function getProfile(userId: string, username: string, avatarUrl: string |
       (SELECT COUNT(*) FROM contracts c_completed
         WHERE c_completed.status = 'Completed'
           AND (c_completed.creator_id = u.discord_id OR c_completed.recipient_id = u.discord_id)) AS contractsCompleted,
+      (SELECT COUNT(*) FROM user_achievements ua_count WHERE ua_count.discord_id = u.discord_id) AS achievementsUnlocked,
       p.created_at AS createdAt, p.profile_number AS profileNumber,
       p.color, p.theme
     FROM users u JOIN profiles p ON p.discord_id = u.discord_id
@@ -469,6 +549,8 @@ export function inflictCurse(
     INSERT INTO active_curses (target_id, curse_id, inflicted_by_id, applied_at, expires_at)
     VALUES (?, ?, ?, ?, ?)
   `).run(targetId, curse.id, casterId, appliedAt, expiresAt);
+  database.prepare("INSERT INTO curse_history (target_id, curse_id, applied_at) VALUES (?, ?, ?)")
+    .run(targetId, curse.id, appliedAt);
   database.prepare(`
     INSERT INTO curse_cooldowns (discord_id, used_at) VALUES (?, ?)
     ON CONFLICT(discord_id) DO UPDATE SET used_at = excluded.used_at
@@ -583,6 +665,140 @@ export function updateContractStatus(
   };
   database.prepare("UPDATE contracts SET status = ? WHERE id = ?").run(nextStatus[action], contract.id);
   return { ok: true, contract: getContract(contract.id)! };
+}
+
+function mapAchievement(row: Record<string, unknown>): Achievement {
+  return {
+    id: row["id"] as string,
+    name: row["name"] as string,
+    description: row["description"] as string,
+    category: row["category"] as AchievementCategory,
+    rarity: row["rarity"] as AchievementRarity,
+    isHidden: Boolean(row["isHidden"]),
+    rewardTitleId: (row["rewardTitleId"] as string | null) ?? null,
+  };
+}
+
+export function getAchievements(): Achievement[] {
+  return database.prepare(`
+    SELECT id, name, description, category, rarity, is_hidden AS isHidden, reward_title_id AS rewardTitleId
+    FROM achievements ORDER BY category, rarity, id
+  `).all().map((row) => mapAchievement(row as Record<string, unknown>));
+}
+
+export function getAchievement(id: string): Achievement | undefined {
+  const row = database.prepare(`
+    SELECT id, name, description, category, rarity, is_hidden AS isHidden, reward_title_id AS rewardTitleId
+    FROM achievements WHERE id = ?
+  `).get(id) as Record<string, unknown> | undefined;
+  return row ? mapAchievement(row) : undefined;
+}
+
+export function getUnlockedAchievements(userId: string, username: string, avatarUrl: string | null): UnlockedAchievement[] {
+  ensureProfile(userId, username, avatarUrl);
+  return database.prepare(`
+    SELECT a.id, a.name, a.description, a.category, a.rarity, a.is_hidden AS isHidden,
+      a.reward_title_id AS rewardTitleId, ua.unlocked_at AS unlockedAt
+    FROM user_achievements ua JOIN achievements a ON a.id = ua.achievement_id
+    WHERE ua.discord_id = ? ORDER BY ua.unlocked_at
+  `).all(userId).map((row) => {
+    const typed = row as Record<string, unknown>;
+    return { ...mapAchievement(typed), unlockedAt: typed["unlockedAt"] as string };
+  });
+}
+
+function achievementRequirements(userId: string): Set<string> {
+  const titles = Number((database.prepare("SELECT COUNT(*) AS count FROM user_titles WHERE discord_id = ?").get(userId) as { count: number }).count);
+  const lore = Number((database.prepare("SELECT COUNT(*) AS count FROM user_lore WHERE discord_id = ?").get(userId) as { count: number }).count);
+  const visibleLore = Number((database.prepare(`
+    SELECT COUNT(*) AS count FROM user_lore ul JOIN lore_entries le ON le.id = ul.lore_id
+    WHERE ul.discord_id = ? AND le.is_secret = 0
+  `).get(userId) as { count: number }).count);
+  const secretLore = Number((database.prepare(`
+    SELECT COUNT(*) AS count FROM user_lore ul JOIN lore_entries le ON le.id = ul.lore_id
+    WHERE ul.discord_id = ? AND le.is_secret = 1
+  `).get(userId) as { count: number }).count);
+  const secretTitles = Number((database.prepare(`
+    SELECT COUNT(*) AS count FROM user_titles ut JOIN titles t ON t.id = ut.title_id
+    WHERE ut.discord_id = ? AND t.is_secret = 1
+  `).get(userId) as { count: number }).count);
+  const curses = Number((database.prepare("SELECT COUNT(DISTINCT curse_id) AS count FROM curse_history WHERE target_id = ?").get(userId) as { count: number }).count);
+  const completedContracts = Number((database.prepare(`
+    SELECT COUNT(*) AS count FROM contracts WHERE status = 'Completed' AND (creator_id = ? OR recipient_id = ?)
+  `).get(userId, userId) as { count: number }).count);
+  const activity = database.prepare("SELECT interaction_count AS count, last_interacted_at AS lastInteractedAt FROM user_activity WHERE discord_id = ?")
+    .get(userId) as { count: number; lastInteractedAt: string } | undefined;
+  const unlocked = new Set<string>();
+  if (database.prepare("SELECT 1 FROM profiles WHERE discord_id = ?").get(userId)) unlocked.add("first-record");
+  if ((activity?.count ?? 0) >= 3) unlocked.add("familiar-face");
+  if ((activity?.count ?? 0) >= 10) unlocked.add("devoted");
+  if ((activity?.count ?? 0) >= 25) unlocked.add("the-devoted-record");
+  if (titles >= 10) unlocked.add("courtier");
+  if (titles >= 20) unlocked.add("collector");
+  if (titles >= 30 && lore >= 25) unlocked.add("keeper-of-records");
+  if (lore >= 25) unlocked.add("archivist");
+  if (lore >= 40) unlocked.add("archive-heart");
+  if (visibleLore >= getLoreCatalog().filter((entry) => !entry.isSecret).length) unlocked.add("the-last-page");
+  if (secretLore > 0) unlocked.add("the-unknown");
+  if (secretTitles > 0) unlocked.add("the-unrecorded");
+  if (secretTitles >= 5) unlocked.add("sealed-name");
+  if (curses >= 1) unlocked.add("marked");
+  if (curses >= 3) unlocked.add("cursed");
+  if (curses >= 5) unlocked.add("many-marks");
+  if (completedContracts >= 1) unlocked.add("oathbound");
+  if (completedContracts >= 1) unlocked.add("first-oath");
+  if (completedContracts >= 3) unlocked.add("contractor");
+  if (completedContracts >= 5) unlocked.add("unbroken-ledger");
+  if (lore >= 10 && titles > 0) unlocked.add("quiet-court");
+  if (secretTitles > 0 && secretLore > 0) unlocked.add("beyond-the-record");
+  if (activity?.lastInteractedAt && new Date(activity.lastInteractedAt).getHours() < 6) unlocked.add("night-visitor");
+  return unlocked;
+}
+
+export function recordInteraction(userId: string, username: string, avatarUrl: string | null): UnlockedAchievement[] {
+  ensureProfile(userId, username, avatarUrl);
+  database.prepare(`
+    INSERT INTO user_activity (discord_id, interaction_count, last_interacted_at)
+    VALUES (?, 1, ?)
+    ON CONFLICT(discord_id) DO UPDATE SET interaction_count = interaction_count + 1, last_interacted_at = excluded.last_interacted_at
+  `).run(userId, new Date().toISOString());
+  return unlockEligibleAchievements(userId);
+}
+
+export function unlockEligibleAchievements(userId: string): UnlockedAchievement[] {
+  const eligible = achievementRequirements(userId);
+  const unlocked: UnlockedAchievement[] = [];
+  for (const achievement of getAchievements()) {
+    if (!eligible.has(achievement.id)) continue;
+    const existing = database.prepare("SELECT 1 FROM user_achievements WHERE discord_id = ? AND achievement_id = ?").get(userId, achievement.id);
+    if (existing) continue;
+    const unlockedAt = new Date().toISOString();
+    database.prepare("INSERT INTO user_achievements (discord_id, achievement_id, unlocked_at) VALUES (?, ?, ?)")
+      .run(userId, achievement.id, unlockedAt);
+    if (achievement.rewardTitleId) {
+      database.prepare("INSERT OR IGNORE INTO user_titles (discord_id, title_id) VALUES (?, ?)")
+        .run(userId, achievement.rewardTitleId);
+    }
+    unlocked.push({ ...achievement, unlockedAt });
+  }
+  return unlocked;
+}
+
+export function developerUnlockAchievement(userId: string, achievementId: string, username: string, avatarUrl: string | null): UnlockedAchievement | undefined {
+  ensureProfile(userId, username, avatarUrl);
+  const achievement = getAchievement(achievementId);
+  if (!achievement) return undefined;
+  const existing = database.prepare("SELECT 1 FROM user_achievements WHERE discord_id = ? AND achievement_id = ?").get(userId, achievementId);
+  if (existing) return getUnlockedAchievements(userId, username, avatarUrl).find((entry) => entry.id === achievementId);
+  const unlockedAt = new Date().toISOString();
+  database.prepare("INSERT INTO user_achievements (discord_id, achievement_id, unlocked_at) VALUES (?, ?, ?)").run(userId, achievementId, unlockedAt);
+  if (achievement.rewardTitleId) database.prepare("INSERT OR IGNORE INTO user_titles (discord_id, title_id) VALUES (?, ?)").run(userId, achievement.rewardTitleId);
+  return { ...achievement, unlockedAt };
+}
+
+export function resetAchievementProgress(userId: string): number {
+  const result = database.prepare("DELETE FROM user_achievements WHERE discord_id = ?").run(userId);
+  return Number(result.changes);
 }
 
 export function updateProfile(
@@ -826,10 +1042,13 @@ export function resetUserData(userId: string): void {
   database.exec("BEGIN");
   try {
     database.prepare("DELETE FROM active_curses WHERE target_id = ? OR inflicted_by_id = ?").run(userId, userId);
+    database.prepare("DELETE FROM curse_history WHERE target_id = ?").run(userId);
     database.prepare("DELETE FROM curse_cooldowns WHERE discord_id = ?").run(userId);
     database.prepare("DELETE FROM contracts WHERE creator_id = ? OR recipient_id = ?").run(userId, userId);
     database.prepare("DELETE FROM user_lore WHERE discord_id = ?").run(userId);
     database.prepare("DELETE FROM user_titles WHERE discord_id = ?").run(userId);
+    database.prepare("DELETE FROM user_achievements WHERE discord_id = ?").run(userId);
+    database.prepare("DELETE FROM user_activity WHERE discord_id = ?").run(userId);
     database.prepare("DELETE FROM profiles WHERE discord_id = ?").run(userId);
     database.prepare("DELETE FROM users WHERE discord_id = ?").run(userId);
     database.exec("COMMIT");

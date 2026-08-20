@@ -1,0 +1,268 @@
+Add a new achievement system to the existing ⛤ Zekhet ⛤ Discord bot.
+
+IMPORTANT:
+All existing systems are working correctly.
+
+Do NOT rebuild or replace:
+- Profiles
+- Titles
+- Lore
+- Curses
+- Contracts
+- Developer Console
+
+Add the achievement system alongside the existing architecture.
+
+==================================================
+ACHIEVEMENT COMMANDS
+==================================================
+
+Add:
+
+/achievements
+/achievement inspect <achievement>
+
+If the bot already has a natural command structure for inspecting collections, follow the existing style.
+
+==================================================
+ACHIEVEMENT CATEGORIES
+==================================================
+
+Use these categories:
+
+🏺 Exploration
+📜 Archives
+👑 Prestige
+🧿 Rituals
+⚖️ Contracts
+🌑 Secret
+
+==================================================
+ACHIEVEMENT EXAMPLES
+==================================================
+
+Create approximately 25 initial achievements.
+
+Examples:
+
+FIRST RECORD
+Create your Zekhet profile.
+
+COURTIER
+Collect 10 titles.
+
+ARCHIVIST
+Discover 25 lore entries.
+
+MARKED
+Receive your first curse.
+
+OATHBOUND
+Complete your first contract.
+
+FAMILIAR FACE
+Interact with Zekhet on multiple occasions.
+
+THE COLLECTOR
+Collect a large number of titles.
+
+THE ARCHIVIST
+Discover a large number of lore entries.
+
+CURSED
+Receive several different curses.
+
+CONTRACTOR
+Complete several contracts.
+
+THE UNKNOWN
+Discover a secret lore entry.
+
+THE UNRECORDED
+Unlock a secret title.
+
+THE DEVOTED
+Interact with Zekhet repeatedly over time.
+
+THE FORBIDDEN PAGE
+Discover an extremely rare archive entry.
+
+Create additional achievements with different difficulty levels.
+
+==================================================
+ACHIEVEMENT RARITY
+==================================================
+
+Use:
+
+Common
+Uncommon
+Rare
+Epic
+Legendary
+Secret
+
+Achievements should NOT all be easy to obtain.
+
+Some should require normal progression.
+
+Some should require specific combinations of actions.
+
+Some should be hidden.
+
+==================================================
+HIDDEN ACHIEVEMENTS
+==================================================
+
+Hidden achievements should not reveal their requirements before being unlocked.
+
+Before unlocking:
+
+🔒 ??? 
+"Some records are better left unopened."
+
+After unlocking:
+
+🌑 THE UNRECORDED
+"Discover a secret title."
+
+Use this behavior for several secret achievements.
+
+==================================================
+ACHIEVEMENT UNLOCKS
+==================================================
+
+Achievements should automatically unlock when their requirements are met.
+
+Examples:
+
+Creating a profile → First Record
+
+Obtaining 10 titles → Courtier
+
+Discovering 25 lore entries → Archivist
+
+Receiving a curse → Marked
+
+Completing a contract → Oathbound
+
+Discovering secret lore → Secret achievement
+
+Obtaining secret titles → Secret achievement
+
+Do not require users to manually claim achievements.
+
+==================================================
+UNLOCK NOTIFICATION
+==================================================
+
+When an achievement is unlocked, send a polished Zekhet-themed notification.
+
+Example:
+
+⛤ ACHIEVEMENT UNLOCKED ⛤
+
+🏺 FIRST RECORD
+
+"The archives now recognize your name."
+
+Rarity: Common
+
+Do not make notifications excessively long.
+
+Rare and Secret achievements should have more dramatic wording.
+
+==================================================
+PROFILE INTEGRATION
+==================================================
+
+Add an achievement count to /profile.
+
+Example:
+
+Achievements
+12
+
+Do not make the profile embed significantly larger than it currently is.
+
+Keep its current clean layout.
+
+==================================================
+TITLE INTEGRATION
+==================================================
+
+Where practical, allow certain achievements to unlock titles.
+
+Examples:
+
+Courtier → Courtier title
+
+Archivist → Archivist title
+
+Oathbound → Oathbound title
+
+The Unrecorded → The Unrecorded title
+
+Secret achievements may unlock secret titles.
+
+Do not automatically equip the title.
+
+Simply grant ownership so the user can equip it normally.
+
+==================================================
+DEVELOPER INTEGRATION
+==================================================
+
+Integrate achievements with the existing /developer system.
+
+The developer should be able to:
+
+- View all achievements
+- Unlock any achievement for themselves
+- Inspect hidden achievements
+- Test achievement unlock notifications
+- Reset their own achievement progress
+
+Do NOT allow normal users to bypass achievement requirements.
+
+==================================================
+DATABASE
+==================================================
+
+Add only the tables necessary for achievements.
+
+Use the existing SQLite architecture.
+
+Achievements should persist through bot restarts.
+
+Do not duplicate achievement records.
+
+==================================================
+IMPORTANT
+==================================================
+
+Do NOT add:
+
+- Economy
+- XP levels
+- Real-money rewards
+- AI
+- Web dashboard
+- Server-wide achievement rankings
+- Unrelated features
+
+Keep achievements primarily personal and USER_INSTALL friendly.
+
+The achievement system should connect naturally with the existing Profile, Titles, Lore, Curses, Contracts, and Developer systems.
+
+The goal is to create a simple progression layer that rewards people for actually exploring Zekhet.
+
+After implementation, verify:
+
+1. Achievements unlock correctly.
+2. Hidden achievements remain hidden until unlocked.
+3. Achievement progress persists.
+4. Achievement count appears on /profile.
+5. Achievement rewards grant titles correctly.
+6. Developer tools can test achievements.
+7. Existing systems still work.
