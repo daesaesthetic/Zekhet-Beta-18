@@ -207,6 +207,29 @@ database.exec(`
     curse_id TEXT NOT NULL REFERENCES curses(id) ON DELETE CASCADE,
     applied_at INTEGER NOT NULL
   );
+  CREATE TABLE IF NOT EXISTS guild_prefixes (
+    guild_id TEXT PRIMARY KEY,
+    prefix TEXT NOT NULL
+  );
+  CREATE TABLE IF NOT EXISTS tutorial_actions (
+    discord_id TEXT NOT NULL REFERENCES users(discord_id) ON DELETE CASCADE,
+    action TEXT NOT NULL,
+    action_count INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (discord_id, action)
+  );
+  CREATE TABLE IF NOT EXISTS tutorial_objectives (
+    discord_id TEXT NOT NULL REFERENCES users(discord_id) ON DELETE CASCADE,
+    page_number INTEGER NOT NULL,
+    objective_id TEXT NOT NULL,
+    completed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (discord_id, page_number, objective_id)
+  );
+  CREATE TABLE IF NOT EXISTS tutorial_rewards (
+    discord_id TEXT NOT NULL REFERENCES users(discord_id) ON DELETE CASCADE,
+    page_number INTEGER NOT NULL,
+    claimed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (discord_id, page_number)
+  );
 `);
 
 const contractTable = database.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'contracts'").get() as { sql?: string } | undefined;
@@ -260,6 +283,11 @@ const initialTitles: Title[] = [
   { id: "newcomer", name: "Newcomer", description: "A newly entered name in the keeper's record.", rarity: "Common", isSecret: false },
   { id: "archivist", name: "Archivist", description: "A patient hand trusted with quiet knowledge.", rarity: "Uncommon", isSecret: false },
   { id: "courtier", name: "Courtier", description: "A familiar presence among the Court's many designations.", rarity: "Rare", isSecret: false },
+  { id: "first-lesson", name: "First Lesson", description: "The Archives have begun to teach this name.", rarity: "Common", isSecret: false },
+  { id: "archive-apprentice", name: "Archive Apprentice", description: "A student of the keeper's quieter records.", rarity: "Uncommon", isSecret: false },
+  { id: "ritual-witness", name: "Ritual Witness", description: "Has stood near the harmless edge of a ritual.", rarity: "Uncommon", isSecret: false },
+  { id: "ledger-hand", name: "Ledger Hand", description: "A name trusted to complete what it has entered.", rarity: "Rare", isSecret: false },
+  { id: "archive-adept", name: "Archive Adept", description: "The introductory records no longer require explanation.", rarity: "Legendary", isSecret: false },
   { id: "nightwalker", name: "Nightwalker", description: "At home where the last light gives way.", rarity: "Uncommon", isSecret: false },
   { id: "outcast", name: "Outcast", description: "Cast beyond the borders, yet still standing.", rarity: "Rare", isSecret: false },
   { id: "void-walker", name: "Void Walker", description: "A traveler who has crossed the soundless dark.", rarity: "Epic", isSecret: false },
@@ -405,6 +433,9 @@ const initialAchievements: Achievement[] = [
   { id: "night-visitor", name: "NIGHT VISITOR", description: "Interact with Zekhet after midnight.", category: "Secret", rarity: "Secret", isHidden: true, rewardTitleId: null },
   { id: "the-devoted-record", name: "THE DEVOTED RECORD", description: "Interact with Zekhet 25 times.", category: "Exploration", rarity: "Epic", isHidden: false, rewardTitleId: null },
   { id: "beyond-the-record", name: "BEYOND THE RECORD", description: "Unlock a secret title and discover a secret lore entry.", category: "Secret", rarity: "Legendary", isHidden: true, rewardTitleId: null },
+  { id: "first-lesson", name: "FIRST LESSON", description: "Complete your first tutorial page.", category: "Exploration", rarity: "Common", isHidden: false, rewardTitleId: null },
+  { id: "student-of-the-archives", name: "STUDENT OF THE ARCHIVES", description: "Complete half of the tutorial.", category: "Archives", rarity: "Rare", isHidden: false, rewardTitleId: null },
+  { id: "tutorial-archivist", name: "THE TUTORIAL ARCHIVIST", description: "Complete the entire introductory tutorial.", category: "Archives", rarity: "Legendary", isHidden: false, rewardTitleId: "archive-adept" },
 ];
 for (const achievement of initialAchievements) {
   database.prepare(`
@@ -801,6 +832,77 @@ export function resetAchievementProgress(userId: string): number {
   return Number(result.changes);
 }
 
+export function getGuildPrefix(guildId: string): string {
+  return (database.prepare("SELECT prefix FROM guild_prefixes WHERE guild_id = ?").get(guildId) as { prefix?: string } | undefined)?.prefix ?? "z!";
+}
+
+export function setGuildPrefix(guildId: string, prefix: string): void {
+  database.prepare(`
+    INSERT INTO guild_prefixes (guild_id, prefix) VALUES (?, ?)
+    ON CONFLICT(guild_id) DO UPDATE SET prefix = excluded.prefix
+  `).run(guildId, prefix);
+}
+
+export function resetGuildPrefix(guildId: string): void {
+  database.prepare("DELETE FROM guild_prefixes WHERE guild_id = ?").run(guildId);
+}
+
+export function recordTutorialAction(userId: string, username: string, avatarUrl: string | null, action: string): void {
+  ensureProfile(userId, username, avatarUrl);
+  database.prepare(`
+    INSERT INTO tutorial_actions (discord_id, action, action_count) VALUES (?, ?, 1)
+    ON CONFLICT(discord_id, action) DO UPDATE SET action_count = action_count + 1
+  `).run(userId, action);
+}
+
+export function getTutorialActions(userId: string): Record<string, number> {
+  const actions: Record<string, number> = {};
+  for (const row of database.prepare("SELECT action, action_count AS count FROM tutorial_actions WHERE discord_id = ?").all(userId) as Array<{ action: string; count: number }>) {
+    actions[row.action] = Number(row.count);
+  }
+  return actions;
+}
+
+export function getTutorialObjectives(userId: string): Array<{ pageNumber: number; objectiveId: string }> {
+  return database.prepare(`
+    SELECT page_number AS pageNumber, objective_id AS objectiveId
+    FROM tutorial_objectives WHERE discord_id = ? ORDER BY page_number, objective_id
+  `).all(userId) as Array<{ pageNumber: number; objectiveId: string }>;
+}
+
+export function completeTutorialObjective(userId: string, pageNumber: number, objectiveId: string): boolean {
+  const result = database.prepare(`
+    INSERT OR IGNORE INTO tutorial_objectives (discord_id, page_number, objective_id)
+    VALUES (?, ?, ?)
+  `).run(userId, pageNumber, objectiveId);
+  return Number(result.changes) > 0;
+}
+
+export function getTutorialRewards(userId: string): number[] {
+  return (database.prepare("SELECT page_number AS pageNumber FROM tutorial_rewards WHERE discord_id = ? ORDER BY page_number").all(userId) as Array<{ pageNumber: number }>)
+    .map((row) => Number(row.pageNumber));
+}
+
+export function claimTutorialReward(userId: string, pageNumber: number): boolean {
+  const result = database.prepare(`
+    INSERT OR IGNORE INTO tutorial_rewards (discord_id, page_number) VALUES (?, ?)
+  `).run(userId, pageNumber);
+  return Number(result.changes) > 0;
+}
+
+export function resetTutorialProgress(userId: string): void {
+  database.exec("BEGIN");
+  try {
+    database.prepare("DELETE FROM tutorial_actions WHERE discord_id = ?").run(userId);
+    database.prepare("DELETE FROM tutorial_objectives WHERE discord_id = ?").run(userId);
+    database.prepare("DELETE FROM tutorial_rewards WHERE discord_id = ?").run(userId);
+    database.exec("COMMIT");
+  } catch (error) {
+    database.exec("ROLLBACK");
+    throw error;
+  }
+}
+
 export function updateProfile(
   userId: string,
   username: string,
@@ -1049,6 +1151,9 @@ export function resetUserData(userId: string): void {
     database.prepare("DELETE FROM user_titles WHERE discord_id = ?").run(userId);
     database.prepare("DELETE FROM user_achievements WHERE discord_id = ?").run(userId);
     database.prepare("DELETE FROM user_activity WHERE discord_id = ?").run(userId);
+    database.prepare("DELETE FROM tutorial_actions WHERE discord_id = ?").run(userId);
+    database.prepare("DELETE FROM tutorial_objectives WHERE discord_id = ?").run(userId);
+    database.prepare("DELETE FROM tutorial_rewards WHERE discord_id = ?").run(userId);
     database.prepare("DELETE FROM profiles WHERE discord_id = ?").run(userId);
     database.prepare("DELETE FROM users WHERE discord_id = ?").run(userId);
     database.exec("COMMIT");
