@@ -68,6 +68,9 @@ import {
   grantPassportStamp,
   resetPassportStamps,
   unlockAllPassportStamps,
+  setPassportStatusOverride,
+  clearPassportStatusOverride,
+  type PassportStatus,
   type ActiveCurse,
   type Contract,
   type ContractTemplate,
@@ -522,6 +525,10 @@ function developerPanel() {
         new ButtonBuilder().setCustomId("developer:passport-grant").setLabel("Grant Stamp").setStyle(ButtonStyle.Primary),
         new ButtonBuilder().setCustomId("developer:passport-reset").setLabel("Reset Stamps").setStyle(ButtonStyle.Danger),
       ),
+      new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder().setCustomId("developer:passport-status").setLabel("Test Passport Status").setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId("developer:passport-status-clear").setLabel("Use Derived Status").setStyle(ButtonStyle.Secondary),
+      ),
     ],
   };
 }
@@ -643,6 +650,23 @@ export async function handleDeveloperComponent(interaction: ButtonInteraction): 
     await interaction.showModal(modal);
     return;
   }
+  if (section === "passport-status") {
+    const modal = new ModalBuilder().setCustomId("developer:passport-status-modal").setTitle("Test Passport Status");
+    const status = new TextInputBuilder()
+      .setCustomId("status")
+      .setLabel("Status")
+      .setStyle(TextInputStyle.Short)
+      .setRequired(true)
+      .setPlaceholder("Archivist");
+    modal.addComponents(new ActionRowBuilder<TextInputBuilder>().addComponents(status));
+    await interaction.showModal(modal);
+    return;
+  }
+  if (section === "passport-status-clear") {
+    clearPassportStatusOverride(interaction.user.id);
+    await interaction.reply({ content: "Passport status now follows derived progression again.", ephemeral: true });
+    return;
+  }
   if (section === "apply-curse") {
     const curse = getCurses()[0];
     const applied = curse && developerApplyCurse(
@@ -736,6 +760,22 @@ export async function handleDeveloperComponent(interaction: ButtonInteraction): 
 }
 
 export async function handleDeveloperModal(interaction: ModalSubmitInteraction): Promise<void> {
+  if (interaction.customId === "developer:passport-status-modal") {
+    if (interaction.user.id !== config.developerId) {
+      await interaction.reply({ content: "You do not have access to that panel.", ephemeral: true });
+      return;
+    }
+    const status = interaction.fields.getTextInputValue("status").trim().replace(/\s+/g, " ");
+    const validStatuses: PassportStatus[] = ["Unrecorded", "Recognized", "Acquainted", "Citizen", "Courtier", "Archivist", "Keeper", "Exalted"];
+    const selected = validStatuses.find((candidate) => candidate.toLowerCase() === status.toLowerCase());
+    if (!selected) {
+      await interaction.reply({ content: `Choose one of: ${validStatuses.join(", ")}.`, ephemeral: true });
+      return;
+    }
+    setPassportStatusOverride(interaction.user.id, selected, interaction.user.username, interaction.user.displayAvatarURL());
+    await interaction.reply({ content: `Developer Passport status override set to **${selected}**.`, ephemeral: true });
+    return;
+  }
   if (interaction.customId === "developer:passport-grant-modal") {
     if (interaction.user.id !== config.developerId) {
       await interaction.reply({ content: "You do not have access to that panel.", ephemeral: true });
