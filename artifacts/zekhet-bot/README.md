@@ -41,5 +41,12 @@ The bot registers global slash commands on startup. It uses only the `Guilds` in
 - `/curse active`
 - `/curse list`
 - `/curse inspect curse:<id>`
+- `/contract create user:@user description:<text> template:<template> expiration_days:<days>`
+- `/contract accept id:<id>`
+- `/contract reject id:<id>`
+- `/contract inspect id:<id>`
+- `/contract complete id:<id>`
+- `/contract cancel id:<id>`
+- `/contracts`
 
-Profiles, title ownership, lore discoveries, and active curses are stored in SQLite and remain available after restarts. New users receive `wanderer`, `newcomer`, and `archivist` for immediate testing; sealed titles remain locked. Lore discovery has a 60-second cooldown by default, configurable with `ZEKHET_LORE_COOLDOWN_SECONDS`. Curse rituals have a built-in anti-spam cooldown and expire automatically without affecting Discord permissions, roles, messages, or moderation.
+Profiles, title ownership, lore discoveries, active curses, and Ledger contracts are stored in SQLite and remain available after restarts. New users receive `wanderer`, `newcomer`, and `archivist` for immediate testing; sealed titles remain locked. Lore discovery has a 60-second cooldown by default, configurable with `ZEKHET_LORE_COOLDOWN_SECONDS`. Curse rituals have a built-in anti-spam cooldown and expire automatically without affecting Discord permissions, roles, messages, or moderation. Contracts are fictional social agreements only; they never process payments or modify Discord permissions.

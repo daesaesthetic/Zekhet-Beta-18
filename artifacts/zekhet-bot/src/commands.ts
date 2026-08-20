@@ -309,6 +309,50 @@ function activeCursesEmbed(user: User, curses: ActiveCurse[]): EmbedBuilder {
     .setFooter({ text: "Curses affect only Zekhet's own systems." });
 }
 
+function contractStatusLabel(status: Contract["status"]): string {
+  return {
+    Pending: "AWAITING ACCEPTANCE",
+    Accepted: "ACCEPTED",
+    Rejected: "REJECTED",
+    Completed: "COMPLETED",
+    Expired: "EXPIRED",
+    Cancelled: "CANCELLED",
+  }[status];
+}
+
+function contractEmbed(contract: Contract): EmbedBuilder {
+  const expiration = contract.expiresAt
+    ? new Date(contract.expiresAt * 1000).toLocaleDateString("en-US")
+    : "No expiration";
+  return new EmbedBuilder()
+    .setColor(contract.status === "Completed" ? 0x65d18b : contract.status === "Rejected" || contract.status === "Cancelled" || contract.status === "Expired" ? 0x6e4b8e : 0xa873ff)
+    .setAuthor({ name: "⚖️ THE LEDGER ⚖️" })
+    .setTitle(`⛤ CONTRACT #${contract.id} ⛤`)
+    .addFields(
+      { name: "PARTY A", value: `<@${contract.creatorId}>`, inline: true },
+      { name: "PARTY B", value: `<@${contract.recipientId}>`, inline: true },
+      { name: "STATUS", value: contractStatusLabel(contract.status), inline: true },
+      { name: "AGREEMENT", value: `“${contract.description}”` },
+      ...(contract.template ? [{ name: "Template", value: contract.template, inline: true }] : []),
+      { name: "Created", value: new Date(contract.createdAt * 1000).toLocaleDateString("en-US"), inline: true },
+      { name: "Expires", value: expiration, inline: true },
+    )
+    .setFooter({ text: "The Ledger records fictional social agreements only. No payments or Discord permissions are involved." });
+}
+
+function contractsEmbed(user: User, contracts: Contract[]): EmbedBuilder {
+  const text = contracts.length
+    ? contracts.map((contract) => `**#${contract.id}** · ${contractStatusLabel(contract.status)}\n${contract.creatorId === user.id ? "To" : "From"} <@${contract.creatorId === user.id ? contract.recipientId : contract.creatorId}>\n${contract.description}`).join("\n\n")
+    : "_No contracts are connected to this Record._";
+  return new EmbedBuilder()
+    .setColor(0x7e4bb8)
+    .setAuthor({ name: "⚖️ THE LEDGER ⚖️", iconURL: user.displayAvatarURL({ size: 128 }) })
+    .setTitle(`${user.username}'s Contracts`)
+    .setDescription("The Ledger keeps harmless fictional agreements between named parties.")
+    .addFields({ name: `Recorded contracts · ${contracts.length}`, value: text })
+    .setFooter({ text: "Use /contract inspect id:<id> to open a full contract." });
+}
+
 export async function handleCommand(interaction: ChatInputCommandInteraction): Promise<void> {
   if (interaction.commandName === "help") {
     await interaction.reply({
@@ -322,7 +366,7 @@ export async function handleCommand(interaction: ChatInputCommandInteraction): P
           { name: "👑 THE COURT", value: "`/titles` — View titles.\n`/title equip` — Equip an owned title.\n`/title inspect` — Inspect a title." },
           { name: "📜 THE ARCHIVES", value: "`/lore discover` — Discover an archive entry.\n`/lore archive` — Review discoveries.\n`/lore inspect` — Inspect an entry." },
           { name: "🧿 THE RITUALS", value: "`/curse user` — Mark another Record with a harmless fictional curse.\n`/curse active` — View active curses.\n`/curse list` — Browse the curse catalog.\n`/curse inspect` — Inspect a curse." },
-          { name: "⚖️ THE LEDGER", value: "Coming Soon" },
+          { name: "⚖️ THE LEDGER", value: "`/contract create` — Offer a social agreement.\n`/contract accept` — Accept an agreement.\n`/contract reject` — Reject an agreement.\n`/contract inspect` — Inspect a contract.\n`/contract complete` — Complete an accepted agreement.\n`/contract cancel` — Cancel an agreement.\n`/contracts` — Review your contracts." },
         )],
     });
     return;
@@ -497,6 +541,87 @@ export async function handleCommand(interaction: ChatInputCommandInteraction): P
     await interaction.reply({
       content: `The ritual is complete. <@${target.id}> has been marked.`,
       embeds: [activeCurseEmbed(result.curse)],
+    });
+    return;
+  }
+
+  if (interaction.commandName === "contracts") {
+    await interaction.reply({
+      embeds: [contractsEmbed(
+        interaction.user,
+        getContractsForUser(interaction.user.id),
+      )],
+    });
+    return;
+  }
+
+  if (interaction.commandName === "contract") {
+    const subcommand = interaction.options.getSubcommand();
+    if (subcommand === "create") {
+      const target = interaction.options.getUser("user");
+      const description = interaction.options.getString("description")?.trim();
+      if (!target || !description) {
+        await interaction.reply({ content: "Name a recipient and describe the agreement.", ephemeral: true });
+        return;
+      }
+      const template = interaction.options.getString("template") as ContractTemplate | null;
+      const result = createContract(
+        interaction.user.id,
+        interaction.user.username,
+        interaction.user.displayAvatarURL(),
+        target.id,
+        target.username,
+        target.displayAvatarURL(),
+        description,
+        template,
+        interaction.options.getInteger("expiration_days"),
+      );
+      if (!result.ok) {
+        await interaction.reply({ content: "A contract cannot be offered to your own Record.", ephemeral: true });
+        return;
+      }
+      await interaction.reply({
+        content: `Contract **#${result.contract.id}** has been offered to <@${target.id}>.`,
+        embeds: [contractEmbed(result.contract)],
+      });
+      return;
+    }
+
+    const contractId = interaction.options.getString("id")?.trim() ?? "";
+    const contract = getContract(contractId);
+    if (!contract) {
+      await interaction.reply({ content: "That contract is not recorded in the Ledger.", ephemeral: true });
+      return;
+    }
+
+    if (subcommand === "inspect") {
+      if (interaction.user.id !== contract.creatorId && interaction.user.id !== contract.recipientId) {
+        await interaction.reply({ content: "Only the named parties may inspect this contract.", ephemeral: true });
+        return;
+      }
+      await interaction.reply({ embeds: [contractEmbed(contract)] });
+      return;
+    }
+
+    const result = updateContractStatus(
+      contract.id,
+      interaction.user.id,
+      subcommand as "accept" | "reject" | "complete" | "cancel",
+    );
+    if (!result.ok) {
+      const message = result.reason === "unauthorized"
+        ? subcommand === "accept" || subcommand === "reject"
+          ? "Only the contract recipient may accept or reject this agreement."
+          : "Only a named party may change this agreement."
+        : result.reason === "invalid-status"
+          ? `This contract is already ${contractStatusLabel(contract.status).toLowerCase()} and cannot be changed that way.`
+          : "That contract is not recorded in the Ledger.";
+      await interaction.reply({ content: message, ephemeral: true });
+      return;
+    }
+    await interaction.reply({
+      content: `Contract **#${result.contract.id}** is now **${contractStatusLabel(result.contract.status)}**.`,
+      embeds: [contractEmbed(result.contract)],
     });
     return;
   }
