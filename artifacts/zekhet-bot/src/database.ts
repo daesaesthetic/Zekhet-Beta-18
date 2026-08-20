@@ -310,8 +310,14 @@ export function getActiveCurses(
 export function inflictCurse(
   casterId: string,
   targetId: string,
+  casterUsername = "the ritualist",
+  targetUsername = "the afflicted",
+  casterAvatarUrl: string | null = null,
+  targetAvatarUrl: string | null = null,
 ): { ok: true; curse: ActiveCurse } | { ok: false; reason: "self" | "cooldown" | "already-afflicted"; retryAfter?: number } {
   if (casterId === targetId) return { ok: false, reason: "self" };
+  ensureProfile(casterId, casterUsername, casterAvatarUrl);
+  ensureProfile(targetId, targetUsername, targetAvatarUrl);
   purgeExpiredCurses();
   const now = Math.floor(Date.now() / 1000);
   const cooldown = database.prepare("SELECT used_at AS usedAt FROM curse_cooldowns WHERE discord_id = ?")

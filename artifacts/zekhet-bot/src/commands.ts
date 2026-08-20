@@ -290,7 +290,7 @@ export async function handleCommand(interaction: ChatInputCommandInteraction): P
           { name: "⛤ THE RECORD", value: "`/profile` — View or amend your personal Record." },
           { name: "👑 THE COURT", value: "`/titles` — View titles.\n`/title equip` — Equip an owned title.\n`/title inspect` — Inspect a title." },
           { name: "📜 THE ARCHIVES", value: "`/lore discover` — Discover an archive entry.\n`/lore archive` — Review discoveries.\n`/lore inspect` — Inspect an entry." },
-          { name: "🧿 THE RITUALS", value: "Coming Soon" },
+          { name: "🧿 THE RITUALS", value: "`/curse user` — Mark another Record with a harmless fictional curse.\n`/curse active` — View active curses.\n`/curse list` — Browse the curse catalog.\n`/curse inspect` — Inspect a curse." },
           { name: "⚖️ THE LEDGER", value: "Coming Soon" },
         )],
     });
@@ -446,7 +446,14 @@ export async function handleCommand(interaction: ChatInputCommandInteraction): P
       await interaction.reply({ content: "Name the user whose Record will receive the ritual.", ephemeral: true });
       return;
     }
-    const result = inflictCurse(interaction.user.id, target.id);
+    const result = inflictCurse(
+      interaction.user.id,
+      target.id,
+      interaction.user.username,
+      target.username,
+      interaction.user.displayAvatarURL(),
+      target.displayAvatarURL(),
+    );
     if (!result.ok) {
       const message = result.reason === "self"
         ? "A ritual cannot be turned upon your own Record."

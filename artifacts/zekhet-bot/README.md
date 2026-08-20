@@ -37,5 +37,9 @@ The bot registers global slash commands on startup. It uses only the `Guilds` in
 - `/lore discover`
 - `/lore archive`
 - `/lore inspect entry:<id>`
+- `/curse user user:@user`
+- `/curse active`
+- `/curse list`
+- `/curse inspect curse:<id>`
 
-Profiles, title ownership, and lore discoveries are stored in SQLite and remain available after restarts. New users receive `wanderer`, `newcomer`, and `archivist` for immediate testing; sealed titles remain locked. Lore discovery has a 60-second cooldown by default, configurable with `ZEKHET_LORE_COOLDOWN_SECONDS`.
+Profiles, title ownership, lore discoveries, and active curses are stored in SQLite and remain available after restarts. New users receive `wanderer`, `newcomer`, and `archivist` for immediate testing; sealed titles remain locked. Lore discovery has a 60-second cooldown by default, configurable with `ZEKHET_LORE_COOLDOWN_SECONDS`. Curse rituals have a built-in anti-spam cooldown and expire automatically without affecting Discord permissions, roles, messages, or moderation.
