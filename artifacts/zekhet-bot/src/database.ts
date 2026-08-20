@@ -98,6 +98,24 @@ export type Achievement = {
 };
 export type UnlockedAchievement = Achievement & { unlockedAt: string };
 
+export type ItemCategory = "Consumable" | "Material" | "Collectible" | "Currency" | "Quest" | "Special" | "Cosmetic";
+export type ItemRarity = "Common" | "Uncommon" | "Rare" | "Epic" | "Legendary" | "Mythic";
+export type Item = {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  category: ItemCategory;
+  rarity: ItemRarity;
+  stackable: boolean;
+  maxStack: number;
+  tradable: boolean;
+  usable: boolean;
+  effects: Record<string, unknown> | null;
+  metadata: Record<string, unknown> | null;
+};
+export type InventoryEntry = Item & { quantity: number; acquiredAt: string; updatedAt: string };
+
 export type ProgressionEvent =
   | "PROFILE_CREATED"
   | "BIOGRAPHY_SET"
@@ -245,6 +263,28 @@ database.exec(`
     page_number INTEGER NOT NULL,
     claimed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (discord_id, page_number)
+  );
+  CREATE TABLE IF NOT EXISTS items (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE,
+    description TEXT NOT NULL,
+    icon TEXT NOT NULL,
+    category TEXT NOT NULL CHECK (category IN ('Consumable', 'Material', 'Collectible', 'Currency', 'Quest', 'Special', 'Cosmetic')),
+    rarity TEXT NOT NULL CHECK (rarity IN ('Common', 'Uncommon', 'Rare', 'Epic', 'Legendary', 'Mythic')),
+    stackable INTEGER NOT NULL DEFAULT 1 CHECK (stackable IN (0, 1)),
+    max_stack INTEGER NOT NULL CHECK (max_stack > 0),
+    tradable INTEGER NOT NULL DEFAULT 0 CHECK (tradable IN (0, 1)),
+    usable INTEGER NOT NULL DEFAULT 0 CHECK (usable IN (0, 1)),
+    effects_json TEXT,
+    metadata_json TEXT
+  );
+  CREATE TABLE IF NOT EXISTS user_inventory (
+    discord_id TEXT NOT NULL REFERENCES users(discord_id) ON DELETE CASCADE,
+    item_id TEXT NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+    quantity INTEGER NOT NULL CHECK (quantity > 0),
+    acquired_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (discord_id, item_id)
   );
 `);
 
@@ -481,6 +521,81 @@ for (const achievement of initialAchievements) {
     achievement.rarity, achievement.isHidden ? 1 : 0, achievement.rewardTitleId);
 }
 
+const initialItems: Item[] = [
+  {
+    id: "archive-shard",
+    name: "Archive Shard",
+    description: "A splinter of violet glass that retains the shape of a forgotten record.",
+    icon: "🔹",
+    category: "Material",
+    rarity: "Rare",
+    stackable: true,
+    maxStack: 99,
+    tradable: true,
+    usable: false,
+    effects: null,
+    metadata: { source: "archives" },
+  },
+  {
+    id: "moonlit-tonic",
+    name: "Moonlit Tonic",
+    description: "A sealed tonic with a pale glow. Its eventual effect belongs to a future reward system.",
+    icon: "🧪",
+    category: "Consumable",
+    rarity: "Uncommon",
+    stackable: true,
+    maxStack: 10,
+    tradable: false,
+    usable: true,
+    effects: { handler: "future-reward-effect" },
+    metadata: null,
+  },
+  {
+    id: "violet-seal",
+    name: "Violet Seal",
+    description: "A collectible mark pressed with the keeper's violet signet.",
+    icon: "🔮",
+    category: "Collectible",
+    rarity: "Epic",
+    stackable: true,
+    maxStack: 25,
+    tradable: true,
+    usable: false,
+    effects: null,
+    metadata: null,
+  },
+  {
+    id: "keeper-sigil",
+    name: "Keeper's Sigil",
+    description: "A special emblem whose purpose has been recorded but not yet revealed.",
+    icon: "⛤",
+    category: "Special",
+    rarity: "Legendary",
+    stackable: false,
+    maxStack: 1,
+    tradable: false,
+    usable: false,
+    effects: null,
+    metadata: { sealed: true },
+  },
+];
+
+for (const item of initialItems) {
+  database.prepare(`
+    INSERT INTO items (id, name, description, icon, category, rarity, stackable, max_stack, tradable, usable, effects_json, metadata_json)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET name = excluded.name, description = excluded.description,
+      icon = excluded.icon, category = excluded.category, rarity = excluded.rarity,
+      stackable = excluded.stackable, max_stack = excluded.max_stack, tradable = excluded.tradable,
+      usable = excluded.usable, effects_json = excluded.effects_json, metadata_json = excluded.metadata_json
+  `).run(
+    item.id, item.name, item.description, item.icon, item.category, item.rarity,
+    item.stackable ? 1 : 0, item.maxStack, item.tradable ? 1 : 0, item.usable ? 1 : 0,
+    item.effects ? JSON.stringify(item.effects) : null,
+    item.metadata ? JSON.stringify(item.metadata) : null,
+  );
+}
+
 function ensureProfile(userId: string, username: string, avatarUrl: string | null): void {
   database.prepare(`
     INSERT INTO users (discord_id, username, avatar_url)
@@ -523,6 +638,132 @@ export function getProfile(userId: string, username: string, avatarUrl: string |
     WHERE u.discord_id = ?
   `).get(userId) as Profile;
   return row;
+}
+
+function parseJson(value: unknown): Record<string, unknown> | null {
+  if (typeof value !== "string" || value.length === 0) return null;
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === "object" ? parsed as Record<string, unknown> : null;
+  } catch {
+    return null;
+  }
+}
+
+function mapItem(row: Record<string, unknown>): Item {
+  return {
+    id: row["id"] as string,
+    name: row["name"] as string,
+    description: row["description"] as string,
+    icon: row["icon"] as string,
+    category: row["category"] as ItemCategory,
+    rarity: row["rarity"] as ItemRarity,
+    stackable: Boolean(row["stackable"]),
+    maxStack: Number(row["maxStack"]),
+    tradable: Boolean(row["tradable"]),
+    usable: Boolean(row["usable"]),
+    effects: parseJson(row["effectsJson"]),
+    metadata: parseJson(row["metadataJson"]),
+  };
+}
+
+export function getItems(): Item[] {
+  return database.prepare(`
+    SELECT id, name, description, icon, category, rarity, stackable,
+      max_stack AS maxStack, tradable, usable, effects_json AS effectsJson, metadata_json AS metadataJson
+    FROM items ORDER BY name
+  `).all().map((row) => mapItem(row as Record<string, unknown>));
+}
+
+export function getItem(itemId: string): Item | undefined {
+  const row = database.prepare(`
+    SELECT id, name, description, icon, category, rarity, stackable,
+      max_stack AS maxStack, tradable, usable, effects_json AS effectsJson, metadata_json AS metadataJson
+    FROM items WHERE id = ?
+  `).get(itemId) as Record<string, unknown> | undefined;
+  return row ? mapItem(row) : undefined;
+}
+
+export function getInventory(userId: string): InventoryEntry[] {
+  return database.prepare(`
+    SELECT i.id, i.name, i.description, i.icon, i.category, i.rarity, i.stackable,
+      i.max_stack AS maxStack, i.tradable, i.usable, i.effects_json AS effectsJson,
+      i.metadata_json AS metadataJson, ui.quantity, ui.acquired_at AS acquiredAt,
+      ui.updated_at AS updatedAt
+    FROM user_inventory ui
+    JOIN items i ON i.id = ui.item_id
+    WHERE ui.discord_id = ?
+    ORDER BY CASE i.rarity
+      WHEN 'Mythic' THEN 1 WHEN 'Legendary' THEN 2 WHEN 'Epic' THEN 3
+      WHEN 'Rare' THEN 4 WHEN 'Uncommon' THEN 5 ELSE 6 END, i.name
+  `).all().map((row) => {
+    const record = row as Record<string, unknown>;
+    return { ...mapItem(record), quantity: Number(record["quantity"]), acquiredAt: record["acquiredAt"] as string, updatedAt: record["updatedAt"] as string };
+  });
+}
+
+export function getItemQuantity(userId: string, itemId: string): number {
+  const row = database.prepare("SELECT quantity FROM user_inventory WHERE discord_id = ? AND item_id = ?")
+    .get(userId, itemId) as { quantity?: number } | undefined;
+  return Number(row?.quantity ?? 0);
+}
+
+export function hasItem(userId: string, itemId: string, quantity = 1): boolean {
+  return Number.isInteger(quantity) && quantity > 0 && getItemQuantity(userId, itemId) >= quantity;
+}
+
+export function addItem(
+  userId: string,
+  itemId: string,
+  quantity: number,
+  username = "Unknown Record",
+  avatarUrl: string | null = null,
+): InventoryEntry | undefined {
+  if (!Number.isInteger(quantity) || quantity <= 0) return undefined;
+  const item = getItem(itemId);
+  if (!item) return undefined;
+  ensureProfile(userId, username, avatarUrl);
+  const existing = getItemQuantity(userId, itemId);
+  if ((!item.stackable && existing > 0) || existing + quantity > item.maxStack) return undefined;
+  database.prepare(`
+    INSERT INTO user_inventory (discord_id, item_id, quantity)
+    VALUES (?, ?, ?)
+    ON CONFLICT(discord_id, item_id) DO UPDATE SET quantity = quantity + excluded.quantity,
+      updated_at = CURRENT_TIMESTAMP
+  `).run(userId, itemId, quantity);
+  return getInventory(userId).find((entry) => entry.id === itemId);
+}
+
+export function removeItem(userId: string, itemId: string, quantity: number): boolean {
+  if (!Number.isInteger(quantity) || quantity <= 0 || !hasItem(userId, itemId, quantity)) return false;
+  const remaining = getItemQuantity(userId, itemId) - quantity;
+  if (remaining === 0) {
+    database.prepare("DELETE FROM user_inventory WHERE discord_id = ? AND item_id = ?").run(userId, itemId);
+  } else {
+    database.prepare("UPDATE user_inventory SET quantity = ?, updated_at = CURRENT_TIMESTAMP WHERE discord_id = ? AND item_id = ?")
+      .run(remaining, userId, itemId);
+  }
+  return true;
+}
+
+export function useItem(userId: string, itemId: string, effect?: (item: Item) => void): { ok: boolean; reason?: string; item?: Item } {
+  const item = getItem(itemId);
+  if (!item) return { ok: false, reason: "invalid-item" };
+  if (!item.usable) return { ok: false, reason: "not-usable", item };
+  if (!hasItem(userId, itemId)) return { ok: false, reason: "not-owned", item };
+  database.exec("BEGIN IMMEDIATE");
+  try {
+    if (!removeItem(userId, itemId, 1)) {
+      database.exec("ROLLBACK");
+      return { ok: false, reason: "not-owned", item };
+    }
+    effect?.(item);
+    database.exec("COMMIT");
+    return { ok: true, item };
+  } catch (error) {
+    database.exec("ROLLBACK");
+    throw error;
+  }
 }
 
 function purgeExpiredCurses(): void {

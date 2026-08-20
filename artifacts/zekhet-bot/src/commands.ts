@@ -57,6 +57,9 @@ import {
   claimTutorialReward,
   resetTutorialProgress,
   grantTitle,
+  getInventory,
+  getItem,
+  getItemQuantity,
   type ActiveCurse,
   type Contract,
   type ContractTemplate,
@@ -68,6 +71,8 @@ import {
   type Title,
   type Achievement,
   type UnlockedAchievement,
+  type Item,
+  type InventoryEntry,
 } from "./database.js";
 
 const themes = ["Nightshade", "Celestial", "Eclipse", "Ancient", "Royal", "Void"] as const;
@@ -422,10 +427,18 @@ const contractCommand = new SlashCommandBuilder()
   .addSubcommand((sub) => sub.setName("cancel").setDescription("Cancel a pending or accepted contract.")
     .addStringOption((option) => option.setName("id").setDescription("The contract ID.").setRequired(true)));
 
+const itemCommand = new SlashCommandBuilder()
+  .setName("item")
+  .setDescription("Inspect an item recorded in the item catalog.")
+  .addSubcommand((sub) => sub.setName("inspect").setDescription("Inspect an item.")
+    .addStringOption((option) => option.setName("item").setDescription("The item ID to inspect.").setRequired(true)));
+
 export const commands = [
   new SlashCommandBuilder().setName("help").setDescription("Consult Zekhet's available records."),
   new SlashCommandBuilder().setName("credits").setDescription("See who keeps Zekhet's records."),
   new SlashCommandBuilder().setName("developer").setDescription("Open the restricted developer control panel."),
+  new SlashCommandBuilder().setName("inventory").setDescription("View the items owned by your Record."),
+  itemCommand,
   profileCommand,
   new SlashCommandBuilder().setName("titles").setDescription("View your owned titles and the Court."),
   titleCommand,
