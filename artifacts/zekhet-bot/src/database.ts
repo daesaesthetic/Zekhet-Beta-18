@@ -401,6 +401,10 @@ database.exec(`
     unlocked_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (discord_id, stamp_id)
   );
+  CREATE TABLE IF NOT EXISTS passport_status_overrides (
+    discord_id TEXT PRIMARY KEY REFERENCES users(discord_id) ON DELETE CASCADE,
+    status TEXT NOT NULL CHECK (status IN ('Unrecorded', 'Recognized', 'Acquainted', 'Citizen', 'Courtier', 'Archivist', 'Keeper', 'Exalted'))
+  );
 `);
 
 const contractTable = database.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'contracts'").get() as { sql?: string } | undefined;
@@ -1070,6 +1074,18 @@ function passportStatus(records: PassportRecords): PassportStatus {
   return "Unrecorded";
 }
 
+export function setPassportStatusOverride(userId: string, status: PassportStatus, username = "Unknown Record", avatarUrl: string | null = null): void {
+  ensureProfile(userId, username, avatarUrl);
+  database.prepare(`
+    INSERT INTO passport_status_overrides (discord_id, status) VALUES (?, ?)
+    ON CONFLICT(discord_id) DO UPDATE SET status = excluded.status
+  `).run(userId, status);
+}
+
+export function clearPassportStatusOverride(userId: string): void {
+  database.prepare("DELETE FROM passport_status_overrides WHERE discord_id = ?").run(userId);
+}
+
 function eligiblePassportStamps(userId: string): Set<string> {
   const records = passportRecords(userId);
   const secretLore = Number((database.prepare(`
@@ -1120,7 +1136,8 @@ export function getPassport(userId: string, username = "Unknown Record", avatarU
   const profile = getProfile(userId, username, avatarUrl);
   unlockPassportStamps(userId, username, avatarUrl);
   const records = passportRecords(userId);
-  return { number: profile.passportNumber, status: passportStatus(records), records, stamps: getPassportStamps(userId, username, avatarUrl) };
+  const override = database.prepare("SELECT status FROM passport_status_overrides WHERE discord_id = ?").get(userId) as { status?: PassportStatus } | undefined;
+  return { number: profile.passportNumber, status: override?.status ?? passportStatus(records), records, stamps: getPassportStamps(userId, username, avatarUrl) };
 }
 
 export function grantPassportStamp(userId: string, stampId: string, username = "Unknown Record", avatarUrl: string | null = null): UnlockedPassportStamp | undefined {
