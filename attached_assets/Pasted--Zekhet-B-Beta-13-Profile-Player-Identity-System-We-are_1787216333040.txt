@@ -1,0 +1,586 @@
+# Zekhet-B Beta 13 — Profile & Player Identity System
+
+We are continuing development of Zekhet-B.
+
+The current codebase is at Beta 12 and all existing systems are functioning correctly.
+
+The following systems are confirmed to exist:
+
+* Tuto system
+* Tuto objectives
+* Tuto page progression/unlocks
+* Persistent user data
+* Item definitions
+* Persistent inventories
+* Egyptian-themed item collection
+* Currency/economy
+* XP
+* Levels
+* Ranks
+* Unified reward system
+
+This beta introduces the **Zekhet-B Profile / Player Identity system**.
+
+IMPORTANT:
+
+The profile should be primarily a **presentation and aggregation layer**.
+
+Do NOT create duplicate XP, rank, currency, inventory, Tuto, or reward logic inside the profile.
+
+The profile should retrieve information from the existing systems and present it in one cohesive interface.
+
+---
+
+# 1. CORE OBJECTIVE
+
+Create a `/profile` command that acts as the user's central identity and progression page within Zekhet-B.
+
+The profile should answer:
+
+* Who is this player?
+* What is their current rank?
+* What level are they?
+* How much XP do they have?
+* How wealthy are they?
+* How far have they progressed through Tuto?
+* What have they collected?
+* What notable accomplishments do they have?
+
+The profile should feel like a player's **personal Zekhet-B identity card**, not a database dump.
+
+---
+
+# 2. USER IDENTITY
+
+The primary profile view should display:
+
+* Discord avatar
+* Discord username/display name
+* Zekhet-B rank
+* Level
+* Current title if the existing system supports titles
+
+Use the user's Discord identity automatically.
+
+Do not create a second username system.
+
+Example visual direction:
+
+> 𓂀 **AZURION**
+> **Acolyte**
+> Level 17
+>
+> *The sands remember those who rise.*
+
+The exact flavor text is optional and should only be used if it fits the existing Zekhet-B aesthetic.
+
+---
+
+# 3. XP & LEVEL SECTION
+
+Display the user's existing XP progression.
+
+Show:
+
+* Current level
+* Current XP
+* XP required for the next level
+* Progress percentage
+* Visual progress bar
+
+Example:
+
+> **LEVEL 17**
+>
+> `2,450 / 3,000 XP`
+>
+> ████████░░ 81%
+
+The profile must retrieve these values from the existing XP/level system.
+
+Do NOT recalculate XP requirements independently inside `/profile`.
+
+Use the existing XP service/API.
+
+---
+
+# 4. RANK SECTION
+
+Display the user's current rank.
+
+Show:
+
+* Current rank
+* Current level
+* Next rank
+* Level required for next rank
+* Progress toward next rank where appropriate
+
+Example:
+
+> 𓋹 **RANK**
+>
+> **Acolyte**
+>
+> Next:
+> **Scribe — Level 20**
+>
+> `17 / 20`
+> ████████░░
+
+If the user has reached the highest currently defined rank, display an appropriate max-rank state instead.
+
+Do not assume additional ranks exist beyond those currently defined in the codebase.
+
+---
+
+# 5. CURRENCY / WEALTH
+
+Display the user's current currency balance.
+
+Use the existing currency system and its existing terminology.
+
+Example:
+
+> 𓏺 **WEALTH**
+>
+> `12,450 Deben`
+
+Do NOT duplicate balance calculations.
+
+Do NOT allow profile viewing to modify currency.
+
+---
+
+# 6. TUTO / JOURNEY SECTION
+
+Display meaningful information from the existing Tuto system.
+
+Include information such as:
+
+* Current Tuto page
+* Completed Tuto pages
+* Total currently available Tuto pages
+* Completed objectives
+* Total available objectives
+* Overall Tuto completion percentage if supported
+
+Example:
+
+> 𓂀 **JOURNEY**
+>
+> Tuto Progress
+> `4 / 6 Pages`
+>
+> Objectives
+> `37 / 52 Completed`
+>
+> Progress
+> ███████░░░ 71%
+
+Use the existing Tuto data.
+
+Do NOT create a second Tuto tracker.
+
+Do NOT alter Tuto completion state when viewing the profile.
+
+---
+
+# 7. INVENTORY / COLLECTION SECTION
+
+Display a concise summary of the user's inventory.
+
+Do NOT dump the entire inventory into the main profile.
+
+Instead, show useful statistics such as:
+
+* Unique items owned
+* Total item quantity
+* Number of different rarities represented
+* Notable rare/legendary/mythic items if appropriate
+
+Example:
+
+> 𓆣 **RELICS**
+>
+> Unique Items: `14`
+> Total Items: `47`
+>
+> ✦ Rare: 5
+> ✦ Epic: 3
+> ✦ Legendary: 1
+
+Only display information that can be reliably derived from the existing inventory system.
+
+Do not invent statistics that the inventory system cannot currently provide.
+
+---
+
+# 8. NOTABLE ITEMS
+
+If appropriate, display a small selection of notable items.
+
+Prioritize higher-rarity items.
+
+Example:
+
+> **Notable Relics**
+>
+> 𓂀 Eye of Horus ×1
+> 𓋹 Ankh of Eternity ×1
+> 𓆣 Golden Scarab ×2
+
+Do not display a large inventory list on the profile.
+
+Users should still use `/inventory` to view their complete inventory.
+
+---
+
+# 9. PROFILE NAVIGATION
+
+If the bot's existing UI architecture supports buttons or paginated embeds, create a clean profile navigation system.
+
+Potential sections:
+
+**Overview**
+
+* Identity
+* Rank
+* Level
+* XP
+* Currency
+* Tuto progress
+* Collection summary
+
+**Progression**
+
+* XP details
+* Rank progression
+* Tuto progress
+
+**Collection**
+
+* Inventory summary
+* Notable items
+
+Leave the architecture open for future:
+
+**Achievements**
+**Titles**
+**Statistics**
+**Collections**
+**Badges**
+
+Do NOT implement those future systems unless they already exist.
+
+If a simple single-page profile is cleaner with the current amount of data, prefer that over unnecessary pagination.
+
+---
+
+# 10. OTHER USER PROFILES
+
+If appropriate for the existing command architecture, allow users to inspect another user's profile.
+
+For example:
+
+`/profile user:@Example`
+
+If implemented:
+
+* Viewing another profile must be read-only.
+* Never expose private information.
+* Never expose internal IDs.
+* Never expose hidden database information.
+* Never modify the viewed user's data.
+
+If the existing bot convention favors only personal profiles, keep `/profile` self-focused instead.
+
+Do not introduce unnecessary complexity solely for this feature.
+
+---
+
+# 11. PROFILE THEME
+
+The profile should strongly reinforce Zekhet-B's identity.
+
+Use the existing visual language established throughout the bot:
+
+* Ancient Egyptian inspiration
+* Mystical atmosphere
+* Relics
+* Hieroglyphic-inspired symbols
+* Gold/desert/night imagery where appropriate
+* Clean Discord embed formatting
+
+Avoid making it look like a generic RPG stat sheet.
+
+The visual hierarchy should be elegant and relatively compact.
+
+---
+
+# 12. PROFILE FOOTER / FLAVOR
+
+If the existing Zekhet-B embed style supports footers, consider using subtle contextual information such as:
+
+* Current rank
+* Tuto progression
+* A short mystical phrase
+* Profile last updated information if actually useful
+
+Do not clutter the profile with unnecessary decorative text.
+
+---
+
+# 13. FUTURE ACHIEVEMENT COMPATIBILITY
+
+The next planned system after this beta is Achievements.
+
+Design the profile architecture so an achievement section can be added later without rebuilding the entire profile.
+
+For example, reserve the conceptual structure:
+
+> 🏆 **ACHIEVEMENTS**
+>
+> `12 / 40 Unlocked`
+
+But do NOT display fake achievement information or implement the achievement system yet.
+
+If no achievement data exists, do not create placeholder achievements.
+
+---
+
+# 14. DATA SOURCE RULE
+
+This is extremely important.
+
+The profile must use existing system services/data sources.
+
+For example:
+
+**XP**
+→ Existing XP system
+
+**Level**
+→ Existing level system
+
+**Rank**
+→ Existing rank system
+
+**Currency**
+→ Existing currency system
+
+**Inventory**
+→ Existing inventory system
+
+**Tuto**
+→ Existing Tuto system
+
+Do NOT duplicate business logic inside `/profile`.
+
+If a piece of information is not currently exposed by an existing service, add a clean getter/query to the appropriate existing system rather than recreating its calculations inside the profile command.
+
+---
+
+# 15. NEW USER EXPERIENCE
+
+A brand-new user should receive a complete but sensible profile.
+
+For example:
+
+> 𓂀 **NEW USER**
+>
+> **Rank**
+> Wanderer
+>
+> **Level**
+> 1
+>
+> **XP**
+> `0 / [next level requirement]`
+>
+> **Wealth**
+> `0 Deben`
+>
+> **Journey**
+> `0 objectives completed`
+>
+> **Relics**
+> `0 unique items`
+
+Use the actual defaults defined by the current systems.
+
+Do not create fake starter items, currency, or progression simply to make the profile look populated.
+
+---
+
+# 16. MAXIMUM PROGRESSION
+
+Handle users who have reached the highest currently available:
+
+* Level
+* Rank
+* Tuto page
+
+Do not attempt to calculate a nonexistent next level/rank/page.
+
+Use an appropriate completed/maxed-out presentation.
+
+---
+
+# 17. ERROR HANDLING
+
+The profile should fail gracefully if:
+
+* User data is unavailable.
+* Inventory data cannot be retrieved.
+* Tuto data is unavailable.
+* A progression value is missing.
+* A database query fails.
+
+Do not crash the bot.
+
+Do not display misleading information.
+
+Where possible, show the profile sections that can still be safely retrieved.
+
+---
+
+# 18. PERFORMANCE
+
+Avoid unnecessary database calls.
+
+Where possible, retrieve related user information efficiently.
+
+Do not repeatedly query the same user data for every individual field.
+
+The profile may be one of the most frequently used commands, so keep it reasonably efficient.
+
+Do not sacrifice data correctness for premature optimization.
+
+---
+
+# 19. TESTING
+
+Thoroughly test:
+
+### New User
+
+1. Create/view a profile for a new user.
+2. Confirm default values are correct.
+3. Confirm no fake data is displayed.
+
+### Progression
+
+4. View a user with XP.
+5. Confirm level is correct.
+6. Confirm XP progress bar is correct.
+7. Confirm rank is correct.
+8. Confirm next-rank information is correct.
+
+### Economy
+
+9. Confirm currency balance is correct.
+10. Change the balance.
+11. Reopen the profile.
+12. Confirm the new balance appears.
+
+### Tuto
+
+13. Complete an objective.
+14. View profile.
+15. Confirm objective progress changed.
+16. Unlock a Tuto page.
+17. Confirm page progression changed.
+
+### Inventory
+
+18. Add items.
+19. View profile.
+20. Confirm collection statistics update.
+21. Add a rare/legendary item.
+22. Confirm notable items update.
+
+### Persistence
+
+23. Restart/redeploy the bot.
+24. Confirm all profile information remains correct.
+
+### Compatibility
+
+25. Confirm existing Tuto commands work.
+26. Confirm `/inventory` works.
+27. Confirm currency commands work.
+28. Confirm XP/level commands work.
+29. Confirm rewards continue working.
+30. Confirm no existing user data is modified incorrectly.
+
+---
+
+# 20. IMPORTANT DEVELOPMENT RULES
+
+Do NOT:
+
+* Create a second XP system.
+* Create a second level system.
+* Create a second rank system.
+* Create a second currency system.
+* Create a second inventory system.
+* Create a second Tuto system.
+* Recalculate progression independently inside `/profile`.
+* Reset existing user data.
+* Add achievements yet.
+* Add quests yet.
+* Add a shop yet.
+* Add trading yet.
+
+The profile is a **presentation layer over existing systems**.
+
+---
+
+# 21. FINAL DESIGN GOAL
+
+The final `/profile` should feel like opening a player's personal record within the world of Zekhet-B.
+
+Conceptually:
+
+> 𓂀 **AZURION**
+> **Acolyte**
+> Level 17
+>
+> ─────────────────
+>
+> **XP**
+> `2,450 / 3,000`
+> ████████░░
+>
+> **NEXT RANK**
+> Scribe — Level 20
+>
+> 𓏺 **WEALTH**
+> `12,450 Deben`
+>
+> 𓂀 **JOURNEY**
+> Tuto: `4 / 6`
+> Objectives: `37 / 52`
+>
+> 𓆣 **RELICS**
+> Unique: `14`
+> Total: `47`
+>
+> **Notable**
+> Eye of Horus ×1
+> Ankh of Eternity ×1
+>
+> ─────────────────
+> *The sands remember.*
+
+This is only a visual direction. Use the actual Zekhet-B data, terminology, embed style, and UI conventions already established in the codebase.
+
+At the end, provide a concise summary of:
+
+1. What was implemented.
+2. Which existing systems the profile pulls data from.
+3. Any new helper/getter functions created.
+4. Any database changes, if any.
+5. Any UI/navigation decisions made.
+6. Anything intentionally left for future betas.
