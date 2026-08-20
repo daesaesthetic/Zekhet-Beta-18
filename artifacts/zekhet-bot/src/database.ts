@@ -98,6 +98,22 @@ export type Achievement = {
 };
 export type UnlockedAchievement = Achievement & { unlockedAt: string };
 
+export type ProgressionEvent =
+  | "PROFILE_CREATED"
+  | "BIOGRAPHY_SET"
+  | "TITLE_OBTAINED"
+  | "TITLE_EQUIPPED"
+  | "LORE_DISCOVERED"
+  | "RARE_LORE_DISCOVERED"
+  | "SECRET_LORE_DISCOVERED"
+  | "CURSE_RECEIVED"
+  | "CONTRACT_CREATED"
+  | "CONTRACT_ACCEPTED"
+  | "CONTRACT_COMPLETED"
+  | "ACHIEVEMENT_UNLOCKED"
+  | "TUTORIAL_PAGE_COMPLETED"
+  | "TUTORIAL_COMPLETED";
+
 mkdirSync(dirname(config.databasePath), { recursive: true });
 const database = new DatabaseSync(config.databasePath);
 
@@ -282,6 +298,11 @@ const initialTitles: Title[] = [
   { id: "wanderer", name: "Wanderer", description: "One who has begun the road between worlds.", rarity: "Common", isSecret: false },
   { id: "newcomer", name: "Newcomer", description: "A newly entered name in the keeper's record.", rarity: "Common", isSecret: false },
   { id: "archivist", name: "Archivist", description: "A patient hand trusted with quiet knowledge.", rarity: "Uncommon", isSecret: false },
+  { id: "student-of-archives", name: "Student of the Archives", description: "The first records have begun to teach this name.", rarity: "Uncommon", isSecret: false },
+  { id: "curious", name: "Curious", description: "The Archives recognize a persistent question.", rarity: "Uncommon", isSecret: false },
+  { id: "marked", name: "Marked", description: "A harmless ritual has left its violet signature.", rarity: "Uncommon", isSecret: false },
+  { id: "contract-master", name: "Contract Master", description: "The Ledger knows this hand can bring an agreement to its close.", rarity: "Epic", isSecret: false },
+  { id: "crown-beneath-ashes", name: "Crown Beneath the Ashes", description: "A title found where no ordinary record would look.", rarity: "Secret", isSecret: true },
   { id: "courtier", name: "Courtier", description: "A familiar presence among the Court's many designations.", rarity: "Rare", isSecret: false },
   { id: "first-lesson", name: "First Lesson", description: "The Archives have begun to teach this name.", rarity: "Common", isSecret: false },
   { id: "archive-apprentice", name: "Archive Apprentice", description: "A student of the keeper's quieter records.", rarity: "Uncommon", isSecret: false },
@@ -436,6 +457,15 @@ const initialAchievements: Achievement[] = [
   { id: "first-lesson", name: "FIRST LESSON", description: "Complete your first tutorial page.", category: "Exploration", rarity: "Common", isHidden: false, rewardTitleId: null },
   { id: "student-of-the-archives", name: "STUDENT OF THE ARCHIVES", description: "Complete half of the tutorial.", category: "Archives", rarity: "Rare", isHidden: false, rewardTitleId: null },
   { id: "tutorial-archivist", name: "THE TUTORIAL ARCHIVIST", description: "Complete the entire introductory tutorial.", category: "Archives", rarity: "Legendary", isHidden: false, rewardTitleId: "archive-adept" },
+  { id: "first-title", name: "FIRST DESIGNATION", description: "Obtain your first title beyond the three starter designations.", category: "Prestige", rarity: "Common", isHidden: false, rewardTitleId: null },
+  { id: "first-lore", name: "FIRST PAGE", description: "Discover your first lore entry.", category: "Archives", rarity: "Common", isHidden: false, rewardTitleId: null },
+  { id: "first-curse", name: "FIRST MARK", description: "Receive your first harmless curse.", category: "Rituals", rarity: "Common", isHidden: false, rewardTitleId: "marked" },
+  { id: "first-contract", name: "FIRST OFFER", description: "Create your first contract.", category: "Contracts", rarity: "Common", isHidden: false, rewardTitleId: null },
+  { id: "rare-page", name: "CURIOUS HAND", description: "Discover a rare or legendary lore entry.", category: "Archives", rarity: "Rare", isHidden: false, rewardTitleId: "curious" },
+  { id: "ten-contracts", name: "MASTER OF THE LEDGER", description: "Complete ten contracts.", category: "Contracts", rarity: "Epic", isHidden: false, rewardTitleId: "contract-master" },
+  { id: "secret-page", name: "THE HIDDEN PAGE", description: "Discover a secret lore entry.", category: "Secret", rarity: "Secret", isHidden: true, rewardTitleId: "crown-beneath-ashes" },
+  { id: "archive-court", name: "ARCHIVE COURT", description: "Equip a title after discovering ten lore entries.", category: "Prestige", rarity: "Epic", isHidden: true, rewardTitleId: null },
+  { id: "woven-record", name: "THE WOVEN RECORD", description: "Complete a contract after discovering lore and receiving a curse.", category: "Secret", rarity: "Legendary", isHidden: true, rewardTitleId: null },
 ];
 for (const achievement of initialAchievements) {
   database.prepare(`
