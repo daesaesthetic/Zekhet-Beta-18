@@ -609,6 +609,36 @@ if (curseTable?.sql && !curseTable.sql.includes("'Secret'")) {
   `);
 }
 
+const activeCursesTable = database.prepare(`
+  SELECT sql
+  FROM sqlite_master
+  WHERE type = 'table' AND name = 'active_curses'
+`).get() as { sql?: string } | undefined;
+if (activeCursesTable?.sql?.includes("curses_legacy")) {
+  database.exec(`
+    PRAGMA foreign_keys = OFF;
+    BEGIN;
+    DROP INDEX IF EXISTS active_curses_target_expiry;
+    ALTER TABLE active_curses RENAME TO active_curses_legacy;
+    CREATE TABLE active_curses (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      target_id TEXT NOT NULL REFERENCES users(discord_id) ON DELETE CASCADE,
+      curse_id TEXT NOT NULL REFERENCES curses(id) ON DELETE CASCADE,
+      inflicted_by_id TEXT NOT NULL,
+      applied_at INTEGER NOT NULL,
+      expires_at INTEGER NOT NULL
+    );
+    INSERT INTO active_curses (id, target_id, curse_id, inflicted_by_id, applied_at, expires_at)
+      SELECT id, target_id, curse_id, inflicted_by_id, applied_at, expires_at FROM active_curses_legacy;
+    DROP TABLE active_curses_legacy;
+    CREATE INDEX active_curses_target_expiry
+      ON active_curses(target_id, expires_at);
+    COMMIT;
+    PRAGMA foreign_keys = ON;
+  `);
+  console.warn("Repaired stale curses_legacy foreign-key references in the SQLite database.");
+}
+
 const initialTitles: Title[] = [
   { id: "wanderer", name: "Wanderer", description: "One who has begun the road between worlds.", rarity: "Common", isSecret: false },
   { id: "newcomer", name: "Newcomer", description: "A newly entered name in the keeper's record.", rarity: "Common", isSecret: false },
