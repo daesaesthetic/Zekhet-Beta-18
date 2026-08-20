@@ -57,6 +57,7 @@ const rarityColors: Record<Title["rarity"], number> = {
   Legendary: 0xffc857,
   Mythic: 0xff6bb5,
   Secret: 0x6e4b8e,
+  Secret: 0x6e4b8e,
 };
 const loreRarityColors: Record<LoreEntry["rarity"], number> = {
   Common: 0xaaa7b8,
@@ -119,7 +120,28 @@ const curseCommand = new SlashCommandBuilder()
   .addSubcommand((sub) => sub.setName("inspect").setDescription("Inspect a curse in the catalog.")
     .addStringOption((option) => option.setName("curse").setDescription("The curse ID to inspect.").setRequired(true)));
 
-const contractTemplates: ContractTemplate[] = ["Duel", "Challenge", "Pizza", "Favor", "Trade", "Promise", "Bet"];
+const contractTemplates: ContractTemplate[] = [
+  "Duel", "Challenge", "Pizza", "Favor", "Trade", "Promise", "Bet",
+  "Dare", "Alliance", "Service", "Oath",
+  "Journey", "Gift", "Riddle", "Vow",
+];
+const contractTemplateDescriptions: Record<ContractTemplate, string> = {
+  Duel: "A friendly contest witnessed by the Ledger.",
+  Challenge: "A harmless task offered for bragging rights.",
+  Pizza: "A social promise involving pizza, never payment.",
+  Favor: "One good turn recorded for later remembrance.",
+  Trade: "An exchange of fictional or social contributions.",
+  Promise: "A clear promise placed under the keeper's eye.",
+  Bet: "A fictional wager with no real money involved.",
+  Dare: "A playful dare with no harmful consequences.",
+  Alliance: "A temporary pact between two named Records.",
+  Service: "A harmless act of assistance owed between parties.",
+  Oath: "A solemn social commitment written in the old style.",
+  Journey: "A shared undertaking from one threshold to another.",
+  Gift: "A non-monetary offering of time, words, or attention.",
+  Riddle: "A puzzle agreed upon by both sides of the Ledger.",
+  Vow: "A lasting intention, spoken plainly and recorded.",
+};
 const contractCommand = new SlashCommandBuilder()
   .setName("contract")
   .setDescription("Create and manage fictional social agreements.")
@@ -519,7 +541,10 @@ function contractEmbed(contract: Contract): EmbedBuilder {
       { name: "PARTY B", value: `<@${contract.recipientId}>`, inline: true },
       { name: "STATUS", value: contractStatusLabel(contract.status), inline: true },
       { name: "AGREEMENT", value: `“${contract.description}”` },
-      ...(contract.template ? [{ name: "Template", value: contract.template, inline: true }] : []),
+       ...(contract.template ? [
+         { name: "Template", value: contract.template, inline: true },
+         { name: "Ledger wording", value: contractTemplateDescriptions[contract.template] },
+       ] : []),
       { name: "Created", value: new Date(contract.createdAt * 1000).toLocaleDateString("en-US"), inline: true },
       { name: "Expires", value: expiration, inline: true },
     )

@@ -47,7 +47,7 @@ export type DiscoveredLore = LoreEntry & {
   discoveredAt: string;
 };
 
-export type CurseRarity = "Common" | "Uncommon" | "Rare" | "Epic" | "Legendary" | "Mythic";
+export type CurseRarity = "Common" | "Uncommon" | "Rare" | "Epic" | "Legendary" | "Mythic" | "Secret";
 
 export type Curse = {
   id: string;
@@ -67,7 +67,9 @@ export type ActiveCurse = Curse & {
 };
 
 export type ContractStatus = "Pending" | "Accepted" | "Rejected" | "Completed" | "Expired" | "Cancelled";
-export type ContractTemplate = "Duel" | "Challenge" | "Pizza" | "Favor" | "Trade" | "Promise" | "Bet";
+export type ContractTemplate =
+  | "Duel" | "Challenge" | "Pizza" | "Favor" | "Trade" | "Promise" | "Bet"
+  | "Dare" | "Alliance" | "Service" | "Oath" | "Journey" | "Gift" | "Riddle" | "Vow";
 
 export type Contract = {
   id: string;
@@ -135,7 +137,7 @@ database.exec(`
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL UNIQUE,
     description TEXT NOT NULL,
-    rarity TEXT NOT NULL CHECK (rarity IN ('Common', 'Uncommon', 'Rare', 'Epic', 'Legendary', 'Mythic')),
+    rarity TEXT NOT NULL CHECK (rarity IN ('Common', 'Uncommon', 'Rare', 'Epic', 'Legendary', 'Mythic', 'Secret')),
     duration_minutes INTEGER NOT NULL CHECK (duration_minutes > 0),
     cooldown_seconds INTEGER NOT NULL CHECK (cooldown_seconds > 0)
   );
@@ -158,7 +160,7 @@ database.exec(`
     creator_id TEXT NOT NULL REFERENCES users(discord_id) ON DELETE CASCADE,
     recipient_id TEXT NOT NULL REFERENCES users(discord_id) ON DELETE CASCADE,
     description TEXT NOT NULL,
-    template TEXT CHECK (template IN ('Duel', 'Challenge', 'Pizza', 'Favor', 'Trade', 'Promise', 'Bet')),
+    template TEXT CHECK (template IN ('Duel', 'Challenge', 'Pizza', 'Favor', 'Trade', 'Promise', 'Bet', 'Dare', 'Alliance', 'Service', 'Oath', 'Journey', 'Gift', 'Riddle', 'Vow')),
     created_at INTEGER NOT NULL,
     expires_at INTEGER,
     status TEXT NOT NULL CHECK (status IN ('Pending', 'Accepted', 'Rejected', 'Completed', 'Expired', 'Cancelled'))
@@ -166,6 +168,52 @@ database.exec(`
   CREATE INDEX IF NOT EXISTS contracts_creator_status ON contracts(creator_id, status);
   CREATE INDEX IF NOT EXISTS contracts_recipient_status ON contracts(recipient_id, status);
 `);
+
+const contractTable = database.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'contracts'").get() as { sql?: string } | undefined;
+if (contractTable?.sql && !contractTable.sql.includes("'Dare'")) {
+  database.exec(`
+    PRAGMA foreign_keys = OFF;
+    BEGIN;
+    ALTER TABLE contracts RENAME TO contracts_legacy;
+    CREATE TABLE contracts (
+      id TEXT PRIMARY KEY,
+      creator_id TEXT NOT NULL REFERENCES users(discord_id) ON DELETE CASCADE,
+      recipient_id TEXT NOT NULL REFERENCES users(discord_id) ON DELETE CASCADE,
+      description TEXT NOT NULL,
+      template TEXT CHECK (template IN ('Duel', 'Challenge', 'Pizza', 'Favor', 'Trade', 'Promise', 'Bet', 'Dare', 'Alliance', 'Service', 'Oath', 'Journey', 'Gift', 'Riddle', 'Vow')),
+      created_at INTEGER NOT NULL,
+      expires_at INTEGER,
+      status TEXT NOT NULL CHECK (status IN ('Pending', 'Accepted', 'Rejected', 'Completed', 'Expired', 'Cancelled'))
+    );
+    INSERT INTO contracts SELECT * FROM contracts_legacy;
+    DROP TABLE contracts_legacy;
+    CREATE INDEX IF NOT EXISTS contracts_creator_status ON contracts(creator_id, status);
+    CREATE INDEX IF NOT EXISTS contracts_recipient_status ON contracts(recipient_id, status);
+    COMMIT;
+    PRAGMA foreign_keys = ON;
+  `);
+}
+
+const curseTable = database.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'curses'").get() as { sql?: string } | undefined;
+if (curseTable?.sql && !curseTable.sql.includes("'Secret'")) {
+  database.exec(`
+    PRAGMA foreign_keys = OFF;
+    BEGIN;
+    ALTER TABLE curses RENAME TO curses_legacy;
+    CREATE TABLE curses (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL UNIQUE,
+      description TEXT NOT NULL,
+      rarity TEXT NOT NULL CHECK (rarity IN ('Common', 'Uncommon', 'Rare', 'Epic', 'Legendary', 'Mythic', 'Secret')),
+      duration_minutes INTEGER NOT NULL CHECK (duration_minutes > 0),
+      cooldown_seconds INTEGER NOT NULL CHECK (cooldown_seconds > 0)
+    );
+    INSERT INTO curses SELECT * FROM curses_legacy;
+    DROP TABLE curses_legacy;
+    COMMIT;
+    PRAGMA foreign_keys = ON;
+  `);
+}
 
 const initialTitles: Title[] = [
   { id: "wanderer", name: "Wanderer", description: "One who has begun the road between worlds.", rarity: "Common", isSecret: false },
@@ -183,6 +231,25 @@ const initialTitles: Title[] = [
   { id: "keeper-of-records", name: "Keeper of Records", description: "The court's most trusted custodian.", rarity: "Secret", isSecret: true },
   { id: "oathbound", name: "Oathbound", description: "Bound to a promise that has not yet been spoken.", rarity: "Secret", isSecret: true },
   { id: "ascendant", name: "Ascendant", description: "A sealed name, waiting above the known order.", rarity: "Secret", isSecret: true },
+  { id: "the-uninvited", name: "The Uninvited", description: "Present despite the absence of an invitation.", rarity: "Common", isSecret: false },
+  { id: "oathkeeper", name: "Oathkeeper", description: "A promise survives wherever this name is written.", rarity: "Uncommon", isSecret: false },
+  { id: "forgotten-heir", name: "Forgotten Heir", description: "An inheritance with no surviving house.", rarity: "Rare", isSecret: false },
+  { id: "nights-witness", name: "Night's Witness", description: "Saw what the daylight was not permitted to know.", rarity: "Rare", isSecret: false },
+  { id: "the-unrecorded", name: "The Unrecorded", description: "A presence absent from every official page.", rarity: "Epic", isSecret: false },
+  { id: "ashen-wanderer", name: "Ashen Wanderer", description: "Carries the road's last ember from place to place.", rarity: "Epic", isSecret: false },
+  { id: "quiet-one", name: "The Quiet One", description: "The Court makes room without being asked.", rarity: "Uncommon", isSecret: false },
+  { id: "beyond-the-veil", name: "Beyond the Veil", description: "Returned with the mist still clinging to the name.", rarity: "Legendary", isSecret: false },
+  { id: "last-visitor", name: "The Last Visitor", description: "Arrived after the doors had already closed.", rarity: "Legendary", isSecret: false },
+  { id: "gravewalker", name: "Gravewalker", description: "Walks where old stories refuse to rest.", rarity: "Rare", isSecret: false },
+  { id: "starbound", name: "Starbound", description: "Keeps an appointment with a distant sky.", rarity: "Epic", isSecret: false },
+  { id: "false-prophet", name: "False Prophet", description: "Correct often enough to remain suspicious.", rarity: "Rare", isSecret: false },
+  { id: "court-fool", name: "Court Fool", description: "The only witness allowed to laugh.", rarity: "Common", isSecret: false },
+  { id: "the-nameless", name: "The Nameless", description: "A name was offered. None were accepted.", rarity: "Mythic", isSecret: false },
+  { id: "moonlit", name: "Moonlit", description: "Softly marked by a borrowed silver glow.", rarity: "Common", isSecret: false },
+  { id: "the-unfortunate", name: "The Unfortunate", description: "Luck recognizes this name and turns away.", rarity: "Uncommon", isSecret: false },
+  { id: "eternal-witness", name: "Eternal Witness", description: "Still watching the first event unfold.", rarity: "Mythic", isSecret: false },
+  { id: "wandering-crown", name: "Wandering Crown", description: "No head has held it for very long.", rarity: "Legendary", isSecret: false },
+  { id: "zekhets-acquaintance", name: "Zekhet's Acquaintance", description: "Known by the keeper, though not necessarily well.", rarity: "Secret", isSecret: true },
 ];
 
 for (const title of initialTitles) {
@@ -207,6 +274,26 @@ const initialLore: LoreEntry[] = [
   { id: "keeper-gaze", entryNumber: 1851, rarity: "Legendary", bodyTemplate: "The keeper's gaze rests on {{username}} for one breath longer than protocol allows. No explanation is attached.", isSecret: false },
   { id: "classified-echo", entryNumber: 1901, rarity: "Secret", bodyTemplate: "CLASSIFIED", isSecret: true },
   { id: "classified-origin", entryNumber: 1902, rarity: "Secret", bodyTemplate: "CLASSIFIED", isSecret: true },
+  { id: "second-name-written", entryNumber: 1852, rarity: "Common", bodyTemplate: "Someone has written a second name beneath {{username}}. The ink is still deciding what it means.", isSecret: false },
+  { id: "never-occurred", entryNumber: 1853, rarity: "Common", bodyTemplate: "The archive insists this event never occurred. It has nevertheless filed a witness statement from {{username}}.", isSecret: false },
+  { id: "removed-lines", entryNumber: 1854, rarity: "Uncommon", bodyTemplate: "Three lines of this record have been deliberately removed. The remaining line mentions {{username}}.", isSecret: false },
+  { id: "unwilling-keeper", entryNumber: 1855, rarity: "Uncommon", bodyTemplate: "Zekhet appears unwilling to discuss this entry. The silence has been entered on {{username}}'s behalf.", isSecret: false },
+  { id: "named-artifact", entryNumber: 1856, rarity: "Rare", bodyTemplate: "An artifact bearing {{username}}'s name has been catalogued. Its purpose remains politely unclear.", isSecret: false },
+  { id: "abrupt-record", entryNumber: 1857, rarity: "Rare", bodyTemplate: "The record ends abruptly. There is no explanation, though {{username}}'s title is underlined twice.", isSecret: false },
+  { id: "borrowed-key", entryNumber: 1858, rarity: "Common", bodyTemplate: "{{username}} found a key in the archive. It opens a door that has not yet been built.", isSecret: false },
+  { id: "patient-moth", entryNumber: 1859, rarity: "Common", bodyTemplate: "A patient moth has visited {{username}}'s record {{discoveries}} times and has never signed in.", isSecret: false },
+  { id: "contract-in-margin", entryNumber: 1860, rarity: "Uncommon", bodyTemplate: "A contract-shaped shadow follows {{username}} through the margins. No parties have been named.", isSecret: false },
+  { id: "curse-footnote", entryNumber: 1861, rarity: "Uncommon", bodyTemplate: "A footnote warns that {{username}} has been observed near a harmless curse. The footnote looks amused.", isSecret: false },
+  { id: "door-under-ink", entryNumber: 1862, rarity: "Rare", bodyTemplate: "Beneath the ink of {{username}}'s record lies a door. It has no handle, but seems to be waiting.", isSecret: false },
+  { id: "unclaimed-throne", entryNumber: 1863, rarity: "Rare", bodyTemplate: "The unclaimed throne has been dusted for {{username}}. The throne denies requesting this service.", isSecret: false },
+  { id: "archive-laugh", entryNumber: 1864, rarity: "Common", bodyTemplate: "The archive laughed when {{username}} arrived. It refuses to explain the joke.", isSecret: false },
+  { id: "red-thread", entryNumber: 1865, rarity: "Uncommon", bodyTemplate: "A red thread links {{username}}'s title to a page marked 'not yet'.", isSecret: false },
+  { id: "sealed-bell", entryNumber: 1866, rarity: "Legendary", bodyTemplate: "A sealed bell rang once for {{username}}. The sound was heard in no room.", isSecret: false },
+  { id: "unwritten-oath", entryNumber: 1867, rarity: "Legendary", bodyTemplate: "An unwritten oath has been attached to {{username}}'s record. Its witness is listed as 'the next dawn'.", isSecret: false },
+  { id: "classified-visitor", entryNumber: 1903, rarity: "Secret", bodyTemplate: "CLASSIFIED", isSecret: true },
+  { id: "classified-door", entryNumber: 1904, rarity: "Secret", bodyTemplate: "CLASSIFIED", isSecret: true },
+  { id: "classified-third-name", entryNumber: 1905, rarity: "Secret", bodyTemplate: "CLASSIFIED", isSecret: true },
+  { id: "classified-zekhlets-note", entryNumber: 1906, rarity: "Secret", bodyTemplate: "CLASSIFIED", isSecret: true },
 ];
 
 const initialCurses: Curse[] = [
@@ -220,6 +307,16 @@ const initialCurses: Curse[] = [
   { id: "void", name: "Curse of the Void", description: "The space between entries opens briefly, revealing only a beautiful and harmless darkness.", rarity: "Epic", durationMinutes: 25, cooldownSeconds: 150 },
   { id: "bad-luck", name: "Curse of Bad Luck", description: "The dice of the unseen court roll poorly, though no worldly consequence follows.", rarity: "Uncommon", durationMinutes: 15, cooldownSeconds: 90 },
   { id: "wanderer", name: "Curse of the Wanderer", description: "The path refuses to stay straight, and every answer seems to take the scenic route through the archives.", rarity: "Legendary", durationMinutes: 30, cooldownSeconds: 180 },
+  { id: "empty-quill", name: "Curse of the Empty Quill", description: "The quill insists it has written everything, then produces a perfectly blank flourish.", rarity: "Common", durationMinutes: 8, cooldownSeconds: 45 },
+  { id: "echoing-words", name: "Curse of Echoing Words", description: "The last harmless phrase returns from somewhere just behind the record.", rarity: "Uncommon", durationMinutes: 12, cooldownSeconds: 60 },
+  { id: "forgotten-name", name: "Curse of the Forgotten Name", description: "For a little while, the archive pretends the afflicted's name is on the tip of its tongue.", rarity: "Rare", durationMinutes: 15, cooldownSeconds: 90 },
+  { id: "wandering-eye", name: "Curse of the Wandering Eye", description: "One violet eye in the margins keeps looking in the wrong direction.", rarity: "Uncommon", durationMinutes: 10, cooldownSeconds: 60 },
+  { id: "second-thought", name: "Curse of the Second Thought", description: "Every answer arrives with a small, unnecessary reconsideration.", rarity: "Rare", durationMinutes: 15, cooldownSeconds: 90 },
+  { id: "hollow-crown", name: "Curse of the Hollow Crown", description: "An invisible crown settles overhead and makes a quiet, regal wobble.", rarity: "Epic", durationMinutes: 20, cooldownSeconds: 120 },
+  { id: "endless-scroll", name: "Curse of the Endless Scroll", description: "The record seems one line longer each time it is inspected.", rarity: "Epic", durationMinutes: 25, cooldownSeconds: 150 },
+  { id: "watchful-star", name: "Curse of the Watchful Star", description: "A distant star has chosen the record as its favorite harmless mystery.", rarity: "Legendary", durationMinutes: 30, cooldownSeconds: 180 },
+  { id: "zekhets-disapproval", name: "Curse of Zekhet's Disapproval", description: "The keeper has raised one unseen eyebrow. The effect is mostly atmospheric.", rarity: "Mythic", durationMinutes: 35, cooldownSeconds: 210 },
+  { id: "unfortunate", name: "Curse of the Unfortunate", description: "The smallest possible inconvenience arrives with ceremonial timing.", rarity: "Secret", durationMinutes: 40, cooldownSeconds: 240 },
 ];
 
 for (const entry of initialLore) {

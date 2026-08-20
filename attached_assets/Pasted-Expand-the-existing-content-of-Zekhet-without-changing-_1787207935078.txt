@@ -1,0 +1,188 @@
+Expand the existing content of ⛤ Zekhet ⛤ without changing its existing functionality or architecture.
+
+IMPORTANT:
+The bot is already working correctly. Do NOT rebuild existing systems, rewrite the database, rename commands, or add unrelated features.
+
+This task is ONLY a content expansion.
+
+==================================================
+THE COURT — TITLES
+==================================================
+
+Expand the existing title collection.
+
+Add approximately 20 new titles.
+
+Maintain the existing rarity system:
+- Common
+- Uncommon
+- Rare
+- Epic
+- Legendary
+- Mythic
+- Secret
+
+Create a mixture of:
+
+- Simple titles
+- Prestigious titles
+- Mysterious titles
+- Ancient/fantasy titles
+- Humorous titles
+- Strange titles
+- Extremely rare titles
+
+Some examples of the desired style:
+
+The Uninvited
+Oathkeeper
+Forgotten Heir
+Night's Witness
+The Unrecorded
+Ashen Wanderer
+Keeper of the Ninth Seal
+The Quiet One
+Beyond the Veil
+The Last Visitor
+Gravewalker
+Starbound
+False Prophet
+Court Fool
+The Nameless
+Moonlit
+The Unfortunate
+Eternal Witness
+Wandering Crown
+Zekhet's Acquaintance
+
+Do not make every title overly dramatic.
+
+Make descriptions short and flavorful.
+
+==================================================
+THE ARCHIVES — LORE
+==================================================
+
+Expand the existing lore collection with approximately 20 new entries.
+
+Use the existing rarity system.
+
+Include a mixture of:
+
+- Personal records
+- Strange encounters
+- Zekhet observations
+- Forgotten events
+- Omens
+- Artifacts
+- Locations
+- Title-related lore
+- Curse-related lore
+- Contract-related lore
+- Humorous records
+- Classified records
+
+Secret entries should feel genuinely unusual.
+
+Examples of the desired style:
+
+"Someone has written a second name beneath yours."
+
+"The archive insists this event never occurred."
+
+"Three lines of this record have been deliberately removed."
+
+"Zekhet appears unwilling to discuss this entry."
+
+"An artifact bearing your name has been catalogued."
+
+"The record ends abruptly. There is no explanation."
+
+Do not invent real-world information about users.
+
+Where appropriate, lore may reference information actually stored by Zekhet, such as a user's title, curse, or contract.
+
+==================================================
+THE RITUALS — CURSES
+==================================================
+
+Expand the existing curse collection with approximately 10 new harmless fictional curses.
+
+Include a mixture of:
+
+- Humorous
+- Ominous
+- Mystical
+- Strange
+- Rare
+- Secret
+
+Possible examples:
+
+Curse of the Empty Quill
+Curse of Echoing Words
+Curse of the Forgotten Name
+Curse of the Wandering Eye
+Curse of the Second Thought
+Curse of the Hollow Crown
+Curse of the Endless Scroll
+Curse of the Watchful Star
+Curse of Zekhet's Disapproval
+Curse of the Unfortunate
+
+All curses must remain cosmetic or limited to Zekhet's own responses.
+
+NEVER modify:
+- Discord permissions
+- Roles
+- Nicknames
+- Messages
+- Bans
+- Kicks
+- Timeouts
+- Server functionality
+
+==================================================
+THE LEDGER — CONTRACTS
+==================================================
+
+Expand the existing contract templates with approximately 8 additional templates.
+
+Possible categories:
+
+- Duel
+- Challenge
+- Favor
+- Trade
+- Promise
+- Dare
+- Alliance
+- Service
+- Oath
+- Bet
+
+Any "bet" must remain a fictional/social agreement and must never involve real money.
+
+Give each template a concise description and appropriate Zekhet-themed wording.
+
+==================================================
+IMPORTANT
+==================================================
+
+Use the existing database structure and helper functions whenever possible.
+
+Do not create unnecessary dependencies.
+
+Do not add AI.
+
+Do not add a web dashboard.
+
+Do not add an economy.
+
+Do not add new major systems.
+
+Do not modify the existing Developer Console.
+
+The goal is simply to make Zekhet's existing systems have substantially more content.
+
+After adding the content, verify that all existing commands still work.
