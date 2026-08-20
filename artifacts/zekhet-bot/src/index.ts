@@ -37,9 +37,22 @@ client.on(Events.InteractionCreate, async (interaction) => {
     await handleCommand(interaction);
   } catch (error) {
     console.error("Command handling failed", error);
+    if (
+      error &&
+      typeof error === "object" &&
+      "code" in error &&
+      error.code === 10062
+    ) {
+      console.warn("Ignoring expired Discord interaction.");
+      return;
+    }
     const response = { content: "The archives are momentarily sealed. Please try again.", ephemeral: true };
-    if (interaction.replied || interaction.deferred) await interaction.followUp(response);
-    else await interaction.reply(response);
+    try {
+      if (interaction.replied || interaction.deferred) await interaction.followUp(response);
+      else await interaction.reply(response);
+    } catch (responseError) {
+      console.error("Unable to send command error response", responseError);
+    }
   }
 });
 
