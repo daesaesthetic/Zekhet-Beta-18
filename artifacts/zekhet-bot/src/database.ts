@@ -46,7 +46,7 @@ function ensureProfile(userId: string, username: string, avatarUrl: string | nul
 
   database.prepare(`
     INSERT INTO profiles (discord_id, profile_number)
-    SELECT ?, COALESCE(MAX(profile_number), 0) + 1 FROM profiles
+    SELECT ?, COALESCE((SELECT MAX(profile_number) FROM profiles), 0) + 1
     WHERE NOT EXISTS (SELECT 1 FROM profiles WHERE discord_id = ?)
   `).run(userId, userId);
 }

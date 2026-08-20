@@ -86,7 +86,7 @@ export async function handleCommand(interaction: ChatInputCommandInteraction): P
   const target = interaction.options.getUser("user") ?? interaction.user;
   const subcommand = interaction.options.getSubcommand(false) || "view";
 
-  if (target.id !== interaction.user.id) {
+  if (subcommand !== "view" && target.id !== interaction.user.id) {
     await interaction.reply({ content: "That Record is not available for inspection here.", ephemeral: true });
     return;
   }
