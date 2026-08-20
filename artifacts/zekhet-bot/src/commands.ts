@@ -196,6 +196,14 @@ const curseRarityColors: Record<Curse["rarity"], number> = {
   Mythic: 0xff6bb5,
   Secret: 0x6e4b8e,
 };
+const achievementRarityColors: Record<Achievement["rarity"], number> = {
+  Common: 0xaaa7b8,
+  Uncommon: 0x65d18b,
+  Rare: 0x5e9cff,
+  Epic: 0xa873ff,
+  Legendary: 0xffc857,
+  Secret: 0x6e4b8e,
+};
 const profileCommand = new SlashCommandBuilder()
   .setName("profile")
   .setDescription("Open or amend a personal Record.")
@@ -241,6 +249,12 @@ const curseCommand = new SlashCommandBuilder()
   .addSubcommand((sub) => sub.setName("list").setDescription("Browse the catalog of fictional curses."))
   .addSubcommand((sub) => sub.setName("inspect").setDescription("Inspect a curse in the catalog.")
     .addStringOption((option) => option.setName("curse").setDescription("The curse ID to inspect.").setRequired(true)));
+
+const achievementCommand = new SlashCommandBuilder()
+  .setName("achievement")
+  .setDescription("Consult the records of your achievements.")
+  .addSubcommand((sub) => sub.setName("inspect").setDescription("Inspect an achievement.")
+    .addStringOption((option) => option.setName("achievement").setDescription("The achievement ID to inspect.").setRequired(true)));
 
 const contractTemplates: ContractTemplate[] = [
   "Duel", "Challenge", "Pizza", "Favor", "Trade", "Promise", "Bet",
@@ -293,6 +307,8 @@ export const commands = [
   titleCommand,
   loreCommand,
   curseCommand,
+  new SlashCommandBuilder().setName("achievements").setDescription("View your achievements and sealed records."),
+  achievementCommand,
   contractCommand,
   new SlashCommandBuilder().setName("contracts").setDescription("Review contracts connected to your Record."),
 ].map((command) => command.toJSON());
@@ -322,6 +338,12 @@ function developerPanel() {
         new ButtonBuilder().setCustomId("developer:reset").setLabel("Reset Test Data").setStyle(ButtonStyle.Danger),
         new ButtonBuilder().setCustomId("developer:profile").setLabel("View Profile Data").setStyle(ButtonStyle.Secondary),
       ),
+      new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder().setCustomId("developer:achievements").setLabel("View All Achievements").setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId("developer:unlock-achievement").setLabel("Unlock Achievement").setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId("developer:test-achievement").setLabel("Test Unlock Notice").setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId("developer:reset-achievements").setLabel("Reset Achievements").setStyle(ButtonStyle.Danger),
+      ),
     ],
   };
 }
@@ -342,6 +364,37 @@ export async function handleDeveloperComponent(interaction: ButtonInteraction): 
   if (section === "unlock-lore") {
     const count = unlockAllLore(interaction.user.id, interaction.user.username, interaction.user.displayAvatarURL());
     await interaction.reply({ content: `Developer access granted: ${count} previously classified archive entr${count === 1 ? "y is" : "ies are"} now available on your Record.`, ephemeral: true });
+    return;
+  }
+  if (section === "unlock-achievement") {
+    const modal = new ModalBuilder().setCustomId("developer:unlock-achievement-modal").setTitle("Unlock Achievement");
+    const achievementId = new TextInputBuilder()
+      .setCustomId("achievement-id")
+      .setLabel("Achievement ID")
+      .setStyle(TextInputStyle.Short)
+      .setRequired(true)
+      .setPlaceholder("for example: first-record");
+    modal.addComponents(new ActionRowBuilder<TextInputBuilder>().addComponents(achievementId));
+    await interaction.showModal(modal);
+    return;
+  }
+  if (section === "test-achievement") {
+    const achievement = getAchievements()[0];
+    const unlocked = achievement && developerUnlockAchievement(
+      interaction.user.id,
+      achievement.id,
+      interaction.user.username,
+      interaction.user.displayAvatarURL(),
+    );
+    await interaction.reply({
+      content: unlocked ? achievementNotification(unlocked) : "No achievement is available to test.",
+      ephemeral: true,
+    });
+    return;
+  }
+  if (section === "reset-achievements") {
+    const count = resetAchievementProgress(interaction.user.id);
+    await interaction.reply({ content: `Reset ${count} achievement record(s) from your Record.`, ephemeral: true });
     return;
   }
   if (section === "apply-curse") {
@@ -417,12 +470,14 @@ export async function handleDeveloperComponent(interaction: ButtonInteraction): 
     lore: getLoreCatalog().map((entry) => `\`${entry.id}\` · #${entry.entryNumber} · ${entry.rarity}${entry.isSecret ? " · 🔒 classified" : ""}`).join("\n") || "No lore is recorded.",
     curses: getCurses().map((curse) => `\`${curse.id}\` · ${curse.name} · ${curse.durationMinutes}m`).join("\n") || "No curses are recorded.",
     contracts: getContractsForUser(interaction.user.id).map((contract) => `#${contract.id} · ${contract.status} · ${contract.description}`).join("\n") || "No contracts are attached to your Record.",
+    achievements: getAchievements().map((achievement) => `\`${achievement.id}\` · ${achievement.name} · ${achievement.rarity}${achievement.isHidden ? " · 🔒 hidden" : ""}`).join("\n") || "No achievements are recorded.",
   };
   const titles: Record<string, string> = {
     titles: "All titles",
     lore: "All lore entries",
     curses: "All curses",
     contracts: "Your contracts",
+    achievements: "All achievements",
   };
   await interaction.update({
     ...developerPanel(),
@@ -435,6 +490,24 @@ export async function handleDeveloperComponent(interaction: ButtonInteraction): 
 }
 
 export async function handleDeveloperModal(interaction: ModalSubmitInteraction): Promise<void> {
+  if (interaction.customId === "developer:unlock-achievement-modal") {
+    if (interaction.user.id !== config.developerId) {
+      await interaction.reply({ content: "You do not have access to that panel.", ephemeral: true });
+      return;
+    }
+    const achievementId = interaction.fields.getTextInputValue("achievement-id").trim().toLowerCase();
+    const unlocked = developerUnlockAchievement(
+      interaction.user.id,
+      achievementId,
+      interaction.user.username,
+      interaction.user.displayAvatarURL(),
+    );
+    await interaction.reply({
+      content: unlocked ? achievementNotification(unlocked) : "That achievement ID is absent from the records.",
+      ephemeral: true,
+    });
+    return;
+  }
   if (interaction.customId !== "developer:create-contract-modal") return;
   if (interaction.user.id !== config.developerId) {
     await interaction.reply({ content: "You do not have access to that panel.", ephemeral: true });
@@ -484,6 +557,7 @@ function profileEmbed(profile: Profile, user: User): EmbedBuilder {
       { name: "Equipped title", value: profile.title, inline: true },
       { name: "Titles owned", value: String(profile.titlesOwned), inline: true },
       { name: "Lore discovered", value: String(profile.loreDiscovered), inline: true },
+      { name: "Achievements", value: String(profile.achievementsUnlocked), inline: true },
       { name: "Active curses", value: String(profile.activeCurses), inline: true },
       { name: "Contracts created", value: String(profile.contractsCreated), inline: true },
       { name: "Contracts completed", value: String(profile.contractsCompleted), inline: true },
@@ -491,6 +565,44 @@ function profileEmbed(profile: Profile, user: User): EmbedBuilder {
       { name: "Record number", value: `#${String(profile.profileNumber).padStart(4, "0")}`, inline: true },
     )
     .setFooter({ text: `Recorded ${new Date(profile.createdAt).toLocaleDateString("en-US")}` });
+}
+
+function achievementLabel(achievement: Achievement, unlocked: boolean): string {
+  return achievement.isHidden && !unlocked ? "🔒 ???" : `**${achievement.name}** · ${achievement.rarity}`;
+}
+
+function achievementNotification(achievement: Achievement | UnlockedAchievement): string {
+  const dramatic = achievement.rarity === "Secret" || achievement.rarity === "Legendary";
+  return `⛤ ACHIEVEMENT UNLOCKED ⛤\n\n${dramatic ? "🌑" : "🏺"} ${achievement.name}\n\n_${achievement.description}_\n\nRarity: ${achievement.rarity}${achievement.rewardTitleId ? `\nTitle granted: **${getTitle(achievement.rewardTitleId)?.name ?? achievement.rewardTitleId}**` : ""}`;
+}
+
+function achievementEmbed(achievement: Achievement, unlocked: boolean): EmbedBuilder {
+  return new EmbedBuilder()
+    .setColor(achievementRarityColors[achievement.rarity])
+    .setAuthor({ name: "🏺 THE ACHIEVEMENTS 🏺" })
+    .setTitle(achievementLabel(achievement, unlocked))
+    .setDescription(unlocked || !achievement.isHidden
+      ? achievement.description
+      : "Some records are better left unopened.")
+    .addFields(
+      { name: "Category", value: achievement.category, inline: true },
+      { name: "Rarity", value: unlocked || !achievement.isHidden ? achievement.rarity : "Secret", inline: true },
+      { name: "Status", value: unlocked ? "Unlocked" : "Locked", inline: true },
+    );
+}
+
+function achievementsEmbed(all: Achievement[], unlocked: UnlockedAchievement[]): EmbedBuilder {
+  const unlockedIds = new Set(unlocked.map((entry) => entry.id));
+  const lines = all.map((achievement) =>
+    `${unlockedIds.has(achievement.id) ? "✦" : achievement.isHidden ? "🔒" : "○"} ${achievementLabel(achievement, unlockedIds.has(achievement.id))}`,
+  ).join("\n");
+  return new EmbedBuilder()
+    .setColor(0x7e4bb8)
+    .setAuthor({ name: "🏺 THE ACHIEVEMENTS 🏺" })
+    .setTitle("Personal Achievements")
+    .setDescription("The Court rewards records that are lived, revisited, and remembered.")
+    .addFields({ name: `Unlocked · ${unlocked.length} / ${all.length}`, value: lines || "_No achievements are recorded._" })
+    .setFooter({ text: "Hidden achievements reveal themselves only when the record is complete." });
 }
 
 function titleLabel(title: Title | OwnedTitle, owned = false): string {
@@ -701,8 +813,40 @@ export async function handleCommand(interaction: ChatInputCommandInteraction): P
     return;
   }
 
+  const newlyUnlocked = recordInteraction(
+    interaction.user.id,
+    interaction.user.username,
+    interaction.user.displayAvatarURL(),
+  );
+  const achievementNotice = newlyUnlocked.map(achievementNotification).join("\n\n");
+
+  if (interaction.commandName === "achievements") {
+    await interaction.reply({
+      content: achievementNotice || undefined,
+      embeds: [achievementsEmbed(
+        getAchievements(),
+        getUnlockedAchievements(interaction.user.id, interaction.user.username, interaction.user.displayAvatarURL()),
+      )],
+    });
+    return;
+  }
+
+  if (interaction.commandName === "achievement") {
+    const achievementId = interaction.options.getString("achievement")?.trim().toLowerCase();
+    const achievement = achievementId ? getAchievement(achievementId) : undefined;
+    if (!achievement) {
+      await interaction.reply({ content: "That achievement is absent from the records.", ephemeral: true });
+      return;
+    }
+    const unlocked = getUnlockedAchievements(interaction.user.id, interaction.user.username, interaction.user.displayAvatarURL())
+      .some((entry) => entry.id === achievement.id);
+    await interaction.reply({ content: achievementNotice || undefined, embeds: [achievementEmbed(achievement, unlocked)] });
+    return;
+  }
+
   if (interaction.commandName === "help") {
     await interaction.reply({
+      content: achievementNotice || undefined,
       embeds: [new EmbedBuilder()
         .setColor(0x7e4bb8)
         .setAuthor({ name: "⛤ ZEKHET ⛤" })
@@ -714,6 +858,7 @@ export async function handleCommand(interaction: ChatInputCommandInteraction): P
           { name: "📜 THE ARCHIVES", value: "`/lore discover` — Discover an archive entry.\n`/lore archive` — Review discoveries.\n`/lore inspect` — Inspect an entry." },
           { name: "🧿 THE RITUALS", value: "`/curse user` — Mark another Record with a harmless fictional curse.\n`/curse active` — View active curses.\n`/curse list` — Browse the curse catalog.\n`/curse inspect` — Inspect a curse." },
           { name: "⚖️ THE LEDGER", value: "`/contract create` — Offer a social agreement.\n`/contract accept` — Accept an agreement.\n`/contract reject` — Reject an agreement.\n`/contract inspect` — Inspect a contract.\n`/contract complete` — Complete an accepted agreement.\n`/contract cancel` — Cancel an agreement.\n`/contracts` — Review your contracts." },
+          { name: "🏺 THE ACHIEVEMENTS", value: "`/achievements` — View your progress.\n`/achievement inspect` — Inspect a record." },
         )],
     });
     return;
@@ -732,6 +877,7 @@ export async function handleCommand(interaction: ChatInputCommandInteraction): P
 
   if (interaction.commandName === "titles") {
     await interaction.reply({
+      content: achievementNotice || undefined,
       embeds: [titlesEmbed(getOwnedTitles(interaction.user.id, interaction.user.username, interaction.user.displayAvatarURL()))],
     });
     return;
@@ -809,7 +955,9 @@ export async function handleCommand(interaction: ChatInputCommandInteraction): P
         return;
       }
       const updatedProfile = getProfile(interaction.user.id, interaction.user.username, interaction.user.displayAvatarURL());
-      await interaction.reply({ embeds: [loreEmbed(result.lore, updatedProfile)] });
+      const postUnlocks = unlockEligibleAchievements(interaction.user.id);
+      const notice = [...newlyUnlocked, ...postUnlocks].map(achievementNotification).join("\n\n");
+      await interaction.reply({ content: notice || undefined, embeds: [loreEmbed(result.lore, updatedProfile)] });
       return;
     }
 
@@ -886,7 +1034,7 @@ export async function handleCommand(interaction: ChatInputCommandInteraction): P
       return;
     }
     await interaction.reply({
-      content: `${pick(dialogue.curseApplied)} <@${target.id}> has been marked.`,
+      content: `${pick(dialogue.curseApplied)} <@${target.id}> has been marked.${target.id === interaction.user.id ? `\n\n${achievementNotice}` : ""}`,
       embeds: [activeCurseEmbed(result.curse)],
     });
     return;
@@ -928,7 +1076,7 @@ export async function handleCommand(interaction: ChatInputCommandInteraction): P
         return;
       }
       await interaction.reply({
-      content: `${pick(dialogue.contractCreated)}\n\nContract **#${result.contract.id}** has been offered to <@${target.id}>.`,
+        content: `${pick(dialogue.contractCreated)}\n\nContract **#${result.contract.id}** has been offered to <@${target.id}>.${achievementNotice ? `\n\n${achievementNotice}` : ""}`,
         embeds: [contractEmbed(result.contract)],
       });
       return;
@@ -966,8 +1114,10 @@ export async function handleCommand(interaction: ChatInputCommandInteraction): P
       await interaction.reply({ content: message, ephemeral: true });
       return;
     }
+    const postUnlocks = unlockEligibleAchievements(interaction.user.id);
+    const notice = [...newlyUnlocked, ...postUnlocks].map(achievementNotification).join("\n\n");
     await interaction.reply({
-      content: `${pick(dialogue.contractChanged)} Contract **#${result.contract.id}** is now **${contractStatusLabel(result.contract.status)}**.`,
+      content: `${pick(dialogue.contractChanged)} Contract **#${result.contract.id}** is now **${contractStatusLabel(result.contract.status)}**.${notice ? `\n\n${notice}` : ""}`,
       embeds: [contractEmbed(result.contract)],
     });
     return;
@@ -985,7 +1135,7 @@ export async function handleCommand(interaction: ChatInputCommandInteraction): P
 
   if (subcommand === "view") {
     const profile = getProfile(target.id, target.username, target.displayAvatarURL());
-    await interaction.reply({ embeds: [profileEmbed(profile, target)] });
+    await interaction.reply({ content: achievementNotice || undefined, embeds: [profileEmbed(profile, target)] });
     return;
   }
 
