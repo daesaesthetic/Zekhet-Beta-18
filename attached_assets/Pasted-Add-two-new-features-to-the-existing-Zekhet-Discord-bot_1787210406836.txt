@@ -1,0 +1,537 @@
+Add two new features to the existing ⛤ Zekhet ⛤ Discord bot:
+
+1. A customizable text command prefix.
+2. A guided tutorial/progression system similar in concept to Mudae's /tuto.
+
+IMPORTANT:
+Zekhet is already functioning correctly.
+
+Do NOT rebuild or replace existing systems:
+- Profiles
+- Titles
+- Lore
+- Curses
+- Contracts
+- Achievements
+- Developer Console
+
+Keep the existing slash commands working exactly as they do now.
+
+==================================================
+1. COMMAND PREFIX
+==================================================
+
+Add support for text-based commands using a customizable prefix.
+
+Default prefix:
+
+z!
+
+Examples:
+
+z!profile
+z!titles
+z!lore
+z!achievements
+
+The prefix should be configurable per server.
+
+Add slash commands:
+
+/prefix
+/prefix set <prefix>
+/prefix reset
+
+/prefix should display the current server prefix.
+
+Only users with appropriate server management permissions should be able to change the server prefix.
+
+Default to:
+
+z!
+
+if a server has never configured one.
+
+Keep the prefix short and practical.
+
+Allow reasonable prefixes such as:
+
+z!
+zk!
+zh!
+>>
+
+Do not allow extremely long prefixes.
+
+Prevent prefixes containing whitespace or otherwise confusing characters.
+
+==================================================
+PREFIX COMPATIBILITY
+==================================================
+
+The bot's existing slash commands remain the primary interface.
+
+Prefix commands should act as convenient aliases for supported commands rather than replacing slash commands.
+
+Initially support aliases for the most useful commands:
+
+z!profile
+z!titles
+z!lore
+z!curse
+z!contracts
+z!achievements
+z!help
+z!credits
+z!tuto
+
+If an equivalent slash command requires arguments, allow the prefix version to accept those arguments where practical.
+
+Example:
+
+z!profile @user
+
+z!title equip "The Forgotten"
+
+Do not attempt to recreate every slash command as a prefix command if doing so would require unnecessary complexity.
+
+Use the same underlying command handlers where possible so slash and prefix commands behave consistently.
+
+IMPORTANT:
+Prefix commands require the appropriate Discord Message Content Intent.
+
+Do not break USER_INSTALL functionality for the existing slash-command systems.
+
+==================================================
+2. THE TUTORIAL — /tuto
+==================================================
+
+Create a guided tutorial/progression system called:
+
+📜 THE TUTORIAL
+
+Primary command:
+
+/tuto
+
+Prefix alias:
+
+z!tuto
+
+The tutorial should guide new users through Zekhet's major systems.
+
+The system should contain multiple pages/chapters.
+
+Users begin with the first page unlocked.
+
+Completing all objectives on the current page unlocks the next page.
+
+Previously completed pages should remain completed.
+
+Tutorial progress must persist in SQLite.
+
+Tutorial progress should be tracked per user.
+
+When server-specific information is involved, associate that progress with the appropriate server/user context.
+
+==================================================
+3. TUTORIAL PRESENTATION
+==================================================
+
+Make /tuto visually similar in concept to a guided game tutorial rather than a normal help command.
+
+Example:
+
+⛤ 1/6 — THE FIRST RECORD ⛤
+
+Welcome to Zekhet.
+
+The Archives will guide you through the systems available to you.
+
+OBJECTIVES
+
+○ Create your Record
+○ Customize your profile
+○ Equip your first title
+
+REWARDS
+
++200 Archive Essence
++1 Title
+
+Progress: 1/3
+
+Use buttons where practical to navigate between available information.
+
+Do not copy Mudae's exact wording, visual design, or rewards.
+
+Zekhet should have its own identity.
+
+==================================================
+4. TUTORIAL CHAPTERS
+==================================================
+
+Create approximately 6 initial tutorial pages.
+
+PAGE 1 — THE FIRST RECORD
+
+Introduce:
+- /profile
+- Profile customization
+
+Objectives:
+- View your profile
+- Set a biography
+- Choose a profile theme
+
+Reward:
+- Small amount of Archive Essence or another simple cosmetic/progression reward
+
+Unlock:
+PAGE 2 — THE COURT
+
+--------------------------------------------------
+
+PAGE 2 — THE COURT
+
+Introduce:
+- /titles
+- /title inspect
+- /title equip
+
+Objectives:
+- View available titles
+- Inspect a title
+- Equip a title
+
+Reward:
+- Starter title or title unlock
+
+Unlock:
+PAGE 3 — THE ARCHIVES
+
+--------------------------------------------------
+
+PAGE 3 — THE ARCHIVES
+
+Introduce:
+- /lore
+- /lore discover
+- /lore inspect
+
+Objectives:
+- Discover lore
+- Inspect a lore entry
+- Discover multiple entries
+
+Reward:
+- Lore-related reward
+- Possible title or achievement
+
+Unlock:
+PAGE 4 — THE RITUALS
+
+--------------------------------------------------
+
+PAGE 4 — THE RITUALS
+
+Introduce:
+- /curse
+- Active curses
+- Curse inspection
+
+Objectives:
+- View available curses
+- Experience or apply a curse where appropriate
+- Inspect an active curse
+
+All curses must remain harmless.
+
+Reward:
+- Curse-related title or achievement
+
+Unlock:
+PAGE 5 — THE LEDGER
+
+--------------------------------------------------
+
+PAGE 5 — THE LEDGER
+
+Introduce:
+- Contracts
+- Creating agreements
+- Accepting/completing agreements
+
+Objectives:
+- Create a contract
+- Have another user accept it
+- Complete a contract
+
+Do not require real money or gambling.
+
+Reward:
+- Contract-related title or achievement
+
+Unlock:
+PAGE 6 — THE ARCHIVIST
+
+--------------------------------------------------
+
+PAGE 6 — THE ARCHIVIST
+
+This should act as the final tutorial chapter.
+
+Introduce:
+- Achievements
+- Zekhet's broader progression system
+- Developer features should NOT be mentioned to normal users
+
+Objectives should require exploration of several Zekhet systems.
+
+Examples:
+
+- Unlock an achievement
+- Own multiple titles
+- Discover multiple lore entries
+- Complete a contract
+- Interact with multiple Zekhet systems
+
+Final reward should feel more significant than earlier rewards.
+
+Possible rewards:
+- Exclusive title
+- Achievement
+- Secret lore entry
+- Passport-related reward placeholder
+
+Do not build the Passport system yet unless it already exists.
+
+==================================================
+5. OBJECTIVES
+==================================================
+
+Objectives should automatically detect when the user completes the required action.
+
+Do NOT require users to manually claim completed objectives.
+
+Example:
+
+○ Discover your first lore entry
+✓ Discover your first lore entry
+
+When an objective is completed, update the tutorial progress.
+
+When every objective on a page is complete:
+
+⛤ PAGE COMPLETE ⛤
+
+"The Archives have acknowledged your progress."
+
+Reward the user and unlock the next page.
+
+Do not give the reward repeatedly.
+
+==================================================
+6. REWARDS
+==================================================
+
+Keep the reward system lightweight.
+
+Use existing systems wherever possible.
+
+Possible rewards:
+
+- Titles
+- Achievements
+- Lore entries
+- Cosmetic profile rewards
+- Archive Essence placeholder if an economy does not yet exist
+
+Do NOT create a full economy system just for the tutorial.
+
+If Archive Essence does not already exist, use existing titles/achievements/lore as rewards instead.
+
+Some rewards should be unique to tutorial progression.
+
+==================================================
+7. TUTORIAL NAVIGATION
+==================================================
+
+/tuto should show the user's current page.
+
+Allow:
+
+- Previous page
+- Next page
+- Current objectives
+- Completed objectives
+- Rewards
+- Overall tutorial progress
+
+Users should be able to revisit completed pages.
+
+They should NOT be able to claim rewards repeatedly.
+
+If the user attempts to access a locked page:
+
+⛤ The Archives remain sealed.
+
+"Complete the previous chapter before proceeding."
+
+==================================================
+8. TUTORIAL COMPLETION
+==================================================
+
+After completing the final tutorial page, display something special.
+
+Example:
+
+⛤ THE ARCHIVES ACKNOWLEDGE YOU ⛤
+
+"You have completed the introductory records."
+
+"Zekhet has no further instructions."
+
+"...For now."
+
+Show:
+
+Tutorial Complete
+6 / 6 Chapters
+
+Give the final reward only once.
+
+After completion, /tuto should display the completed tutorial rather than becoming unusable.
+
+==================================================
+9. ACHIEVEMENT INTEGRATION
+==================================================
+
+Integrate the tutorial with the existing achievement system.
+
+Add a few tutorial-related achievements.
+
+Examples:
+
+FIRST LESSON
+Complete your first tutorial page.
+
+STUDENT OF THE ARCHIVES
+Complete half of the tutorial.
+
+ARCHIVIST
+Complete the entire tutorial.
+
+Do not create excessive tutorial achievements.
+
+Existing achievements must continue working.
+
+==================================================
+10. DEVELOPER INTEGRATION
+==================================================
+
+Integrate the tutorial with the existing /developer system.
+
+Developer controls should include:
+
+- View any tutorial page
+- Unlock any tutorial page
+- Complete individual objectives
+- Complete an entire page
+- Reset personal tutorial progress
+- Test tutorial rewards
+- Test tutorial completion
+
+These controls must ONLY be available to the configured developer.
+
+Normal users must still follow the intended progression.
+
+==================================================
+11. HELP INTEGRATION
+==================================================
+
+Update /help.
+
+Add:
+
+📜 THE TUTORIAL
+/tuto — Begin or continue Zekhet's introductory records.
+
+Do not make /help excessively large.
+
+==================================================
+12. DATABASE
+==================================================
+
+Add only the SQLite tables necessary for:
+
+- Server prefix configuration
+- User tutorial progress
+- Tutorial objectives
+- Tutorial rewards/claims if necessary
+
+Reuse existing user/profile/achievement/title tables where possible.
+
+Do not duplicate information already stored elsewhere.
+
+Tutorial progress must persist through bot restarts.
+
+==================================================
+13. DESIGN
+==================================================
+
+Maintain Zekhet's existing visual identity:
+
+Dark
+Purple
+Magenta
+Ancient
+Mystical
+Elegant
+
+Use:
+
+⛤
+📜
+👑
+🧿
+⚖️
+🔒
+
+sparingly.
+
+The tutorial should feel like an ancient record being presented by Zekhet, not a generic software tutorial.
+
+==================================================
+14. IMPORTANT DEVELOPMENT RULES
+==================================================
+
+Do NOT:
+
+- Rebuild existing systems
+- Replace the current database architecture
+- Add AI
+- Add external APIs
+- Add a web dashboard
+- Add a full economy
+- Add real-money systems
+- Add unrelated features
+- Remove existing slash commands
+
+Reuse existing command handlers and database functions whenever possible.
+
+The tutorial should connect to existing systems rather than creating duplicate versions of them.
+
+Before finishing, verify:
+
+1. /prefix works.
+2. Prefix changes persist.
+3. Prefix permissions work.
+4. Existing slash commands still work.
+5. /tuto works.
+6. Tutorial progress persists after restart.
+7. Objectives update automatically.
+8. Pages unlock correctly.
+9. Rewards cannot be claimed twice.
+10. Developer tools can test/reset tutorial progress.
+11. Existing Profile, Titles, Lore, Curses, Contracts, and Achievements still function.
