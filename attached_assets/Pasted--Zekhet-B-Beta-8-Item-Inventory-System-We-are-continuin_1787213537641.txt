@@ -1,0 +1,275 @@
+# Zekhet-B Beta 8 — Item & Inventory System
+
+We are continuing development of Zekhet-B. The bot is currently fully functional through Beta 7.
+
+Existing systems include:
+
+* User progression
+* XP and levels/ranks
+* Tuto pages
+* Tuto objectives
+* Objective completion
+* Existing rewards
+* Currency/economy
+* Existing commands and UI
+
+Do NOT rebuild or replace any of these systems.
+
+## Objective
+
+Create the foundational item and inventory system that future Zekhet-B features can use.
+
+This update should establish the underlying infrastructure for:
+
+* Items
+* User inventories
+* Item quantities
+* Item metadata
+* Item rarity
+* Item categories
+* Item acquisition
+* Item consumption
+* Future shops and item-related mechanics
+
+Do NOT build a full shop system yet unless one already exists.
+
+## Item Structure
+
+Create a standardized item definition.
+
+Each item should support information such as:
+
+* Unique item ID
+* Name
+* Description
+* Icon/emoji
+* Category
+* Rarity
+* Stackability
+* Maximum stack size, if applicable
+* Tradability, if this will be supported later
+* Usability/consumable status
+* Optional effects
+* Optional metadata
+
+The system should be designed so new items can be added without modifying the underlying inventory architecture.
+
+## Categories
+
+Create a flexible category system.
+
+Potential categories include:
+
+* Consumable
+* Material
+* Collectible
+* Currency-related
+* Quest
+* Special
+* Cosmetic
+
+Only implement categories that are useful to the current bot. The architecture should allow additional categories later.
+
+## Rarity
+
+Support an extensible rarity system.
+
+For example:
+
+* Common
+* Uncommon
+* Rare
+* Epic
+* Legendary
+* Mythic
+
+The exact naming and presentation should follow Zekhet-B's existing aesthetic.
+
+Rarity should be data-driven rather than hardcoded into individual commands.
+
+## Inventory
+
+Every user should have a persistent inventory.
+
+The inventory must support:
+
+* Adding items
+* Removing items
+* Checking quantities
+* Checking whether a user owns an item
+* Listing items
+* Checking item details
+* Handling stackable items
+* Preventing negative quantities
+
+Example:
+
+`Potion × 3`
+
+rather than creating three separate inventory records.
+
+## Item Operations
+
+Create reusable internal functions/services for:
+
+* `addItem`
+* `removeItem`
+* `hasItem`
+* `getItemQuantity`
+* `getInventory`
+* `getItem`
+* `useItem`
+
+Use naming appropriate to the existing project conventions.
+
+These functions should be usable by future commands and systems without duplicating inventory logic.
+
+## Item Usage
+
+Support the concept of usable items, but keep the effect system extensible.
+
+For example, a future consumable could:
+
+* Give currency
+* Give XP
+* Trigger an effect
+* Affect progression
+* Trigger another existing system
+
+Do not hardcode individual item behavior into the inventory itself.
+
+The inventory system should determine whether an item can be used and then delegate the actual effect to the appropriate system.
+
+## Persistence
+
+Inventory data must persist across:
+
+* Bot restarts
+* Command executions
+* Sessions
+
+Do not reset or overwrite existing user data.
+
+If the current database/data architecture already has a user model, integrate the inventory into it rather than creating an unrelated persistence system.
+
+## Existing Rewards
+
+Existing reward functionality should continue working.
+
+If the current system already gives users items, migrate that functionality to use the new inventory infrastructure where appropriate.
+
+Do not change the behavior of existing rewards unnecessarily.
+
+## Commands
+
+Create a basic inventory command using the bot's existing command/UI conventions.
+
+For example:
+
+`/inventory`
+
+It should allow users to view their owned items.
+
+The display should be clean and consistent with Zekhet-B's existing visual identity.
+
+If appropriate, provide item details through buttons, pagination, or another existing interaction pattern.
+
+Do not build `/shop` yet.
+
+Do not build trading yet.
+
+Do not build a player marketplace yet.
+
+Those systems can use this foundation later.
+
+## Empty Inventory
+
+New users should receive a clean response when they have no items.
+
+Do not create placeholder items just to populate the inventory.
+
+## Item Definitions
+
+Create a centralized location for item definitions.
+
+Adding a new item should ideally require defining the item rather than rewriting inventory logic.
+
+Example conceptual definition:
+
+* ID: `example_item`
+* Name: `Example Item`
+* Description: `An ancient object of unknown purpose.`
+* Category: `special`
+* Rarity: `rare`
+* Stackable: `true`
+* Max Stack: `99`
+
+Use the project's existing architecture and naming conventions rather than blindly copying this example.
+
+## Future Compatibility
+
+The system must be designed to support future:
+
+* Centralized rewards
+* Shops
+* Loot/rewards
+* Tuto rewards
+* Achievements
+* Collections
+* Item effects
+* Rare items
+* Special events
+* Trading, if eventually desired
+
+Do not implement those systems now.
+
+The goal is to establish a stable foundation for them.
+
+## Data Integrity
+
+Pay particular attention to:
+
+* Duplicate item definitions
+* Negative quantities
+* Invalid item IDs
+* Concurrent inventory updates
+* Accidental item duplication
+* Accidental item deletion
+* Persistence failures
+
+Operations should fail safely rather than corrupting inventory data.
+
+## Testing
+
+Thoroughly test:
+
+1. New user receives an empty inventory.
+2. Add one item.
+3. Add the same item multiple times.
+4. Confirm stack quantities work.
+5. Remove part of a stack.
+6. Remove an entire stack.
+7. Attempt to remove an item the user does not own.
+8. Attempt to create a negative quantity.
+9. View inventory.
+10. View item details.
+11. Use a consumable item if one already exists.
+12. Restart/redeploy the bot and confirm inventory persists.
+13. Confirm existing progression, Tuto, objectives, currency, and rewards remain functional.
+
+## Important
+
+Do not overbuild this update.
+
+This is the foundational Item + Inventory layer.
+
+The next update will build the centralized reward system on top of this foundation, allowing rewards to grant:
+
+* Currency
+* XP
+* Items
+* Titles
+* Unlocks
+* Other future reward types
+
+At the end, provide a concise summary of what was implemented, what existing files/systems were changed, and any recommended follow-up work.
