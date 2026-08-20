@@ -1,0 +1,565 @@
+# Zekhet-B Beta 12 — Unified Reward & Progression System
+
+We are continuing development of Zekhet-B.
+
+The current codebase is at Beta 11 and the existing systems are functioning correctly.
+
+The following systems are now confirmed to exist:
+
+* Tuto system
+* Tuto objectives
+* Tuto page progression/unlocks
+* Persistent user data
+* Item definitions
+* Persistent inventories
+* Egyptian-themed items
+* Currency/economy
+* XP
+* Levels
+* Ranks
+* Existing reward functionality
+
+This beta is an **integration and architecture update**.
+
+Do NOT rebuild existing systems.
+
+Do NOT replace functioning implementations simply for stylistic reasons.
+
+The goal is to create one reliable reward system that can communicate with all of the systems above.
+
+---
+
+# 1. CORE OBJECTIVE
+
+Create a centralized **Unified Reward System**.
+
+Every future feature should be able to award one or more types of rewards through a common reward interface instead of implementing its own reward logic.
+
+The unified system should eventually support:
+
+* XP
+* Currency
+* Items
+* Titles/ranks where appropriate
+* Tuto/page unlocks
+* Other unlocks
+* Future achievement rewards
+* Future special rewards
+
+The system should be modular and extensible.
+
+---
+
+# 2. REWARD STRUCTURE
+
+Create a standardized reward structure.
+
+A reward should be able to represent one or more reward types in a single transaction.
+
+Conceptually, a reward might contain:
+
+```text
+{
+    xp: 250,
+    currency: 100,
+    items: [
+        {
+            id: "papyrus_fragment",
+            quantity: 2
+        }
+    ],
+    unlocks: [...]
+}
+```
+
+This is an example of the architecture only.
+
+Follow the existing project's language, database models, and naming conventions rather than blindly copying this structure.
+
+The important requirement is that multiple rewards can be processed together.
+
+---
+
+# 3. CENTRAL REWARD HANDLER
+
+Create a centralized service/function responsible for processing rewards.
+
+For example:
+
+`grantRewards(user, rewards, source)`
+
+Use whatever naming convention fits the existing codebase.
+
+The handler should be responsible for coordinating:
+
+* XP
+* Currency
+* Items
+* Unlocks
+
+It should use the existing services rather than duplicating their internal logic.
+
+For example:
+
+**XP reward**
+
+→ existing XP service
+
+**Currency reward**
+
+→ existing currency service
+
+**Item reward**
+
+→ existing inventory service
+
+**Tuto unlock**
+
+→ existing Tuto/unlock system
+
+Do NOT create new independent XP, currency, inventory, or Tuto implementations.
+
+---
+
+# 4. REWARD SOURCES
+
+The unified reward system should accept a source/context identifier.
+
+Possible sources include:
+
+* Tuto objective
+* Command
+* Event
+* Quest
+* Achievement
+* Daily activity
+* Item usage
+* Future gameplay systems
+
+Not all of these need to exist yet.
+
+The source should primarily make rewards traceable and easier to debug.
+
+Example:
+
+```text
+source: "tuto_objective"
+source_id: "first_inventory"
+```
+
+Use the project's existing architecture where possible.
+
+---
+
+# 5. EXISTING TUTO INTEGRATION
+
+Integrate the existing Tuto objective reward functionality with the new unified reward handler.
+
+Existing Tuto objectives must continue to work exactly as they currently do.
+
+If an objective currently grants currency or items, route those rewards through the unified handler.
+
+If objectives currently support XP, route that through the same handler.
+
+Example:
+
+> ✦ Objective Complete
+>
+> +250 XP
+> +100 Deben
+> +1 Papyrus Fragment
+
+The actual rewards should remain determined by the existing objective definitions.
+
+Do NOT arbitrarily change existing objective rewards.
+
+---
+
+# 6. MULTI-REWARD TRANSACTIONS
+
+The unified system should support multiple rewards being granted from one action.
+
+For example:
+
+```text
+Objective completed
+    ↓
+Unified Reward Handler
+    ├── +250 XP
+    ├── +100 currency
+    └── +1 item
+```
+
+All components should be processed safely.
+
+Avoid situations where:
+
+* Currency is granted but the item fails unexpectedly.
+* XP is granted twice.
+* An item is duplicated.
+* A reward is partially applied without the system knowing.
+
+Use the existing database capabilities and architecture to make reward processing as safe and consistent as reasonably possible.
+
+---
+
+# 7. LEVEL AND RANK INTEGRATION
+
+The unified reward system must work with the existing XP/level/rank system.
+
+When a reward grants XP:
+
+1. XP is awarded.
+2. The XP system determines whether the user leveled up.
+3. Level-up events are processed.
+4. Rank changes are detected.
+5. Appropriate existing level/rank notifications are triggered.
+
+Do NOT duplicate level calculations inside the reward handler.
+
+The reward handler should delegate XP calculations to the existing XP system.
+
+Example:
+
+> Objective Complete
+>
+> +500 XP
+> +250 Deben
+>
+> ─────────────
+>
+> 𓂀 **LEVEL UP**
+> Level 9 → Level 10
+>
+> New Rank: **Acolyte**
+
+Use the existing Zekhet-B visual style.
+
+---
+
+# 8. ITEM INTEGRATION
+
+Rewards must be capable of granting items through the existing inventory system.
+
+For example:
+
+```text
+items:
+    papyrus_fragment × 2
+    nile_pearl × 1
+```
+
+The reward handler should call the existing inventory functions.
+
+Do not create another item storage system.
+
+Stackable items must continue stacking correctly.
+
+Invalid item IDs should fail safely.
+
+Invalid quantities should be rejected.
+
+---
+
+# 9. CURRENCY INTEGRATION
+
+Rewards must be capable of granting currency through the existing currency system.
+
+The reward handler should call the existing currency service.
+
+Do not duplicate balance logic.
+
+Currency should remain persistent and protected against invalid transactions.
+
+---
+
+# 10. UNLOCK INTEGRATION
+
+Support unlock-style rewards.
+
+Examples:
+
+* Unlock Tuto page
+* Unlock command
+* Unlock feature
+* Unlock title
+* Unlock future content
+
+Only integrate with unlock types that actually exist in the current codebase.
+
+Do NOT invent large new unlock systems just for this beta.
+
+The architecture should simply allow future unlock types to be added.
+
+---
+
+# 11. ONE-TIME REWARDS
+
+Support rewards that should only be granted once.
+
+This is particularly important for:
+
+* Tuto objectives
+* Future achievements
+* One-time discoveries
+* Special events
+* First-time rewards
+
+The system should prevent accidental duplicate claiming.
+
+Do not rely exclusively on the UI to prevent duplicate rewards.
+
+The backend/data layer should validate whether a reward has already been granted when necessary.
+
+---
+
+# 12. REWARD PREVIEW
+
+Where useful, provide a standardized way to format rewards before they are granted.
+
+For example:
+
+> **Rewards**
+> ✦ +250 XP
+> 𓏏 +100 Deben
+> 𓂀 Papyrus Fragment ×2
+
+This formatting should be reusable by:
+
+* Tuto
+* Future achievements
+* Future quests
+* Future events
+* Other reward-based commands
+
+Do not create separate reward formatting logic for every command.
+
+---
+
+# 13. REWARD RESULT
+
+The reward handler should return useful information about what happened.
+
+For example, future systems may need to know:
+
+* XP granted
+* Currency granted
+* Items granted
+* Level gained
+* Rank gained
+* Unlocks triggered
+* Whether the reward was successfully processed
+
+This allows commands to create appropriate notifications without needing to manually calculate what happened.
+
+Do not expose internal implementation details to users.
+
+---
+
+# 14. ERROR HANDLING
+
+Rewards must fail safely.
+
+Handle cases such as:
+
+* Invalid reward type
+* Invalid item ID
+* Invalid quantity
+* Invalid currency amount
+* Invalid XP amount
+* Missing user data
+* Already-claimed one-time reward
+* Database failure
+* Partial transaction failure
+
+Never silently report that a user received a reward if it was not successfully persisted.
+
+Avoid duplicate rewards caused by retries or command interactions.
+
+---
+
+# 15. MIGRATE EXISTING REWARD LOGIC
+
+Inspect the current codebase for existing reward implementations.
+
+Where appropriate, migrate them to use the centralized reward handler.
+
+Do not rewrite unrelated systems.
+
+Prioritize:
+
+1. Tuto objective rewards
+2. Existing item rewards
+3. Existing currency rewards
+4. Existing XP rewards
+
+After migration, verify that their visible behavior remains the same unless there is a clear reason to improve it.
+
+---
+
+# 16. FUTURE COMPATIBILITY
+
+The reward system should make it easy for future systems to award rewards.
+
+Future examples include:
+
+### Achievements
+
+> Achievement Unlocked
+>
+> +500 XP
+> +1,000 Deben
+> +1 Golden Scarab
+
+### Quests
+
+> Quest Complete
+>
+> +750 XP
+> +3 Nile Pearls
+
+### Events
+
+> Event Reward
+>
+> +2,500 XP
+> +1 Ankh of Eternity
+
+### Daily Activities
+
+> Daily Reward
+>
+> +250 XP
+> +150 Deben
+
+These systems do NOT need to be implemented now.
+
+The reward architecture simply needs to be ready for them.
+
+---
+
+# 17. DATABASE / DATA SAFETY
+
+Before modifying data structures, inspect the existing database architecture.
+
+Do not create duplicate user records.
+
+Do not reset existing users.
+
+Do not migrate data unnecessarily if the current structure already supports the required functionality.
+
+If a migration is genuinely necessary:
+
+* Preserve all existing data.
+* Make the migration safe to run.
+* Avoid duplicate records.
+* Handle users who have missing/new fields.
+* Provide sensible defaults.
+
+---
+
+# 18. TESTING
+
+Thoroughly test the unified reward system.
+
+### XP
+
+1. Grant XP.
+2. Confirm XP persists.
+3. Grant enough XP for a level-up.
+4. Confirm level-up processing.
+5. Confirm rank-up processing where applicable.
+
+### Currency
+
+6. Grant currency.
+7. Confirm balance changes.
+8. Confirm persistence.
+
+### Items
+
+9. Grant one item.
+10. Grant multiple quantities.
+11. Confirm stacking.
+12. Confirm persistence.
+
+### Multiple Rewards
+
+13. Grant XP + currency.
+14. Grant XP + item.
+15. Grant currency + item.
+16. Grant XP + currency + item.
+17. Confirm all rewards are correctly applied.
+
+### Tuto
+
+18. Complete an existing Tuto objective.
+19. Confirm its rewards still work.
+20. Confirm rewards are not duplicated.
+
+### Error Handling
+
+21. Invalid item.
+22. Invalid quantity.
+23. Invalid currency amount.
+24. Invalid XP amount.
+25. Attempt to claim a one-time reward twice.
+
+### Persistence
+
+26. Restart/redeploy the bot.
+27. Confirm all user progression remains intact.
+
+---
+
+# 19. IMPORTANT DEVELOPMENT RULES
+
+Do NOT:
+
+* Rebuild the Tuto system.
+* Rebuild the inventory system.
+* Rebuild the currency system.
+* Rebuild the XP system.
+* Rebuild the rank system.
+* Create duplicate databases.
+* Create a shop.
+* Create trading.
+* Create achievements.
+* Create quests.
+* Add unnecessary new gameplay.
+
+This beta is primarily about **connecting systems that already exist**.
+
+---
+
+# 20. FINAL ARCHITECTURE
+
+After this beta, the intended architecture should be:
+
+**User Action**
+↓
+**Game System**
+↓
+**Unified Reward Handler**
+↓
+┌─────────────────────────────┐
+│ XP                          │
+│ Currency                    │
+│ Items                       │
+│ Unlocks                     │
+└─────────────────────────────┘
+↓
+**Progression / Inventory / Tuto State**
+↓
+**Notification / UI**
+
+Future systems such as Achievements, Quests, Events, Shops, and Daily Activities should be able to plug into this architecture without creating their own reward implementations.
+
+At the end, provide a concise summary of:
+
+1. What was implemented.
+2. Which existing reward systems were migrated.
+3. How XP, currency, items, and unlocks now interact.
+4. Any database changes.
+5. Any issues or limitations discovered.
+6. Which systems were intentionally left untouched for future betas.
