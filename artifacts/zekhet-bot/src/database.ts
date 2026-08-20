@@ -151,7 +151,7 @@ export type AchievementProgress = {
   label: string;
 };
 
-export type ItemCategory = "Consumable" | "Material" | "Collectible" | "Currency" | "Quest" | "Special" | "Cosmetic";
+export type ItemCategory = "Consumable" | "Material" | "Collectible" | "Currency" | "Quest" | "Special" | "Cosmetic" | "Charm" | "Relic";
 export type ItemRarity = "Common" | "Uncommon" | "Rare" | "Epic" | "Legendary" | "Mythic";
 export type EffectType =
   | "LUCK_BOOST"
@@ -373,7 +373,7 @@ database.exec(`
     name TEXT NOT NULL UNIQUE,
     description TEXT NOT NULL,
     icon TEXT NOT NULL,
-    category TEXT NOT NULL CHECK (category IN ('Consumable', 'Material', 'Collectible', 'Currency', 'Quest', 'Special', 'Cosmetic')),
+    category TEXT NOT NULL CHECK (category IN ('Consumable', 'Material', 'Collectible', 'Currency', 'Quest', 'Special', 'Cosmetic', 'Charm', 'Relic')),
     rarity TEXT NOT NULL CHECK (rarity IN ('Common', 'Uncommon', 'Rare', 'Epic', 'Legendary', 'Mythic')),
     stackable INTEGER NOT NULL DEFAULT 1 CHECK (stackable IN (0, 1)),
     max_stack INTEGER NOT NULL CHECK (max_stack > 0),
@@ -472,6 +472,35 @@ database.exec(`
     status TEXT NOT NULL CHECK (status IN ('Unrecorded', 'Recognized', 'Acquainted', 'Citizen', 'Courtier', 'Archivist', 'Keeper', 'Exalted'))
   );
 `);
+
+const itemTable = database.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'items'").get() as { sql?: string } | undefined;
+if (itemTable?.sql && !itemTable.sql.includes("'Charm'")) {
+  database.exec(`
+    PRAGMA foreign_keys = OFF;
+    BEGIN;
+    ALTER TABLE items RENAME TO items_legacy;
+    CREATE TABLE items (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL UNIQUE,
+      description TEXT NOT NULL,
+      icon TEXT NOT NULL,
+      category TEXT NOT NULL CHECK (category IN ('Consumable', 'Material', 'Collectible', 'Currency', 'Quest', 'Special', 'Cosmetic', 'Charm', 'Relic')),
+      rarity TEXT NOT NULL CHECK (rarity IN ('Common', 'Uncommon', 'Rare', 'Epic', 'Legendary', 'Mythic')),
+      stackable INTEGER NOT NULL DEFAULT 1 CHECK (stackable IN (0, 1)),
+      max_stack INTEGER NOT NULL CHECK (max_stack > 0),
+      tradable INTEGER NOT NULL DEFAULT 0 CHECK (tradable IN (0, 1)),
+      usable INTEGER NOT NULL DEFAULT 0 CHECK (usable IN (0, 1)),
+      effects_json TEXT,
+      metadata_json TEXT
+    );
+    INSERT INTO items (id, name, description, icon, category, rarity, stackable, max_stack, tradable, usable, effects_json, metadata_json)
+      SELECT id, name, description, icon, category, rarity, stackable, max_stack, tradable, usable, effects_json, metadata_json
+      FROM items_legacy;
+    DROP TABLE items_legacy;
+    COMMIT;
+    PRAGMA foreign_keys = ON;
+  `);
+}
 
 const passportStampColumns = database.prepare("PRAGMA table_info(passport_stamps)").all() as Array<{ name: string }>;
 if (!passportStampColumns.some((column) => column.name === "category")) {

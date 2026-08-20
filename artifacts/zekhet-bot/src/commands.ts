@@ -545,6 +545,11 @@ function developerPanel() {
         new ButtonBuilder().setCustomId("developer:force-item").setLabel("Force Item Venture").setStyle(ButtonStyle.Primary),
       ),
       new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder().setCustomId("developer:effects-view").setLabel("View Effect State").setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId("developer:effects-force").setLabel("Force Effect").setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId("developer:effects-clear").setLabel("Clear Effects").setStyle(ButtonStyle.Danger),
+      ),
+      new ActionRowBuilder<ButtonBuilder>().addComponents(
         new ButtonBuilder().setCustomId("developer:venture-legendary").setLabel("Force Legendary").setStyle(ButtonStyle.Primary),
         new ButtonBuilder().setCustomId("developer:venture-mythic").setLabel("Force Mythic").setStyle(ButtonStyle.Primary),
         new ButtonBuilder().setCustomId("developer:venture-reset").setLabel("Reset Venture Cooldown").setStyle(ButtonStyle.Danger),
@@ -655,6 +660,28 @@ export async function handleDeveloperComponent(interaction: ButtonInteraction): 
   if (section === "clear-inventory") {
     const count = clearInventory(interaction.user.id);
     await interaction.reply({ content: `Developer access: cleared ${count} item record(s) from your inventory.`, ephemeral: true });
+    return;
+  }
+  if (section === "effects-view") {
+    const effects = getActiveEffects(interaction.user.id, interaction.user.username, interaction.user.displayAvatarURL());
+    await interaction.reply({ embeds: [effectsEmbed(effects)], ephemeral: true });
+    return;
+  }
+  if (section === "effects-clear") {
+    const count = clearActiveEffects(interaction.user.id);
+    await interaction.reply({ content: `Developer access: cleared ${count} active effect(s) from your Record.`, ephemeral: true });
+    return;
+  }
+  if (section === "effects-force") {
+    const modal = new ModalBuilder().setCustomId("developer:effects-force-modal").setTitle("Force Item Effect");
+    const itemId = new TextInputBuilder()
+      .setCustomId("item-id")
+      .setLabel("Usable item ID")
+      .setStyle(TextInputStyle.Short)
+      .setRequired(true)
+      .setPlaceholder("for example: lucky-scarab");
+    modal.addComponents(new ActionRowBuilder<TextInputBuilder>().addComponents(itemId));
+    await interaction.showModal(modal);
     return;
   }
   if (section === "test-achievement") {
@@ -862,6 +889,26 @@ export async function handleDeveloperComponent(interaction: ButtonInteraction): 
 }
 
 export async function handleDeveloperModal(interaction: ModalSubmitInteraction): Promise<void> {
+  if (interaction.customId === "developer:effects-force-modal") {
+    if (interaction.user.id !== config.developerId) {
+      await interaction.reply({ content: "You do not have access to that panel.", ephemeral: true });
+      return;
+    }
+    const itemId = interaction.fields.getTextInputValue("item-id").trim().toLowerCase();
+    const item = getItem(itemId);
+    const effect = item && forceItemEffect(
+      interaction.user.id,
+      item.id,
+      interaction.user.username,
+      interaction.user.displayAvatarURL(),
+    );
+    if (!effect) {
+      await interaction.reply({ content: "Provide the ID of a usable item with a valid effect.", ephemeral: true });
+      return;
+    }
+    await interaction.reply({ content: `Developer access: forced **${item.name}**'s effect (${effectLabel(effect)}).`, ephemeral: true });
+    return;
+  }
   if (interaction.customId === "developer:force-item-modal") {
     if (interaction.user.id !== config.developerId) {
       await interaction.reply({ content: "You do not have access to that panel.", ephemeral: true });
@@ -1510,7 +1557,7 @@ function itemEmbed(item: Item, quantity: number): EmbedBuilder {
       { name: "Usable", value: item.usable ? "Yes" : "No", inline: true },
       { name: "Tradable", value: item.tradable ? "Planned" : "No", inline: true },
     )
-    .setFooter({ text: "Item effects are delegated to future reward systems." });
+    .setFooter({ text: item.usable ? "Use /use item:<id> to activate this item's temporary effect." : "This item is recorded for collection only." });
 }
 
 function resolveItemInput(input: string): Item | undefined {
@@ -1631,8 +1678,12 @@ function curseEmbed(curse: Curse): EmbedBuilder {
 }
 
 function formatDuration(seconds: number): string {
-  if (seconds < 60) return `${seconds} seconds`;
-  const minutes = Math.floor(seconds / 60);
+  const wholeSeconds = Math.max(0, Math.floor(seconds));
+  if (wholeSeconds < 60) return `${wholeSeconds} second${wholeSeconds === 1 ? "" : "s"}`;
+  const minutes = Math.floor(wholeSeconds / 60);
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  if (hours > 0) return `${hours}h ${remainingMinutes}m`;
   return `${minutes} minute${minutes === 1 ? "" : "s"}`;
 }
 

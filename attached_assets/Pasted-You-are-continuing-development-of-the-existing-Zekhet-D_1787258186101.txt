@@ -1,0 +1,850 @@
+You are continuing development of the existing ⛤ Zekhet ⛤ Discord bot.
+
+CURRENT VERSION:
+Zekhet-Beta-17
+
+Beta-17 successfully connected Venture with the Inventory system.
+
+Users can now discover items through /venture and view them through /inventory.
+
+Now begin:
+
+⛤ ZEKHET-BETA-18 ⛤
+THE RELIC & EFFECT SYSTEM
+
+==================================================
+CORE OBJECTIVE
+==================================================
+
+Turn selected inventory items into usable gameplay tools.
+
+The intended loop is:
+
+/venture
+↓
+Discover item
+↓
+/inventory
+↓
+/use item:<item>
+↓
+Temporary effect
+↓
+Effect modifies future gameplay
+↓
+Effect expires
+↓
+Continue venturing
+
+The goal is to make items feel useful rather than purely collectible.
+
+IMPORTANT:
+
+Keep this phase focused.
+
+Do not implement the Bazaar.
+
+Do not implement trading.
+
+Do not implement crafting.
+
+Do not implement Contracts integration.
+
+Do not implement full Lore integration.
+
+Do not rebuild Venture.
+
+Do not rebuild Inventory.
+
+Reuse existing systems wherever possible.
+
+==================================================
+1. /USE COMMAND
+==================================================
+
+Implement:
+
+/use item:<item>
+
+Also support the existing configurable prefix system:
+
+z!use <item>
+
+The command must only work with items that are explicitly marked as usable.
+
+Example:
+
+/use item:Lucky Scarab
+
+Possible response:
+
+⛤ ITEM USED ⛤
+
+🪲 Lucky Scarab
+
+The markings begin to glow.
+
+🍀 Luck +100%
+
+Duration:
+2 hours
+
+The item has been consumed.
+
+==================================================
+2. ITEM USABILITY
+==================================================
+
+Only certain items should be usable.
+
+Use the existing item structure from Beta-17.
+
+Items should support:
+
+usable = true/false
+
+Do not make every item usable.
+
+Examples:
+
+Ancient Coin:
+NOT USABLE
+
+Sealed Papyrus:
+NOT USABLE
+
+Lucky Scarab:
+USABLE
+
+Explorer's Draught:
+USABLE
+
+Merchant's Seal:
+USABLE
+
+Broken Royal Seal:
+NOT USABLE
+
+==================================================
+3. INITIAL USABLE ITEMS
+==================================================
+
+Create approximately 5–8 usable items.
+
+Do not make dozens of effects yet.
+
+Suggested concepts:
+
+🪲 Lucky Scarab
+Effect:
+Luck +100%
+Duration:
+2 hours
+
+💰 Merchant's Seal
+Effect:
+Deben rewards +25%
+Duration:
+2 hours
+
+⭐ Explorer's Draught
+Effect:
+XP rewards +25%
+Duration:
+2 hours
+
+⏳ Sandglass of Passage
+Effect:
+Venture cooldown reduced by 25%
+Duration:
+1 hour
+
+👁️ Eye of the Watcher
+Effect:
+Rare encounter chance increased
+Duration:
+30 minutes
+
+🏺 Relic Seeker's Charm
+Effect:
+Increased chance of finding an item
+Duration:
+1 hour
+
+These are concepts.
+
+Use original descriptions and balance them according to the existing Zekhet economy.
+
+Do not create excessive power.
+
+==================================================
+4. EFFECT SYSTEM
+==================================================
+
+Create a lightweight reusable temporary-effect system.
+
+An active effect should support:
+
+- Unique effect ID
+- Effect type
+- Magnitude
+- Start time
+- Expiration time
+- Source item
+- Optional stacking behavior
+
+The system should be reusable by future features.
+
+Do not create separate hard-coded logic for every item.
+
+For example:
+
+LUCK_BOOST
+DEBEN_BOOST
+XP_BOOST
+COOLDOWN_REDUCTION
+RARE_ENCOUNTER_BOOST
+ITEM_FIND_BOOST
+
+The effect system should allow future effects to be added without rewriting /use.
+
+==================================================
+5. EFFECT EXPIRATION
+==================================================
+
+Effects must expire automatically based on time.
+
+Do not require a background process.
+
+Determine whether an effect is active when it is relevant.
+
+For example:
+
+User activates Lucky Scarab at:
+
+12:00 PM
+
+Duration:
+
+2 hours
+
+At:
+
+2:01 PM
+
+the effect should be treated as expired.
+
+Expired effects should no longer influence gameplay.
+
+Clean up expired effects when practical.
+
+==================================================
+6. EFFECT DISPLAY
+==================================================
+
+Implement:
+
+/effects
+
+Also support:
+
+z!effects
+
+This command should display the user's active temporary effects.
+
+Example:
+
+⛤ ACTIVE EFFECTS ⛤
+
+🪲 Lucky
++100% Luck
+
+Remaining:
+1h 42m
+
+💰 Prosperity
++25% Deben
+
+Remaining:
+1h 12m
+
+If there are no active effects:
+
+⛤ ACTIVE EFFECTS ⛤
+
+You currently have no active effects.
+
+Zekhet has nothing to record.
+
+==================================================
+7. INVENTORY INTEGRATION
+==================================================
+
+When a usable item is successfully activated:
+
+1. Verify the user owns the item.
+2. Verify the item is usable.
+3. Remove ONE quantity from the inventory.
+4. Create or update the appropriate temporary effect.
+5. Display the effect.
+6. Display the duration.
+7. Confirm the item was consumed.
+
+If the user has:
+
+Lucky Scarab ×3
+
+and uses one:
+
+Lucky Scarab ×2
+
+should remain.
+
+==================================================
+8. INVALID USE CASES
+==================================================
+
+Handle these gracefully.
+
+If the user does not own the item:
+
+"You do not possess that item."
+
+If the item exists but is not usable:
+
+"That item cannot be used."
+
+If the item name is invalid:
+
+"Zekhet cannot identify that item."
+
+If the item is already providing an active effect:
+
+Determine the stacking rule and explain it clearly.
+
+Do not produce database errors or generic bot errors.
+
+==================================================
+9. EFFECT STACKING
+==================================================
+
+Implement conservative stacking rules.
+
+By default:
+
+The same effect should NOT stack infinitely.
+
+For example:
+
+Using Lucky Scarab while Lucky +100% is already active should not produce:
+
++200%
++300%
++400%
+
+Instead, use a simple rule.
+
+Recommended behavior:
+
+If the same effect is already active:
+
+Extend the duration rather than infinitely increasing the magnitude.
+
+Example:
+
+Lucky +100%
+1 hour remaining
+
+Use another Lucky Scarab:
+
+Lucky +100%
+3 hours remaining
+
+OR, if simpler:
+
+Do not allow the second use and explain that the effect is already active.
+
+Choose whichever is cleaner for the existing architecture.
+
+Document the decision.
+
+Different effects should be allowed to coexist.
+
+Example:
+
+Lucky +100%
+Deben +25%
+XP +25%
+
+==================================================
+10. LUCK SYSTEM
+==================================================
+
+Implement a reusable luck modifier.
+
+Do NOT interpret luck as simply multiplying every reward.
+
+Luck should primarily influence randomized outcomes.
+
+For Beta-18, allow Luck to influence:
+
+- Encounter rarity
+- Item discovery probability
+
+Do not make Luck guarantee rare encounters.
+
+Example:
+
+Normal:
+
+Common encounter:
+60%
+
+With Lucky effect:
+
+Common:
+slightly reduced
+
+Uncommon:
+slightly increased
+
+Rare:
+noticeably increased
+
+Epic+:
+still rare
+
+Keep the effect controlled.
+
+A player using Lucky Scarab should feel more fortunate, not invincible.
+
+==================================================
+11. DEBEN BOOST
+==================================================
+
+Implement:
+
+DEBEN_BOOST
+
+Example:
+
+Base reward:
+
+40 Deben
+
+Active effect:
+
++25%
+
+Final reward:
+
+50 Deben
+
+Use existing currency infrastructure.
+
+Do not create another reward system.
+
+Do not modify the original reward value permanently.
+
+Apply the modifier only when the reward is granted.
+
+==================================================
+12. XP BOOST
+==================================================
+
+Implement:
+
+XP_BOOST
+
+Example:
+
+Base:
+
+20 XP
+
+Effect:
+
++25%
+
+Final:
+
+25 XP
+
+Use the existing XP system.
+
+Do not create a separate Venture XP system.
+
+==================================================
+13. COOLDOWN REDUCTION
+==================================================
+
+Implement:
+
+COOLDOWN_REDUCTION
+
+This effect should modify the existing Venture cooldown.
+
+Example:
+
+Normal cooldown:
+15 minutes
+
+Effect:
+-25%
+
+Effective cooldown:
+11 minutes 15 seconds
+
+Do not permanently change the user's normal cooldown.
+
+Only modify the current Venture cooldown calculation while the effect is active.
+
+Do not allow cooldown reduction to reach zero.
+
+Set a reasonable minimum cooldown.
+
+==================================================
+14. RARE ENCOUNTER BOOST
+==================================================
+
+Implement:
+
+RARE_ENCOUNTER_BOOST
+
+This should influence Venture encounter rarity.
+
+Do not guarantee Rare/Epic/Legendary encounters.
+
+The effect should increase the probability of higher rarity.
+
+The exact multiplier should be conservative.
+
+Document the probability calculation.
+
+==================================================
+15. ITEM FIND BOOST
+==================================================
+
+Implement:
+
+ITEM_FIND_BOOST
+
+This should increase the chance of receiving an item from Venture.
+
+Again:
+
+Do not guarantee an item.
+
+Do not make every Venture produce an item.
+
+The effect should modify the existing item discovery probability.
+
+==================================================
+16. EFFECT PRIORITY
+==================================================
+
+When Venture calculates an outcome:
+
+1. Determine the base encounter.
+2. Determine applicable active effects.
+3. Apply luck-related modifiers.
+4. Determine item discovery.
+5. Calculate XP.
+6. Calculate Deben.
+7. Apply cooldown modifier.
+8. Present final result.
+
+Avoid recalculating the same reward multiple times.
+
+Keep the calculation system modular.
+
+==================================================
+17. VENTURE INTEGRATION
+==================================================
+
+Modify Venture minimally.
+
+Do not rewrite encounter selection.
+
+The existing Venture system should simply ask the Effect Manager for relevant modifiers.
+
+Conceptually:
+
+Base encounter
+→ Effect Manager
+→ Modified outcome
+→ Reward
+
+Do not hard-code:
+
+if user has Lucky Scarab
+
+inside multiple unrelated parts of Venture.
+
+Instead, check active effects by type.
+
+This is important for future scalability.
+
+==================================================
+18. EFFECT SOURCES
+==================================================
+
+Store which item created an effect.
+
+Example:
+
+Effect:
+LUCK_BOOST
+
+Source:
+Lucky Scarab
+
+This will be useful later for:
+
+- Statistics
+- Lore
+- Achievements
+- Titles
+- Passport
+- Item balancing
+
+==================================================
+19. FUTURE COMPATIBILITY
+==================================================
+
+The effect architecture should eventually support future systems.
+
+Potential future effects:
+
+- Contract reward boost
+- Passport discovery boost
+- Curse resistance
+- Loot multiplier
+- Special encounter chance
+- Location-specific bonus
+- Event-specific bonus
+
+Do not implement these yet.
+
+Just avoid designing the system in a way that prevents them.
+
+==================================================
+20. USER EXPERIENCE
+==================================================
+
+The system should make users understand what their effects are doing.
+
+When activating an item:
+
+Show:
+
+ITEM
+EFFECT
+MAGNITUDE
+DURATION
+
+When viewing /effects:
+
+Show:
+
+EFFECT
+CURRENT BONUS
+TIME REMAINING
+SOURCE
+
+Avoid overly technical terminology.
+
+Users should not need to understand the underlying modifier system.
+
+==================================================
+21. ITEM DISCOVERY PRESENTATION
+==================================================
+
+When a usable item is discovered through Venture, make it clear that it can be used.
+
+Example:
+
+🎒 ITEM DISCOVERED
+
+🪲 Lucky Scarab
+
+Rarity:
+UNCOMMON
+
+"A scarab carved from dark stone.
+Its markings appear to shift in the light."
+
+This item can be activated with:
+
+/use item:Lucky Scarab
+
+Do not display this instruction for non-usable items.
+
+==================================================
+22. DEVELOPER TOOLS
+==================================================
+
+Extend the existing /developer system minimally.
+
+Developer should be able to:
+
+- Grant usable item
+- Remove item
+- Force effect
+- Clear effect
+- View effect state
+- Test Venture with effects active
+
+Keep all of these developer-only.
+
+Do not expose developer controls to normal users.
+
+==================================================
+23. DATABASE SAFETY
+==================================================
+
+Inspect the existing Beta-17 database architecture before making changes.
+
+Do not duplicate:
+
+- Users
+- Inventory
+- Items
+- Currency
+- XP
+- Venture data
+
+Preserve existing user data.
+
+Existing users must retain all current progression.
+
+If a migration is necessary:
+
+Make it backward compatible.
+
+Do not delete existing inventory data.
+
+==================================================
+24. PERFORMANCE
+==================================================
+
+Keep the system lightweight.
+
+Do not:
+
+- Use external APIs
+- Use AI generation
+- Run background timers
+- Continuously scan users
+- Recalculate effects when nothing is happening
+
+Effects should be evaluated only when necessary.
+
+Expiration should be timestamp-based.
+
+==================================================
+25. TESTING
+==================================================
+
+Before completing Beta-18, verify:
+
+1. /use works.
+2. z!use works.
+3. Usable items can be consumed.
+4. Non-usable items cannot be used.
+5. Users cannot use items they do not own.
+6. Inventory quantity decreases correctly.
+7. Effects are created correctly.
+8. Effects persist through restart.
+9. Effects expire correctly.
+10. /effects works.
+11. z!effects works.
+12. Deben boosts work.
+13. XP boosts work.
+14. Cooldown reduction works.
+15. Luck modifies encounter probability.
+16. Rare encounter boosts work.
+17. Item discovery boosts work.
+18. Multiple different effects can coexist.
+19. Same-effect stacking follows the chosen rule.
+20. Existing Venture rewards still work.
+21. Existing Inventory still works.
+22. Existing Profile still works.
+23. Existing Passport still works.
+24. Existing Titles still work.
+25. Existing Lore still works.
+26. Existing Contracts still work.
+27. Bot starts without errors.
+
+==================================================
+26. IMPORTANT SCOPE LIMIT
+==================================================
+
+DO NOT IMPLEMENT:
+
+❌ Bazaar
+❌ /sell
+❌ Trading
+❌ Crafting
+❌ Contracts integration
+❌ Lore integration
+❌ Passport integration
+❌ Achievement integration
+❌ Title integration
+❌ Curses
+❌ Secret items
+❌ Multiplayer effects
+❌ Server-specific effects
+❌ AI-generated item descriptions
+
+Beta-18 is specifically:
+
+INVENTORY
+↓
+/use
+↓
+TEMPORARY EFFECT
+↓
+VENTURE MODIFICATION
+
+==================================================
+27. FINAL REPORT
+==================================================
+
+When finished, report:
+
+- Files changed
+- Files created
+- Database changes
+- Number of usable items
+- Effect types implemented
+- Effect stacking behavior
+- Effect duration behavior
+- Venture systems modified
+- Developer tools added
+- Any issues discovered
+- Anything intentionally NOT implemented
+- Recommended next phase
+
+==================================================
+BETA-18 SUCCESS CRITERIA
+==================================================
+
+Beta-18 is successful when a user can:
+
+1. Discover a usable item through /venture.
+2. View it in /inventory.
+3. Use it with /use item:<item>.
+4. Receive a temporary advantage.
+5. See that advantage through /effects.
+6. Run /venture again and notice that the effect actually matters.
+7. Wait for the effect to expire.
+8. Return to normal gameplay.
+
+The user should feel:
+
+"I found something during my adventure that actually changes how I play."
+
+Do not over-engineer the system.
+
+Keep it modular, stable, understandable, and credit-efficient.
