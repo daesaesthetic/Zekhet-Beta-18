@@ -2107,7 +2107,8 @@ export async function handleCommand(interaction: ChatInputCommandInteraction): P
   }
 
   if (interaction.commandName === "scavenge") {
-    await interaction.reply(scavengeReply({
+    await interaction.deferReply();
+    await interaction.editReply(scavengeReply({
       id: interaction.user.id,
       username: interaction.user.username,
       avatarUrl: interaction.user.displayAvatarURL(),
@@ -2116,7 +2117,8 @@ export async function handleCommand(interaction: ChatInputCommandInteraction): P
   }
 
   if (interaction.commandName === "inspect") {
-    await interaction.reply(inspectReply({
+    await interaction.deferReply();
+    await interaction.editReply(inspectReply({
       id: interaction.user.id,
       username: interaction.user.username,
       avatarUrl: interaction.user.displayAvatarURL(),
