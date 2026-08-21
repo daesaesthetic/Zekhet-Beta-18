@@ -48,5 +48,10 @@ The bot registers global slash commands on startup. It uses only the `Guilds` in
 - `/contract complete id:<id>`
 - `/contract cancel id:<id>`
 - `/contracts`
+- `/venture` — Larger expedition with major rewards; 5-minute default cooldown
+- `/scavenge` — Short nearby search with smaller rewards; 2-minute default cooldown
+- `/inspect` — Narrative-focused observation with a 30-second default cooldown
 
 Profiles, title ownership, lore discoveries, active curses, and Ledger contracts are stored in SQLite and remain available after restarts. New users receive `wanderer`, `newcomer`, and `archivist` for immediate testing; sealed titles remain locked. Lore discovery has a 60-second cooldown by default, configurable with `ZEKHET_LORE_COOLDOWN_SECONDS`. Curse rituals have a built-in anti-spam cooldown and expire automatically without affecting Discord permissions, roles, messages, or moderation. Contracts are fictional social agreements only; they never process payments or modify Discord permissions.
+
+Scavenge and Inspect use persistent activity cooldowns and reuse the existing reward, inventory, effect, progression, and lore systems. Their cooldowns are independently resettable from the developer panel.

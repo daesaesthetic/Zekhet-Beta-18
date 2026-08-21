@@ -71,8 +71,10 @@ import {
   getActiveEffectMagnitude,
   getCurrencyBalance,
   beginVenture,
+  beginActivityCooldown,
   completeVenture,
   resetVentureCooldown,
+  resetActivityCooldown,
   getPassport,
   unlockPassportStamps,
   getPassportStamps,
@@ -102,7 +104,7 @@ import {
   type PassportStampView,
 } from "./database.js";
 import { achievementRewards, formatRewards, grantAchievementReward, grantRewards, progressionSummary, type Rewards } from "./rewards.js";
-import { chooseVentureEncounter, chooseVentureItem, rarityLabel, renderVentureDescription, shouldDiscoverItem, type VentureRarity } from "./venture.js";
+import { chooseScavengeItem, chooseVentureEncounter, chooseVentureItem, rarityLabel, renderVentureDescription, shouldDiscoverItem, type VentureRarity } from "./venture.js";
 
 const themes = ["Nightshade", "Celestial", "Eclipse", "Ancient", "Royal", "Void"] as const;
 const dialogue = {
@@ -491,6 +493,14 @@ const ventureCommand = new SlashCommandBuilder()
   .setName("venture")
   .setDescription("Undertake a journey into the unknown.");
 
+const scavengeCommand = new SlashCommandBuilder()
+  .setName("scavenge")
+  .setDescription("Search nearby for small rewards and discoveries.");
+
+const inspectCommand = new SlashCommandBuilder()
+  .setName("inspect")
+  .setDescription("Examine your surroundings for hidden details.");
+
 export const commands = [
   new SlashCommandBuilder().setName("help").setDescription("Consult Zekhet's available records."),
   new SlashCommandBuilder().setName("credits").setDescription("See who keeps Zekhet's records."),
@@ -499,6 +509,8 @@ export const commands = [
   balanceCommand,
   new SlashCommandBuilder().setName("progress").setDescription("View your XP, level, and rank progression."),
   ventureCommand,
+  scavengeCommand,
+  inspectCommand,
   passportCommand,
   itemCommand,
   useCommand,
@@ -553,6 +565,8 @@ function developerPanel() {
         new ButtonBuilder().setCustomId("developer:venture-legendary").setLabel("Force Legendary").setStyle(ButtonStyle.Primary),
         new ButtonBuilder().setCustomId("developer:venture-mythic").setLabel("Force Mythic").setStyle(ButtonStyle.Primary),
         new ButtonBuilder().setCustomId("developer:venture-reset").setLabel("Reset Venture Cooldown").setStyle(ButtonStyle.Danger),
+        new ButtonBuilder().setCustomId("developer:scavenge-reset").setLabel("Reset Scavenge Cooldown").setStyle(ButtonStyle.Danger),
+        new ButtonBuilder().setCustomId("developer:inspect-reset").setLabel("Reset Inspect Cooldown").setStyle(ButtonStyle.Danger),
       ),
       new ActionRowBuilder<ButtonBuilder>().addComponents(
       new ButtonBuilder().setCustomId("developer:curses").setLabel("View All Curses").setStyle(ButtonStyle.Secondary),
@@ -610,6 +624,12 @@ export async function handleDeveloperComponent(interaction: ButtonInteraction): 
     }
     developerVentureForces.set(interaction.user.id, force as VentureRarity);
     await interaction.reply({ content: `Developer access: your next Venture will force a **${rarityLabel(force as VentureRarity)}** encounter.`, ephemeral: true });
+    return;
+  }
+  if (section === "scavenge-reset" || section === "inspect-reset") {
+    const activity = section === "scavenge-reset" ? "scavenge" : "inspect";
+    resetActivityCooldown(interaction.user.id, activity);
+    await interaction.reply({ content: `Developer access: your ${activity} cooldown has been reset.`, ephemeral: true });
     return;
   }
   if (section === "unlock-titles") {
@@ -1408,6 +1428,138 @@ function ventureReply(
   return { content: notice || "", embeds: [embed] };
 }
 
+const scavengeScenes = [
+  "You search the remains of an abandoned courtyard.",
+  "You sift through the sand beneath a broken statue.",
+  "You check the shadows beneath a collapsed awning.",
+  "You search the edge of an old dry fountain.",
+  "You look beneath a loose stone beside the Archives.",
+];
+
+const scavengeFindings = [
+  "The dust gives way to something small but useful.",
+  "A faint glint catches your eye before the wind covers it again.",
+  "The search is brief, but the ruins have not been entirely emptied.",
+  "You find a trace of someone else's passage through the area.",
+  "The nearby remains yield a modest discovery.",
+];
+
+const inspectionObservations = [
+  "You examine the cracked wall beside you. Beneath the dust, a phrase has been carved: “The king did not die here.”",
+  "You inspect the remains of an ancient doorway. The symbols seem to be facing a different direction than before.",
+  "You study the dry fountain. The stone is cold, but the basin carries the scent of rain.",
+  "You search the area carefully. Nothing appears unusual, though one shadow falls in the wrong direction.",
+  "You examine a broken statue and notice a second set of footprints beneath its base.",
+  "You look closer at the sand. A thin line circles the ruins, as if something was recently moved.",
+];
+
+function scavengeReply(
+  user: { id: string; username: string; avatarUrl: string | null },
+): { content: string; embeds?: EmbedBuilder[] } {
+  const cooldownReduction = getActiveEffectMagnitude(user.id, "COOLDOWN_REDUCTION");
+  const cooldownSeconds = Math.max(30, Math.round(120 * (1 - Math.min(75, cooldownReduction) / 100)));
+  const started = beginActivityCooldown(user.id, user.username, user.avatarUrl, "scavenge", cooldownSeconds);
+  if (!started.ok) {
+    return {
+      content: `⛤ SCAVENGE UNAVAILABLE ⛤\n\nThe nearby ruins have not yet settled.\n\nTry again in:\n**${formatCooldown(started.retryAfter)}**`,
+    };
+  }
+
+  recordTutorialAction(user.id, user.username, user.avatarUrl, "scavenge");
+  const itemFindBoost = getActiveEffectMagnitude(user.id, "ITEM_FIND_BOOST");
+  const luckBoost = getActiveEffectMagnitude(user.id, "LUCK_BOOST");
+  const itemChance = Math.min(0.65, 0.32 * (1 + Math.min(100, itemFindBoost) / 100));
+  const item = Math.random() < itemChance ? chooseScavengeItem() : undefined;
+  const rareItemChance = Math.min(0.2, 0.05 + Math.min(100, luckBoost) / 1000);
+  const reward = {
+    currency: Math.max(1, Math.round((item ? 18 : 10) * (1 + Math.min(100, getActiveEffectMagnitude(user.id, "DEBEN_BOOST")) / 100))),
+    xp: Math.max(1, Math.round((item ? 10 : 6) * (1 + Math.min(100, getActiveEffectMagnitude(user.id, "XP_BOOST")) / 100))),
+    ...(item && (item.rarity !== "Rare" || Math.random() < rareItemChance) ? { items: [{ id: item.id, quantity: 1 }] } : {}),
+  } satisfies Rewards;
+
+  const rewardResult = grantRewards(user.id, reward, { type: "scavenge", id: `${user.id}:${started.startedAt}` }, {
+    username: user.username,
+    avatarUrl: user.avatarUrl,
+    oneTimeKey: `scavenge:${user.id}:${started.startedAt}`,
+  });
+  const startedProgression = processProgressionEvent(user.id, user.username, user.avatarUrl, "SCAVENGE_STARTED");
+  const completedProgression = processProgressionEvent(user.id, user.username, user.avatarUrl, "SCAVENGE_COMPLETED");
+  const notice = [
+    progressionNotice(startedProgression, user),
+    progressionNotice(completedProgression, user),
+  ].filter(Boolean).join("\n\n");
+  const rewardNotice = rewardResult.ok ? formatRewards(reward) : "The Archives recorded the search, but no reward could be issued.";
+  const embed = new EmbedBuilder()
+    .setColor(0x65d18b)
+    .setAuthor({ name: "⛤ SCAVENGE ⛤" })
+    .setTitle("A Small Discovery")
+    .setDescription(`${pick(scavengeScenes)}\n\n${pick(scavengeFindings)}`)
+    .addFields({ name: "Findings", value: rewardNotice })
+    .setFooter({ text: `Another search will be permitted in ${formatCooldown(cooldownSeconds)}.` });
+  return { content: notice, embeds: [embed] };
+}
+
+function inspectReply(
+  user: { id: string; username: string; avatarUrl: string | null },
+): { content: string; embeds?: EmbedBuilder[] } {
+  const cooldownReduction = getActiveEffectMagnitude(user.id, "COOLDOWN_REDUCTION");
+  const cooldownSeconds = Math.max(15, Math.round(30 * (1 - Math.min(75, cooldownReduction) / 100)));
+  const started = beginActivityCooldown(user.id, user.username, user.avatarUrl, "inspect", cooldownSeconds);
+  if (!started.ok) {
+    return {
+      content: `⛤ INSPECTION UNAVAILABLE ⛤\n\nThe details of this place have not yet shifted.\n\nTry again in:\n**${formatCooldown(started.retryAfter)}**`,
+    };
+  }
+
+  recordTutorialAction(user.id, user.username, user.avatarUrl, "inspect");
+  const observation = pick(inspectionObservations);
+  const loreAttempt = Math.random() < 0.15
+    ? discoverLore(user.id, user.username, user.avatarUrl, config.loreCooldownSeconds)
+    : undefined;
+  const discoveredLore = loreAttempt?.ok ? loreAttempt.lore : undefined;
+  const xpReward = Math.random() < 0.25
+    ? Math.max(1, Math.round(3 * (1 + Math.min(100, getActiveEffectMagnitude(user.id, "XP_BOOST")) / 100)))
+    : undefined;
+  const rewards = xpReward ? { xp: xpReward } : undefined;
+  const rewardResult = rewards
+    ? grantRewards(user.id, rewards, { type: "inspect", id: `${user.id}:${started.startedAt}` }, {
+      username: user.username,
+      avatarUrl: user.avatarUrl,
+      oneTimeKey: `inspect:${user.id}:${started.startedAt}`,
+    })
+    : undefined;
+  const startedProgression = processProgressionEvent(user.id, user.username, user.avatarUrl, "INSPECT_STARTED");
+  const completedProgression = processProgressionEvent(user.id, user.username, user.avatarUrl, "INSPECT_COMPLETED");
+  const loreProgression = discoveredLore
+    ? processProgressionEvent(
+      user.id,
+      user.username,
+      user.avatarUrl,
+      discoveredLore.rarity === "Secret"
+        ? "SECRET_LORE_DISCOVERED"
+        : discoveredLore.rarity === "Rare" || discoveredLore.rarity === "Legendary"
+          ? "RARE_LORE_DISCOVERED"
+          : "LORE_DISCOVERED",
+    )
+    : undefined;
+  const notice = [
+    progressionNotice(startedProgression, user),
+    progressionNotice(completedProgression, user),
+    loreProgression ? progressionNotice(loreProgression, user) : "",
+  ].filter(Boolean).join("\n\n");
+  const description = discoveredLore
+    ? `${observation}\n\n📜 **Lore discovered**\n${discoveredLore.text}`
+    : observation;
+  const embed = new EmbedBuilder()
+    .setColor(discoveredLore ? 0xffc857 : 0x7e4bb8)
+    .setAuthor({ name: "⛤ INSPECTION ⛤" })
+    .setTitle(discoveredLore ? "A Hidden Record" : "Nothing Escaped Notice")
+    .setDescription(description)
+    .addFields({ name: "Result", value: rewardResult?.ok && rewards ? formatRewards(rewards) : "No material reward was recorded." })
+    .setFooter({ text: `Another inspection will be permitted in ${formatCooldown(cooldownSeconds)}.` });
+  return { content: notice, embeds: [embed] };
+}
+
 function achievementEmbed(achievement: Achievement, unlocked: boolean): EmbedBuilder {
   return new EmbedBuilder()
     .setColor(achievementRarityColors[achievement.rarity])
@@ -1837,7 +1989,7 @@ export async function handlePrefixCommand(message: Message): Promise<void> {
     : "";
 
   if (command === "help") {
-    await message.reply("⛤ Zekhet commands ⛤\n`z!profile` · `z!passport` · `z!titles` · `z!lore` · `z!curse` · `z!contracts` · `z!achievements` · `z!tuto`\nSlash commands remain the primary interface.");
+    await message.reply("⛤ Zekhet commands ⛤\n`z!profile` · `z!passport` · `z!titles` · `z!lore` · `z!curse` · `z!contracts` · `z!achievements` · `z!tuto`\n`z!venture` · `z!scavenge` · `z!inspect`\nSlash commands remain the primary interface.");
     return;
   }
 
@@ -1852,6 +2004,14 @@ export async function handlePrefixCommand(message: Message): Promise<void> {
   }
   if (command === "venture") {
     await message.reply(ventureReply({ id: message.author.id, username, avatarUrl }));
+    return;
+  }
+  if (command === "scavenge") {
+    await message.reply(scavengeReply({ id: message.author.id, username, avatarUrl }));
+    return;
+  }
+  if (command === "inspect") {
+    await message.reply(inspectReply({ id: message.author.id, username, avatarUrl }));
     return;
   }
   if (command === "use") {
@@ -1939,6 +2099,24 @@ export async function handleCommand(interaction: ChatInputCommandInteraction): P
 
   if (interaction.commandName === "venture") {
     await interaction.reply(ventureReply({
+      id: interaction.user.id,
+      username: interaction.user.username,
+      avatarUrl: interaction.user.displayAvatarURL(),
+    }));
+    return;
+  }
+
+  if (interaction.commandName === "scavenge") {
+    await interaction.reply(scavengeReply({
+      id: interaction.user.id,
+      username: interaction.user.username,
+      avatarUrl: interaction.user.displayAvatarURL(),
+    }));
+    return;
+  }
+
+  if (interaction.commandName === "inspect") {
+    await interaction.reply(inspectReply({
       id: interaction.user.id,
       username: interaction.user.username,
       avatarUrl: interaction.user.displayAvatarURL(),
@@ -2110,7 +2288,7 @@ export async function handleCommand(interaction: ChatInputCommandInteraction): P
           { name: "🧿 THE RITUALS", value: "`/curse user` — Mark another Record with a harmless fictional curse.\n`/curse active` — View active curses.\n`/curse list` — Browse the curse catalog.\n`/curse inspect` — Inspect a curse." },
           { name: "⚖️ THE LEDGER", value: "`/contract create` — Offer a social agreement.\n`/contract accept` — Accept an agreement.\n`/contract reject` — Reject an agreement.\n`/contract inspect` — Inspect a contract.\n`/contract complete` — Complete an accepted agreement.\n`/contract cancel` — Cancel an agreement.\n`/contracts` — Review your contracts." },
            { name: "✦ THE PATH", value: "`/progress` — View XP, level, and rank progression.\nRewards can combine XP, Deben, items, and unlocks." },
-           { name: "🏺 THE VENTURE", value: "`/venture` — Undertake a journey into the unknown.\nUse `z!venture` for the prefix equivalent. Ventures have a cooldown." },
+            { name: "🏺 THE PATH", value: "`/venture` — Embark on a larger expedition with major rewards.\n`/scavenge` — Search nearby for smaller rewards and discoveries.\n`/inspect` — Examine your surroundings for hidden details.\nUse `z!venture`, `z!scavenge`, or `z!inspect` for prefix equivalents." },
            { name: "🏺 THE ACHIEVEMENTS", value: "`/achievements` — View your progress.\n`/achievement inspect` — Inspect a record." },
         )],
     });

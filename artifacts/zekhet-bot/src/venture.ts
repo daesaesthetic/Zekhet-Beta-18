@@ -23,7 +23,7 @@ const rarityWeights: Array<{ rarity: VentureRarity; weight: number }> = [
   { rarity: "MYTHIC", weight: 0.1 },
 ];
 
-export const ventureCooldownSeconds = 15 * 60;
+export const ventureCooldownSeconds = 5 * 60;
 
 export const ventureEncounters: VentureEncounter[] = [
   {
@@ -220,6 +220,15 @@ export function chooseVentureEncounter(forcedRarity?: VentureRarity, rareEncount
 
 export function chooseVentureItem(): Item | undefined {
   const available = getItems().filter((item) => item.rarity !== "Mythic" && item.metadata?.secret !== true);
+  return available.length ? pick(available) : undefined;
+}
+
+export function chooseScavengeItem(): Item | undefined {
+  const available = getItems().filter((item) =>
+    (item.rarity === "Common" || item.rarity === "Uncommon" || item.rarity === "Rare") &&
+    item.metadata?.secret !== true &&
+    item.category !== "Relic",
+  );
   return available.length ? pick(available) : undefined;
 }
 

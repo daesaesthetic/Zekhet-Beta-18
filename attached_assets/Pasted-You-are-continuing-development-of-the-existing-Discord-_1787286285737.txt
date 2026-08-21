@@ -1,0 +1,744 @@
+You are continuing development of the existing Discord bot:
+
+⛤ ZEKHET ⛤
+
+CURRENT VERSION:
+Zekhet-Beta-18
+
+The existing Beta-18 implementation is stable and deployed.
+
+This task begins the next gameplay-focused phase of Zekhet.
+
+==================================================
+CORE OBJECTIVE
+==================================================
+
+Zekhet currently has many systems:
+
+- Profile
+- Titles
+- Lore
+- Curses
+- Contracts
+- Achievements
+- Tutorial
+- Passport
+- Venture
+- Inventory
+- Items
+- Temporary Effects
+- Developer tools
+- Prefix commands
+- User-install compatible commands
+
+However, /venture is currently the primary immediately engaging gameplay activity.
+
+We want Zekhet to begin feeling like a connected game rather than a collection of independent commands.
+
+For this Beta, we will introduce the FIRST ADDITIONAL ACTIVE GAMEPLAY MECHANICS.
+
+==================================================
+IMPORTANT SCOPE LIMIT
+==================================================
+
+ONLY implement the following:
+
+1. Reduce /venture cooldown
+2. Add /scavenge
+3. Add /inspect
+
+Do NOT implement:
+
+- /rest
+- /challenge
+- /fortune
+- /travel
+- Gambling
+- Bazaar/market
+- New large economy systems
+- New world/location system
+- Discovery Bridge
+- Large-scale lore expansion
+
+Those will be considered separately in future Betas.
+
+==================================================
+PART 1 — REDUCE VENTURE COOLDOWN
+==================================================
+
+The current /venture cooldown is approximately 15 minutes.
+
+Change the standard Venture cooldown to:
+
+5 MINUTES
+
+Do not remove the cooldown.
+
+Do not make Venture unlimited.
+
+Do not create a new cooldown architecture if the existing cooldown system can be reused.
+
+The existing effect system already supports cooldown-related modifiers.
+
+Preserve compatibility with:
+
+- COOLDOWN_REDUCTION
+- Other existing effects
+- Existing cooldown persistence
+- Existing cooldown reset/developer functionality
+
+The resulting behavior should be:
+
+NORMAL:
+5 minute Venture cooldown
+
+WITH COOLDOWN REDUCTION:
+Existing effect calculations continue to modify the cooldown appropriately.
+
+Do not hard-code a separate cooldown calculation that bypasses the existing effect system.
+
+==================================================
+PART 2 — ADD /SCAVENGE
+==================================================
+
+Add a new gameplay command:
+
+/scavenge
+
+Also add the appropriate prefix equivalent if Zekhet's existing command architecture supports prefix equivalents.
+
+The purpose of Scavenge is:
+
+"Search the area around you for small discoveries, items, currency, or clues."
+
+Scavenge should NOT simply be a second copy of Venture.
+
+It should be a SHORT-CYCLE activity.
+
+Recommended cooldown:
+
+2 MINUTES
+
+Use the existing cooldown infrastructure rather than creating a completely separate cooldown system.
+
+==================================================
+SCAVENGE DESIGN
+==================================================
+
+Scavenge should produce a smaller, faster outcome than Venture.
+
+Possible outcomes include:
+
+- Small Deben reward
+- XP
+- Common item
+- Uncommon item
+- Rare item with a low probability
+- Flavor-only discovery
+- Clue
+- Minor progression event
+
+The reward should generally be smaller than Venture.
+
+Example:
+
+⛤ SCAVENGE ⛤
+
+You search the remains of an abandoned courtyard.
+
+Among the dust, you discover:
+
+🪙 Ancient Coin ×2
++18 Deben
+
+or:
+
+⛤ SCAVENGE ⛤
+
+You sift through the sand beneath a broken statue.
+
+You find nothing of value.
+
+But something catches your eye...
+
+📜 A strange symbol has been carved into the stone.
+
+Do NOT create dozens of new database tables for Scavenge.
+
+Reuse the existing:
+
+- Item catalog
+- Inventory
+- Reward system
+- XP system
+- Deben system
+- Effect system
+- Progression system
+
+where appropriate.
+
+==================================================
+SCAVENGE AND EXISTING EFFECTS
+==================================================
+
+Scavenge should respect relevant existing effects where appropriate.
+
+For example:
+
+ITEM_FIND_BOOST
+
+LUCK_BOOST
+
+DEBEN_BOOST
+
+XP_BOOST
+
+Do not invent new effect types for this Beta.
+
+Use the existing effect calculation architecture.
+
+If an existing effect is specifically designed only for Venture and cannot safely apply to Scavenge, leave it unchanged and document the limitation rather than rewriting the effect system.
+
+==================================================
+SCAVENGE REWARD BALANCE
+==================================================
+
+Scavenge is intended to be:
+
+SHORTER
+SMALLER
+MORE FREQUENT
+
+than Venture.
+
+Avoid making Scavenge more profitable than Venture.
+
+A player should still want to use Venture.
+
+Think of the distinction as:
+
+VENTURE:
+Major expedition.
+Higher rewards.
+Longer cooldown.
+
+SCAVENGE:
+Quick search.
+Smaller rewards.
+Shorter cooldown.
+
+==================================================
+PART 3 — ADD /INSPECT
+==================================================
+
+Add:
+
+/inspect
+
+and the appropriate prefix equivalent if supported by the existing architecture.
+
+Inspect should be fundamentally different from Venture and Scavenge.
+
+Its purpose is:
+
+"Examine your surroundings and potentially notice something unusual."
+
+Inspect should be primarily discovery/flavor focused.
+
+Possible outcomes:
+
+- Flavor text
+- Clue
+- Lore discovery if appropriate
+- Rare observation
+- Hint toward another system
+- Small XP reward
+- Very small Deben reward
+- Nothing
+
+Inspect should NOT become a major reward generator.
+
+The primary reward is:
+
+CURIOSITY.
+
+==================================================
+INSPECT EXAMPLES
+==================================================
+
+Example 1:
+
+⛤ INSPECTION ⛤
+
+You examine the cracked wall beside you.
+
+At first, there is nothing unusual.
+
+Then you notice a phrase carved beneath the dust:
+
+"The king did not die here."
+
+📜 Something about this place feels familiar.
+
+Example 2:
+
+⛤ INSPECTION ⛤
+
+You inspect the remains of an ancient doorway.
+
+The stone is cold.
+
+Nothing appears to have changed...
+
+But you swear the symbols weren't facing this direction before.
+
+Example 3:
+
+⛤ INSPECTION ⛤
+
+You search the area carefully.
+
+You find nothing unusual.
+
+Example 4:
+
+⛤ INSPECTION ⛤
+
+You discover a faint inscription hidden beneath the sand.
+
+📜 Lore discovered:
+[Existing lore entry]
+
+If an existing Lore entry is discovered, use the existing Lore catalog and persistence system.
+
+Do NOT create a duplicate lore system.
+
+==================================================
+INSPECT COOLDOWN
+==================================================
+
+Inspect should have a SHORT cooldown.
+
+Recommended:
+
+30 SECONDS
+
+This should prevent spam while allowing it to function as a quick exploratory action.
+
+Reuse the existing cooldown architecture.
+
+Do not create a separate cooldown implementation.
+
+==================================================
+IMPORTANT DIFFERENCE BETWEEN THE THREE
+==================================================
+
+The commands should have clearly different purposes:
+
+/venture
+
+"Go on an expedition."
+
+- Main activity
+- Larger rewards
+- 5 minute cooldown
+- Major encounters
+- Items
+- Deben
+- XP
+- Existing rarity system
+
+/scavenge
+
+"Search nearby."
+
+- Quick activity
+- Smaller rewards
+- 2 minute cooldown
+- Items
+- Small Deben
+- XP
+- Occasional clues
+
+/inspect
+
+"Look closer."
+
+- Discovery/flavor activity
+- 30 second cooldown
+- Primarily narrative
+- Occasional clues
+- Possible lore discovery
+- Minimal economic rewards
+
+Do NOT make all three commands feel like the same RNG system with different names.
+
+==================================================
+PART 4 — REUSE EXISTING ARCHITECTURE
+==================================================
+
+Before creating anything:
+
+INSPECT THE EXISTING IMPLEMENTATION.
+
+Specifically identify and reuse:
+
+- Reward functions
+- Item functions
+- Inventory functions
+- XP functions
+- Deben functions
+- Effect calculations
+- Cooldown functions
+- Progression events
+- Lore discovery functions
+- Developer utilities
+- Command registration
+- Prefix command handling
+
+Do NOT create duplicate versions of these systems.
+
+If a reusable helper already exists:
+
+USE IT.
+
+If the current architecture is not sufficiently reusable:
+
+Make the smallest safe modification necessary.
+
+==================================================
+PART 5 — PROGRESSION EVENTS
+==================================================
+
+If the existing progression architecture supports it, add appropriate events for:
+
+SCAVENGE_STARTED
+SCAVENGE_COMPLETED
+INSPECT_STARTED
+INSPECT_COMPLETED
+
+Only add events if they fit naturally into the existing progression architecture.
+
+Do not create a completely new event system.
+
+These events should allow future Betas to connect:
+
+- Achievements
+- Passport
+- Titles
+- Lore
+- Items
+- Contracts
+
+without having to rewrite these commands later.
+
+Do not implement those future connections yet.
+
+==================================================
+PART 6 — ACHIEVEMENT COMPATIBILITY
+==================================================
+
+Do NOT add a large batch of achievements.
+
+However, ensure the new progression events can be used by the existing achievement system in the future.
+
+If the existing architecture automatically processes progression events, use that system.
+
+Do not create special-case achievement logic inside /scavenge or /inspect.
+
+==================================================
+PART 7 — PASSPORT COMPATIBILITY
+==================================================
+
+Do NOT add a large number of Passport stamps.
+
+However, preserve compatibility with the existing Passport/progression architecture.
+
+Future versions may award Passport stamps for:
+
+- First Scavenge
+- First Inspection
+- Rare discoveries
+- Discovery streaks
+- Hidden observations
+
+Do not implement those yet.
+
+==================================================
+PART 8 — DEVELOPER CONTROLS
+==================================================
+
+Do not create a giant new developer command system.
+
+Reuse the existing developer architecture.
+
+At minimum, ensure developers can test:
+
+- Venture cooldown
+- Scavenge cooldown
+- Inspect cooldown
+
+using existing cooldown/developer functionality where possible.
+
+If the existing developer tools cannot distinguish the new cooldowns, make the smallest reasonable extension.
+
+Do not expose developer controls to normal users.
+
+==================================================
+PART 9 — HELP / COMMAND DISCOVERY
+==================================================
+
+Update the existing command discovery/help system so users can actually discover:
+
+/venture
+/scavenge
+/inspect
+
+Do not create a new help system.
+
+Use the existing /help or /commands implementation.
+
+Descriptions should communicate the difference between the commands.
+
+Example:
+
+/venture
+"Embark on an expedition into the unknown."
+
+/scavenge
+"Search nearby for small rewards and discoveries."
+
+/inspect
+"Examine your surroundings for hidden details."
+
+==================================================
+PART 10 — CREDITS / DOCUMENTATION
+==================================================
+
+Update /credits if the existing implementation lists available gameplay systems or version information.
+
+Do not add unnecessary documentation files.
+
+If Zekhet has a version display, update:
+
+Beta-18
+
+to:
+
+Beta-19
+
+only where appropriate.
+
+==================================================
+PART 11 — DATABASE SAFETY
+==================================================
+
+Do NOT perform destructive database changes.
+
+Do NOT delete existing data.
+
+Do NOT reset existing users.
+
+Do NOT reset inventories.
+
+Do NOT reset titles.
+
+Do NOT reset lore.
+
+Do NOT reset achievements.
+
+Do NOT reset contracts.
+
+Do NOT reset curses.
+
+Do NOT reset passports.
+
+Do NOT reset tutorial progress.
+
+If new persistence is genuinely required, use the existing migration architecture.
+
+Avoid adding persistence unless it is actually necessary.
+
+==================================================
+PART 12 — USER INSTALL COMPATIBILITY
+==================================================
+
+The new commands should preserve the existing user-install compatibility model.
+
+Do not assume:
+
+- A specific guild
+- A development server
+- A pre-existing guild database row
+
+Commands that do not require guild-specific state should work in appropriate user-install contexts.
+
+If Discord imposes a limitation on a command in user-install context, handle it gracefully.
+
+==================================================
+PART 13 — ERROR HANDLING
+==================================================
+
+Do not introduce generic silent failures.
+
+If something fails:
+
+- Log the actual underlying exception
+- Provide a friendly user-facing response
+- Preserve the existing Zekhet error-handling style
+
+Do not replace useful errors with vague failures during development.
+
+==================================================
+PART 14 — BALANCE
+==================================================
+
+Do not attempt to perfectly balance the entire economy.
+
+Use conservative initial values.
+
+The goal of Beta-19 is to establish:
+
+ACTIVITY VARIETY
+
+not:
+
+ECONOMIC PERFECTION
+
+Venture should remain the primary larger activity.
+
+Scavenge should provide something useful while Venture is cooling down.
+
+Inspect should provide curiosity and discovery without becoming an economic exploit.
+
+==================================================
+PART 15 — TESTING
+==================================================
+
+After implementation, test:
+
+/venture
+/scavenge
+/inspect
+
+Test:
+
+- Successful use
+- Cooldown behavior
+- Rewards
+- Inventory additions
+- XP
+- Deben
+- Effects where applicable
+- Lore discovery where applicable
+- Prefix equivalents
+- Help/commands
+- User-install-compatible execution
+
+Verify that:
+
+/venture = 5 minutes
+
+/scavenge = 2 minutes
+
+/inspect = 30 seconds
+
+unless the existing cooldown/effect architecture intentionally modifies the displayed result.
+
+Test that existing Beta-18 commands still work.
+
+==================================================
+PART 16 — REGRESSION TEST
+==================================================
+
+At minimum verify:
+
+/profile
+/titles
+/lore
+/curse
+/contracts
+/achievements
+/tuto
+/passport
+/inventory
+/use
+/effects
+
+Nothing from Beta-18 should be broken by this update.
+
+==================================================
+FINAL REPORT
+==================================================
+
+After implementation, provide:
+
+⛤ ZEKHET-BETA-19 REPORT ⛤
+
+IMPLEMENTED:
+
+- Venture cooldown adjustment
+- /scavenge
+- /inspect
+
+COOLDOWNS:
+
+Venture:
+Scavenge:
+Inspect:
+
+REUSED SYSTEMS:
+
+List existing systems reused.
+
+NEW DATABASE CHANGES:
+
+List any changes.
+
+NEW PROGRESSION EVENTS:
+
+List any added.
+
+FILES MODIFIED:
+
+List every modified file.
+
+TESTS PERFORMED:
+
+List successful tests.
+
+KNOWN LIMITATIONS:
+
+List anything intentionally left for future Betas.
+
+==================================================
+FINAL RULE
+==================================================
+
+This is an incremental gameplay update.
+
+DO NOT:
+
+- Rebuild Zekhet
+- Rewrite Venture
+- Replace the database
+- Create duplicate reward systems
+- Create duplicate inventory systems
+- Create duplicate cooldown systems
+- Implement future gameplay systems
+- Add unnecessary dependencies
+- Perform unrelated refactoring
+
+The goal is to make Zekhet feel more active while preserving the stable Beta-18 foundation.
+
+The desired result is:
+
+⛤ ZEKHET-BETA-19 ⛤
+
+VENTURE
++
+SCAVENGE
++
+INSPECT
+
+with each activity serving a distinct gameplay purpose.

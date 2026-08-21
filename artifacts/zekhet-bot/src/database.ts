@@ -227,7 +227,11 @@ export type ProgressionEvent =
   | "VENTURE_STARTED"
   | "VENTURE_COMPLETED"
   | "ENCOUNTER_FOUND"
-  | "RARE_ENCOUNTER_FOUND";
+  | "RARE_ENCOUNTER_FOUND"
+  | "SCAVENGE_STARTED"
+  | "SCAVENGE_COMPLETED"
+  | "INSPECT_STARTED"
+  | "INSPECT_COMPLETED";
 
 export type VentureStats = {
   total: number;
@@ -435,6 +439,12 @@ database.exec(`
   CREATE TABLE IF NOT EXISTS venture_cooldowns (
     discord_id TEXT PRIMARY KEY REFERENCES users(discord_id) ON DELETE CASCADE,
     used_at INTEGER NOT NULL
+  );
+  CREATE TABLE IF NOT EXISTS activity_cooldowns (
+    discord_id TEXT NOT NULL REFERENCES users(discord_id) ON DELETE CASCADE,
+    activity TEXT NOT NULL,
+    used_at INTEGER NOT NULL,
+    PRIMARY KEY (discord_id, activity)
   );
   CREATE TABLE IF NOT EXISTS venture_runs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1627,6 +1637,42 @@ export type VentureStartResult =
   | { ok: true; runId: number }
   | { ok: false; retryAfter: number };
 
+export type ActivityCooldownResult =
+  | { ok: true; startedAt: number }
+  | { ok: false; retryAfter: number };
+
+export function beginActivityCooldown(
+  userId: string,
+  username: string,
+  avatarUrl: string | null,
+  activity: "scavenge" | "inspect",
+  cooldownSeconds: number,
+): ActivityCooldownResult {
+  ensureProfile(userId, username, avatarUrl);
+  const now = Math.floor(Date.now() / 1000);
+  database.exec("BEGIN IMMEDIATE");
+  try {
+    const row = database.prepare(`
+      SELECT used_at AS usedAt FROM activity_cooldowns
+      WHERE discord_id = ? AND activity = ?
+    `).get(userId, activity) as { usedAt?: number } | undefined;
+    const retryAfter = Math.max(0, Number(row?.usedAt ?? 0) + cooldownSeconds - now);
+    if (retryAfter > 0) {
+      database.exec("ROLLBACK");
+      return { ok: false, retryAfter };
+    }
+    database.prepare(`
+      INSERT INTO activity_cooldowns (discord_id, activity, used_at) VALUES (?, ?, ?)
+      ON CONFLICT(discord_id, activity) DO UPDATE SET used_at = excluded.used_at
+    `).run(userId, activity, now);
+    database.exec("COMMIT");
+    return { ok: true, startedAt: now };
+  } catch (error) {
+    database.exec("ROLLBACK");
+    throw error;
+  }
+}
+
 export function beginVenture(userId: string, username: string, avatarUrl: string | null, cooldownSeconds: number): VentureStartResult {
   ensureProfile(userId, username, avatarUrl);
   const now = Math.floor(Date.now() / 1000);
@@ -1664,6 +1710,10 @@ export function completeVenture(runId: number, encounterId: string, rarity: stri
 
 export function resetVentureCooldown(userId: string): void {
   database.prepare("DELETE FROM venture_cooldowns WHERE discord_id = ?").run(userId);
+}
+
+export function resetActivityCooldown(userId: string, activity: "scavenge" | "inspect"): void {
+  database.prepare("DELETE FROM activity_cooldowns WHERE discord_id = ? AND activity = ?").run(userId, activity);
 }
 
 export function getVentureStats(userId: string): VentureStats {
@@ -2915,6 +2965,7 @@ export function resetUserData(userId: string): void {
     database.prepare("DELETE FROM reward_claims WHERE discord_id = ?").run(userId);
     database.prepare("DELETE FROM venture_runs WHERE discord_id = ?").run(userId);
     database.prepare("DELETE FROM venture_cooldowns WHERE discord_id = ?").run(userId);
+    database.prepare("DELETE FROM activity_cooldowns WHERE discord_id = ?").run(userId);
     database.prepare("DELETE FROM user_progression WHERE discord_id = ?").run(userId);
     database.prepare("DELETE FROM profiles WHERE discord_id = ?").run(userId);
     database.prepare("DELETE FROM users WHERE discord_id = ?").run(userId);

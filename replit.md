@@ -82,6 +82,13 @@ The current scope includes titles, lore, achievements, tutorials, contracts, cur
 - The developer panel includes private controls to view, force, and clear active effects.
 - Node.js 24 is required for the bot's built-in `node:sqlite` persistence.
 
+## Beta 19 — Activity Variety
+
+- Venture's standard cooldown is 5 minutes, while existing `COOLDOWN_REDUCTION` effects continue to modify it.
+- `/scavenge` and `z!scavenge` provide a smaller, faster search activity with a 2-minute default cooldown.
+- `/inspect` and `z!inspect` provide a 30-second narrative discovery activity with occasional existing-lore discovery and minimal XP.
+- Scavenge and Inspect cooldowns persist independently in SQLite and can be reset from the developer panel.
+
 ## Pointers
 
 - See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details
