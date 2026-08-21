@@ -1,0 +1,768 @@
+You are being given an existing Discord bot project called:
+
+⛤ ZEKHET ⛤
+
+CURRENT STABLE VERSION:
+
+Zekhet-Beta-18
+
+This is an existing, functioning project.
+
+Your job is NOT to redesign Zekhet.
+
+Your job is to accurately reconstruct, configure, and deploy the existing Zekhet-Beta-18 project inside this new Replit environment.
+
+The uploaded repository is the SOURCE OF TRUTH.
+
+==================================================
+IMPORTANT: READ BEFORE MODIFYING ANYTHING
+==================================================
+
+FIRST:
+
+Inspect the entire uploaded repository and determine its existing structure.
+
+Do NOT immediately start rewriting code.
+
+Do NOT create a new Discord bot from scratch.
+
+Do NOT replace existing systems with simplified versions.
+
+Do NOT invent missing functionality.
+
+Do NOT add new gameplay features.
+
+Do NOT redesign the database.
+
+Do NOT refactor working systems unless absolutely necessary for deployment.
+
+The goal is:
+
+EXISTING ZEKHET REPOSITORY
+↓
+NEW REPLIT ENVIRONMENT
+↓
+CONFIGURE
+↓
+INITIALIZE
+↓
+DATABASE
+↓
+DISCORD CONNECTION
+↓
+DEPLOY
+↓
+VERIFY
+
+Preserve the existing architecture and behavior as closely as possible.
+
+==================================================
+1. PROJECT IDENTIFICATION
+==================================================
+
+Inspect the repository and identify:
+
+- Main application entry point
+- package.json
+- TypeScript configuration
+- Replit configuration
+- Database implementation
+- Database initialization
+- Discord client initialization
+- Command registration
+- Prefix command handling
+- Environment variables
+- Configuration files
+- Startup scripts
+- Existing migrations
+- Existing developer/admin systems
+
+Determine whether the repository already contains:
+
+- src/
+- artifacts/
+- commands
+- database
+- config
+- venture
+- rewards
+- other modules
+
+Do NOT assume the structure.
+
+Use the actual uploaded repository structure.
+
+==================================================
+2. ESTABLISHED ZEKHET ARCHITECTURE
+==================================================
+
+The existing Zekhet-Beta-18 project is expected to contain systems including:
+
+CORE:
+- Discord.js
+- TypeScript
+- Node.js
+- SQLite persistence
+- Global slash command registration
+- Prefix system
+- Guild initialization
+- Developer controls
+
+PROFILE:
+- Profile
+- Bio
+- Themes
+- Accent colors
+- Avatar/profile customization
+- XP
+- Levels
+- Ranks
+- Titles
+
+PROGRESSION:
+- Achievements
+- Hidden achievements
+- Titles
+- Lore
+- Curses
+- Contracts
+- Tutorial
+- Passport
+
+VENTURE:
+- /venture
+- Prefix venture command
+- Cooldowns
+- Encounters
+- Rarities
+- Locations
+- Deben
+- XP
+- Item rewards
+
+INVENTORY:
+- Item catalog
+- Item quantities
+- Stacking
+- Rarities
+- Item categories
+- Item inspection
+- Item discovery
+- Developer inventory controls
+
+EFFECTS:
+- /use
+- /effects
+- Prefix equivalents
+- Temporary effects
+- Effect expiration
+- Effect persistence
+- Effect sources
+
+The repository itself remains authoritative.
+
+If any of the above differs from the actual uploaded code, use the uploaded code rather than this description.
+
+==================================================
+3. REQUIRED CREDENTIALS
+==================================================
+
+Before attempting deployment, inspect the code to determine which environment variables are actually required.
+
+DO NOT ask for tokens that the code does not use.
+
+DO NOT ask for secrets that can be generated locally.
+
+Create a clear checklist such as:
+
+REQUIRED:
+
+DISCORD_TOKEN
+DISCORD_CLIENT_ID
+
+OPTIONAL / CONDITIONAL:
+
+DISCORD_CLIENT_SECRET
+DATABASE_URL
+OTHER_VARIABLE
+
+Only request values that are genuinely required by the existing implementation.
+
+For each required credential, explain briefly what it is used for.
+
+Do NOT ask the user to paste secrets into normal chat if Replit Secrets/environment variables are available.
+
+Tell the user to add credentials through the Replit Secrets / Environment Variables interface.
+
+==================================================
+4. DISCORD TOKEN
+==================================================
+
+If the existing project requires a Discord bot token:
+
+Ask the user to provide/configure:
+
+DISCORD_TOKEN
+
+Explain that this is the bot token from the Discord Developer Portal.
+
+Do NOT print the token back to the user.
+
+Do NOT write it into source code.
+
+Do NOT commit it to the repository.
+
+Do NOT put it in package.json.
+
+Do NOT put it in a public configuration file.
+
+==================================================
+5. DISCORD APPLICATION ID
+==================================================
+
+Determine whether the existing code requires:
+
+DISCORD_CLIENT_ID
+
+If required, ask the user to configure it as a Replit Secret/environment variable.
+
+Explain that this should be the Discord Application ID corresponding to the bot.
+
+Do not confuse this with:
+
+- Bot token
+- Public key
+- Client secret
+
+==================================================
+6. OTHER DISCORD CONFIGURATION
+==================================================
+
+Inspect the code for any other Discord-specific values.
+
+Examples:
+
+- Developer user IDs
+- Owner IDs
+- Test guild IDs
+- Developer guild IDs
+- Channel IDs
+- Role IDs
+- Webhook URLs
+
+IMPORTANT:
+
+Do not automatically hard-code IDs from the old Replit environment.
+
+Determine whether each value is:
+
+A. Required globally
+B. Developer-only
+C. Optional
+D. Test-only
+E. Server-specific
+
+If a value is required, ask the user for it.
+
+If it is optional, provide a sensible empty/default configuration.
+
+If it was only needed for the old development server, do not carry it over blindly.
+
+==================================================
+7. DEVELOPER ACCESS
+==================================================
+
+Inspect how Zekhet currently determines developer/owner access.
+
+If the existing implementation requires a developer Discord user ID or list of IDs:
+
+Ask the user for the appropriate Discord user ID(s).
+
+Store them using the existing configuration mechanism.
+
+Do not redesign the developer system.
+
+Do not create a new developer permission architecture.
+
+Do not expose developer commands to normal users.
+
+==================================================
+8. DATABASE
+==================================================
+
+Inspect the existing database implementation.
+
+Determine:
+
+- Database engine
+- Database location
+- Schema
+- Tables
+- Initialization
+- Migration system
+- Seed data
+- Catalog initialization
+
+Use the existing database architecture.
+
+If the database is SQLite:
+
+Preserve the existing SQLite approach.
+
+Ensure the database is stored somewhere persistent in Replit.
+
+Do NOT replace SQLite with PostgreSQL simply because a new Replit environment offers it.
+
+Do NOT create a new schema from scratch if the repository already contains one.
+
+==================================================
+9. DATABASE INITIALIZATION
+==================================================
+
+Run the existing initialization process.
+
+Verify that the following survive a restart:
+
+- Users
+- Profiles
+- XP
+- Deben
+- Titles
+- Lore
+- Achievements
+- Contracts
+- Curses
+- Passport
+- Tutorial progress
+- Inventory
+- Effects
+- Venture statistics
+
+If the repository contains migrations, run them using the existing migration mechanism.
+
+Do not manually alter the schema unless necessary.
+
+==================================================
+10. SEED DATA
+==================================================
+
+Inspect whether Zekhet contains seeded catalogs for:
+
+- Titles
+- Lore
+- Curses
+- Contracts
+- Achievements
+- Tutorial objectives
+- Passport stamps
+- Items
+- Venture encounters
+- Effects
+
+Ensure the existing seed/catalog process runs correctly.
+
+Do not recreate catalogs manually if they already exist.
+
+Do not duplicate catalog entries.
+
+==================================================
+11. DEPENDENCIES
+==================================================
+
+Inspect package.json.
+
+Install the dependencies specified by the project.
+
+Do not arbitrarily upgrade major dependencies.
+
+Do not replace Discord.js with another library.
+
+Do not replace TypeScript.
+
+Do not add packages unless they are genuinely required for deployment.
+
+Avoid unnecessary dependency changes because this is a reconstruction of a stable project.
+
+==================================================
+12. STARTUP
+==================================================
+
+Determine the correct existing startup command.
+
+Prefer the repository's existing scripts.
+
+For example, if package.json defines:
+
+npm run dev
+
+or:
+
+npm run start
+
+use the existing intended command.
+
+Do not create a completely new startup system unless the current one is broken.
+
+==================================================
+13. DISCORD COMMAND REGISTRATION
+==================================================
+
+Inspect how slash commands are currently registered.
+
+The stable Zekhet implementation uses global command registration where appropriate.
+
+Preserve the existing registration strategy.
+
+Do NOT convert global commands into guild-only commands unless the existing code explicitly requires it.
+
+This is important because Zekhet is intended to work in:
+
+- Normal invited servers
+- Other servers
+- User-installed contexts where supported
+
+==================================================
+14. USER-INSTALL COMPATIBILITY
+==================================================
+
+Preserve the existing compatibility work that allows appropriate commands to function outside the primary development server.
+
+Do not introduce assumptions such as:
+
+"this guild must exist in the database."
+
+A completely new server should be able to use Zekhet without manually creating internal database records.
+
+If the existing code automatically initializes guild-specific settings, preserve that behavior.
+
+==================================================
+15. GUILD INITIALIZATION
+==================================================
+
+Verify that when Zekhet encounters a new guild/server:
+
+The required server configuration is initialized automatically.
+
+This may include:
+
+- Default prefix
+- Guild settings
+- Other server-specific configuration
+
+Do not require users to manually create database records.
+
+Do not require a hidden setup command unless the existing project explicitly uses one.
+
+==================================================
+16. PREFIX SYSTEM
+==================================================
+
+Preserve the existing configurable prefix system.
+
+Verify:
+
+- Default prefix
+- Server-specific prefix
+- Prefix persistence
+- Prefix command handling
+- Slash commands remain functional regardless of prefix
+
+Do not replace the current prefix architecture.
+
+==================================================
+17. ERROR HANDLING
+==================================================
+
+Preserve the existing user-friendly error messages.
+
+However, make sure actual exceptions are visible in the Replit console/logs.
+
+Do not silently swallow deployment errors.
+
+If the project currently uses messages such as:
+
+"The Archives are momentarily sealed. Please try again later."
+
+retain the user-facing behavior unless the repository already changed it.
+
+The developer should still be able to diagnose the underlying error through logs.
+
+==================================================
+18. DEPLOYMENT SAFETY
+==================================================
+
+Before running the bot:
+
+Check for:
+
+- Missing environment variables
+- Missing dependencies
+- Invalid imports
+- TypeScript errors
+- Database initialization failures
+- Discord authentication failures
+- Command registration failures
+
+Fix ONLY deployment-related issues.
+
+Do not change gameplay behavior simply because you think it could be improved.
+
+==================================================
+19. DO NOT REBUILD FEATURES
+==================================================
+
+The following systems already exist.
+
+Do NOT recreate them:
+
+- Profile
+- Titles
+- Lore
+- Curses
+- Contracts
+- Achievements
+- Tutorial
+- Passport
+- Venture
+- Inventory
+- Effects
+- Developer tools
+- Prefix system
+
+If a system appears broken because of deployment configuration, diagnose the deployment issue rather than rebuilding the system.
+
+==================================================
+20. FIRST BOOT
+==================================================
+
+After configuration:
+
+Start Zekhet.
+
+Verify:
+
+1. Bot authenticates successfully.
+2. Bot becomes online.
+3. Database initializes.
+4. Catalogs initialize.
+5. Commands register.
+6. Prefix system initializes.
+7. No fatal startup errors occur.
+
+==================================================
+21. DISCORD TEST
+==================================================
+
+Once online, test the most important commands.
+
+Slash:
+
+/help
+/commands
+/credits
+/profile
+/titles
+/lore
+/curse
+/contracts
+/contract
+/achievements
+/tuto
+/passport
+/venture
+/inventory
+/use
+/effects
+
+Prefix equivalents should be tested where they exist.
+
+Do not test every possible argument combination unless necessary.
+
+==================================================
+22. USER-INSTALL TEST
+==================================================
+
+Verify that commands intended to work through user installation do not depend on the development guild.
+
+Test commands in a context that does not have the original development server's configuration.
+
+Verify that:
+
+- Profile works
+- Help works
+- Titles work where supported
+- Venture works where supported
+- Inventory works where supported
+- Other user-install-compatible commands work
+
+If Discord's installation context imposes a platform limitation, report it rather than attempting to bypass it.
+
+==================================================
+23. DATABASE TEST
+==================================================
+
+Create or use a test account and verify:
+
+/profile
+
+then:
+
+/venture
+
+then:
+
+/inventory
+
+then, if an item is available:
+
+/use item:<item>
+
+then:
+
+/effects
+
+Verify that data persists after restarting the application.
+
+==================================================
+24. REPLIT DEPLOYMENT
+==================================================
+
+Once the bot works in the development runtime:
+
+Prepare the project for Replit deployment using the existing project structure.
+
+Do not introduce unnecessary infrastructure.
+
+Ensure the bot can restart without losing its database.
+
+Ensure environment variables are loaded securely.
+
+Ensure the startup command is stable.
+
+==================================================
+25. SECURITY
+==================================================
+
+NEVER:
+
+- Print the Discord token
+- Commit the Discord token
+- Put secrets in source files
+- Put secrets in README files
+- Put secrets in package.json
+- Put secrets in database seed files
+- Return secrets in diagnostics
+
+If a secret accidentally appears in source code, stop and report it before proceeding.
+
+==================================================
+26. FINAL DEPLOYMENT REPORT
+==================================================
+
+After successful deployment, provide:
+
+⛤ ZEKHET DEPLOYMENT REPORT ⛤
+
+VERSION:
+Zekhet-Beta-18
+
+STATUS:
+ONLINE / NOT ONLINE
+
+DISCORD CONNECTION:
+PASS / FAIL
+
+DATABASE:
+PASS / FAIL
+
+COMMAND REGISTRATION:
+PASS / FAIL
+
+PREFIX SYSTEM:
+PASS / FAIL
+
+USER-INSTALL COMPATIBILITY:
+PASS / FAIL / PARTIAL
+
+CATALOG INITIALIZATION:
+PASS / FAIL
+
+LIST OF ENVIRONMENT VARIABLES REQUIRED:
+- Variable name
+- Whether configured
+- What it is used for
+
+DO NOT DISPLAY SECRET VALUES.
+
+TESTED COMMANDS:
+List the commands tested and whether they succeeded.
+
+FILES MODIFIED:
+List every file changed.
+
+DATABASE CHANGES:
+List any schema/migration changes.
+
+DEPLOYMENT ISSUES:
+List anything encountered.
+
+==================================================
+27. ABSOLUTE SCOPE LIMIT
+==================================================
+
+This task is ONLY:
+
+RECONSTRUCT
+→ CONFIGURE
+→ INITIALIZE
+→ DEPLOY
+→ VERIFY
+
+Do NOT implement:
+
+❌ Beta-19
+❌ Discovery Bridge
+❌ New gameplay mechanics
+❌ New commands
+❌ New items
+❌ New effects
+❌ New lore
+❌ New achievements
+❌ New titles
+❌ New contracts
+❌ New passport stamps
+❌ New curses
+❌ New locations
+❌ New economy systems
+
+The existing Zekhet-Beta-18 behavior is the target.
+
+==================================================
+FINAL RULE
+==================================================
+
+If something is unclear:
+
+INSPECT THE EXISTING REPOSITORY FIRST.
+
+If the repository answers the question:
+
+DO NOT ASK THE USER.
+
+If a required secret/configuration value genuinely cannot be determined from the repository:
+
+ASK THE USER.
+
+Do not guess credentials.
+
+Do not guess Discord IDs.
+
+Do not guess database paths.
+
+Do not guess environment variable names when the repository already defines them.
+
+Preserve the established Zekhet architecture.
+
+The successful outcome is:
+
+A clean new Replit environment running the SAME stable Zekhet-Beta-18 bot.
